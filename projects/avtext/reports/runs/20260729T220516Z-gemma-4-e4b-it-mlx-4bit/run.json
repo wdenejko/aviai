@@ -7,18 +7,18 @@
     "temperature": 0.0,
     "max_tokens": 256
   },
-  "created_utc": "2026-07-29T17:03:54Z",
-  "n_invalid": 25,
+  "created_utc": "2026-07-29T22:05:16Z",
+  "n_invalid": 0,
   "overall": {
     "n_records": 620,
-    "hits": 4590,
-    "wrong": 1046,
-    "abstain": 474,
+    "hits": 4756,
+    "wrong": 1080,
+    "abstain": 274,
     "hallucinate": 11,
     "true_abstain": 699,
-    "precision": 0.8128209668850718,
-    "recall": 0.7512274959083469,
-    "f1": 0.7808114314876244,
+    "precision": 0.8134085855994527,
+    "recall": 0.7783960720130932,
+    "f1": 0.7955172702182821,
     "hallucination_rate": 0.015492957746478873,
     "exact_match": 0.041935483870967745
   }

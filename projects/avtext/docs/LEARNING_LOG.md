@@ -550,3 +550,43 @@ extraction). Target: altimeter-`A` 2% → 90%+, overall value-acc → mid-80s, E
 while hallucination stays flat (the safety constraint). Re-run the SAME frozen harness (same
 eval sha256, same prompt), McNemar the paired per-record correctness. The harness is frozen;
 nothing about the eval moves from here.
+
+*(Numbers in this session were pre-correction — superseded by Session 14 after a bug scan.)*
+
+---
+
+## Session 14 — 2026-07-30 · Bug scan + corrected baseline + detailed report
+
+Requested a bug scan "just in case" after the clouds crash. Audited the whole measurement path.
+
+**Scoring path — 3 bugs found & fixed:**
+
+1. **Clouds-shape crash.** The output parser assumed `clouds` = `[cover, base]` pairs; the model
+   sometimes emits *dicts*, and the `KeyError` scored the WHOLE record invalid. Turned out **all 25**
+   of the run's "invalid" records were this — not the model. Fix → JSON-valid 96% → **100%**, overall
+   value-acc **75.1% → 77.8%**. A 2.7-point harness artifact, not a model gain.
+2. **Under-canonicalisation.** `_canon` passed the model's raw value through for `wind_dir/speed/gust`
+   (ref: int), `report_type` (upper), `automated/cavok` (bool) — a right-but-mistyped answer scored
+   WRONG. Fixed to coerce every field (incl. the `bool("false")==True` trap). **Audit: re-scoring the
+   saved predictions with/without the fix flipped 0 outcomes** — a no-op for this clean-JSON model,
+   kept for robustness.
+3. **Div-by-zero** on an empty eval — guarded (latent).
+
+**Reference path — clean bill of health.** The gold seed only validated *numeric* fields; `clouds` /
+`cavok` / `automated` / `report_type` were never checked, and the last three are shared functions
+echoed across all parsers (illusory consensus). Adversarial review + empirical checks found **no
+bugs**: conversions correct; `automated`/`cavok` matched an independent recompute **620/620**;
+`clouds` decode hand-verified, adapters agree 99% (disagreements are same-base ordering), 0 None;
+**0/620 degenerate** references; all 100 parse_fail refs are **2-way cross-checked**.
+
+**Corrected baseline (620 records):** value-acc **77.8%** [76.8, 78.9], halluc **1.5%**, EM **4%**,
+JSON-valid **100%**. Conversion splits, sharper: altimeter `Q` 95% / `A` **2%**; wind `KT` 75% /
+`MPS` **1%**; visibility metric 94% / `SM` 71%. EM ceiling if altimeter fixed ≈ **28%**.
+
+**Deliverable:** `reports/baseline_v1_analysis.md` — 12-section report (exec summary → methodology →
+findings → measurement integrity → Phase-4 targets → threats to validity).
+
+**Lesson:** the scan recovered 2.7 points that were a harness artifact, not model skill. Always audit
+the measurement code before a headline number gates the next phase — the scorer is as much on trial
+as the model. Two ways of being wrong (fabricate vs abstain), and two places a bug can hide (scoring
+vs reference): check both.
