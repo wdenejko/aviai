@@ -434,3 +434,44 @@ finding rather than padding it.
 **Next:** the scorers — field-level exact match, abstention/hallucination (the None-vs-value
 distinction the schema was built for), whole-record EM — then bootstrap CIs + the run report.
 The harness stays frozen from here.
+
+---
+
+## Session 11 — 2026-07-29 · Phase 3: scorers + stats (the None-aware core)
+
+**Done**
+
+- `harness/score.py`: field-level scoring on a five-way taxonomy — HIT / WRONG / ABSTAIN
+  (declined a knowable value, safe) / HALLUCINATE (fabricated from nothing, dangerous) /
+  TRUE_ABSTAIN. Aggregates to precision (fabrication penalty), recall = value accuracy
+  (abstention penalty), F1, hallucination_rate, whole-record EM; `aggregate_by` slices by
+  split × label. The point: in a safety domain the two ways of being wrong are NOT equal, so
+  they are never folded into one "incorrect" bucket.
+- `harness/stats.py`: `bootstrap_ci` (resample RECORDS — the independent unit, not the
+  correlated fields — seeded, reproducible) + `mcnemar` (paired baseline-vs-finetuned test
+  for Phase 4; continuity-corrected, p via erfc, no SciPy). Tests: 8. **54 green.**
+
+**Demonstration** (scorer on real eval/v1, python-metar as a mock predictor):
+
+| label | recall (value acc) | halluc | EM |
+|-------|-------------------:|-------:|---:|
+| clean | 100.0% | 0.0% | 1.00 |
+| dissent | 89.9% | 0.0% | 0.09 |
+| parse_fail | 97.0% | 0.0% | 0.97 |
+
+Three lessons fell straight out of it:
+
+1. **Parsers cannot hallucinate — 0% everywhere.** They HIT, WRONG, or ABSTAIN; they never
+   invent a field. That is exactly why they're safe but capped, and why the whole point of
+   the LLM comparison is: can it match their accuracy *without* lighting up the hallucination
+   column? The null / always-abstain baseline confirms the floor — 0% recall, 0% halluc.
+2. **EM ≠ field accuracy** — dissent shows 90% of fields right but 9% of *records* perfect:
+   one wrong field (python-metar's RMK T-group temp, the very thing it's outvoted on) tanks
+   the whole-record score. Report both or you'll fool yourself.
+3. Scoring a consensus MEMBER against the consensus is mildly circular (clean → 100% by
+   construction); harmless as a wiring check, and moot for the LLM, which isn't a voice in it.
+
+**Next:** the runner — put the base model (Gemma-4-E4B) behind the same predict(raw)->fields
+interface the demo used, produce the first *real* scored baseline + a reproducible run report.
+That needs a compute/serving decision (ADR-003/005: eval locally — llama.cpp on the Mac, or
+the GMKtec), so it's the next checkpoint.
