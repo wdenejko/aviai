@@ -63,7 +63,7 @@ avtext-lab/
 Conventions that make it a *research* repo:
 
 - **Reproducibility contract:** every run report records model hash, adapter hash, prompt-template id, decode params, eval-set hash. Anyone (future-you) can re-run any number.
-- **Data never in git** (except tiny gold seeds, manifests, frozen eval JSONL). Bulk lives in a **Hugging Face dataset repo** (free, versioned, made for this) or your OVH VPS + rclone. `make backfill` must rebuild `data/` from nothing.
+- **Data never in git** (except tiny gold seeds, manifests, frozen eval JSONL). Bulk lives in a **Hugging Face dataset repo** (free, versioned, made for this) or your GMKtec home server (`dashi`) + rclone. `make backfill` must rebuild `data/` from nothing.
 - **Experiments are issues, decisions are ADRs**, learnings go to `LEARNING_LOG.md`. Tag repo states at milestones (`v0-slice`, `v1-benchmark`, `v2-finetune`).
 
 ---
@@ -106,7 +106,7 @@ jobs:
             --token ${{ secrets.HF_TOKEN }}
 ```
 
-Products: `metars.cache.csv.gz`, `tafs.cache.xml.gz`, `airsigmets.cache.xml.gz`, `gairmets.cache.xml.gz`, plus `/api/data/pirep`. Add the FAA NOTAM Search snapshot later (unofficial endpoint — polite rates; FNS/SWIM subscription is the proper stretch goal). A weekly consolidation job dedupes on `(station, obs_time, sha1(raw))` → Parquet. Fallback if GH Actions annoys you: same script as a systemd timer on your OVH VPS.
+Products: `metars.cache.csv.gz`, `tafs.cache.xml.gz`, `airsigmets.cache.xml.gz`, `gairmets.cache.xml.gz`, plus `/api/data/pirep`. Add the FAA NOTAM Search snapshot later (unofficial endpoint — polite rates; FNS/SWIM subscription is the proper stretch goal). A weekly consolidation job dedupes on `(station, obs_time, sha1(raw))` → Parquet. Fallback if GH Actions annoys you: same script as a systemd timer on your GMKtec home server (`dashi`).
 
 **You'll learn (A):** designing an acquisition layer for ML — immutable raw zone, manifests/checksums, dedupe keys, license bookkeeping — and why eval data gets collected *before* it's needed.
 

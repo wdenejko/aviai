@@ -50,3 +50,10 @@ cutoff. Two things had to be pinned before eval design:
   depends on it; the model post-dates this assistant's own knowledge cutoff, so
   verification was mandatory.
 - *Local MLX fine-tuning.* Deferred — needs ≥32 GB; revisit on different hardware.
+
+## Update (2026-07-29)
+
+A capable home server surfaced — GMKtec EVO-X2 (Strix Halo, **123 GiB** unified
+RAM; `ssh dashi`) — which reopens the "cloud vs local fine-tune" premise above.
+Compute inventory and the revised plan are in **ADR-005**. Also: **there is no OVH
+VPS** — the plan's references to one were stale and have been corrected.

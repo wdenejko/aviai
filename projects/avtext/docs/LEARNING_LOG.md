@@ -65,3 +65,52 @@ Reconciling both briefings against the plan + scaffold:
 2. `ingest/iem.py` (checksummed backfill) + `ingest/awc.py` (collector — capture
    the bundled decoded JSON too: it's a free 4th oracle voice *and* the
    post-cutoff eval pool). First raw METAR/TAF in `data/raw/` + populated manifest.
+
+---
+
+## Session 2 — 2026-07-29 · Phase 1: scope probe
+
+**Done**
+
+- Built `ingest/awc.py` (bulk METAR-cache fetch → immutable raw zone + checksummed
+  manifest) and `probe.py` (3 parsers + AWC's decoded columns as a 4th voice).
+  `make probe`. Verified parser names + failure semantics (python-metar/mivek
+  raise; avwx returns nulls).
+- Ran it over **5,005 live METARs**.
+
+**Findings (the honest version)**
+
+- **Messy-tail fraction ≈ 3.4%** on a clean, US-heavy current feed:
+  - **~1.5% hard parse failures** — almost all regional/ICAO format extensions
+    (Scandinavian `W///S3` sea-state, `9999NDV`, `///` cloud-type suffixes) the
+    US-centric python-metar doesn't implement; avwx/mivek cover most. **0% defeat
+    all three parsers.**
+  - **~2.0% disagreements** which — once units are handled — are *entirely* the RMK
+    `T`-group precision convention (body `13/13` vs `T01250125` = 12.5°C). A schema
+    rule (prefer the T-group), not garbled input.
+  - wind_dir & wind_speed: **0% genuine disagreement.**
+
+**Learned**
+
+- **My first number (6.3%) was inflated by my own tool.** The 3% wind_speed
+  "disagreement" was 100% a unit bug — avwx reports m/s natively and I read the unit
+  off the wrong object. The disagreeing values ([4,8],[2,4],[5,10]… all exact 2×
+  ratios) gave it away. Lesson in miniature: *"testing against a buggy oracle"
+  includes your own measurement code* — verify a surprising number before trusting it.
+- **A clean current feed does NOT justify the fine-tune by itself.** Parsers handle
+  ~96.6% cleanly and unanimously. The prize lives in material this sample
+  under-represents and that we must deliberately source/manufacture: (a) international
+  + historical data (more regional formats → more failures), (b) the free-text **RMK**
+  section (untested here — where the real unstructured mess is), (c) corruption
+  augmentation (natural all-parser-failures ≈ 0, so the abstention signal must be
+  manufactured — exactly as both briefings predicted). This *confirms ADR-004's
+  hybrid framing with numbers.*
+- Infra: **GMKtec EVO-X2** home server profiled (Strix Halo, 123 GiB, `dashi`) →
+  ADR-005; **no OVH VPS exists** (plan corrected).
+
+**Next**
+
+- Phase-2 schema: prefer the RMK `T`-group for temp/dewpoint precision.
+- Phase-1 data: finalize ~50 stations (weight EU + AUTO-heavy to raise the failure
+  signal); `ingest/iem.py` historical backfill; extend probe/collector to capture
+  RMK + international feeds; run the collector on a schedule (`dashi` or Actions).

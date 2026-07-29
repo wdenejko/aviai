@@ -19,21 +19,12 @@ dependencies = [
     "httpx>=0.27",          # HTTP client for IEM/AWC ingest
     "pyyaml>=6",            # configs/*.yaml
     "huggingface-hub>=0.24",# push raw snapshots to a HF dataset repo (collector)
+    # Oracle parsers — 3 independent lineages; used by the scope probe now and
+    # wrapped as canonical-schema adapters in Phase 2 (see src/avtext/oracles/).
+    "metar>=2.0.1",                   # python-metar; raises ParserError on bad input
+    "avwx-engine>=1.9.8",             # avwx; tolerant — returns nulls, never raises
+    "metar-taf-parser-mivek>=1.13.1", # mivek; separate lineage, strong TAF support
 ]
-
-# Optional extras, installed only when we reach the phase that needs them, so a
-# not-yet-verified package name can't break `uv sync` today.
-[project.optional-dependencies]
-# Phase 2 — the three independent parsers behind the oracle interface.
-# ⚠️  Verify exact PyPI names before enabling (that's a Phase-2 task):
-#   python-metar          -> import `metar`            (PyPI: "metar")
-#   mivek metar-taf-parser -> PyPI name TBD             (github.com/mivek/python-metar-taf-parser)
-#   avwx-engine           -> import `avwx`             (PyPI: "avwx-engine")
-# oracles = [
-#     "metar",
-#     "avwx-engine",
-#     "metar-taf-parser-mivek",
-# ]
 
 [build-system]
 requires = ["hatchling"]

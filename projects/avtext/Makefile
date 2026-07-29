@@ -6,7 +6,7 @@
 # map of the work ahead.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync test lint fmt backfill collect harness report
+.PHONY: help sync test lint fmt probe backfill collect harness report
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -25,6 +25,9 @@ lint:  ## Lint with ruff
 fmt:  ## Auto-format + fix with ruff
 	uv run ruff check --fix .
 	uv run ruff format .
+
+probe:  ## [Phase 1] Scope probe: parser failure/disagreement rate on a live AWC sample
+	uv run python -m avtext.probe
 
 # ── Coming in later phases (fail loudly until implemented) ───────────────────
 backfill:  ## [Phase 1] One-off, idempotent, checksummed history pull (IEM)
