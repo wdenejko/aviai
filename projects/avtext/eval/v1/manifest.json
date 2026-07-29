@@ -1,0 +1,40 @@
+{
+  "version": "v1",
+  "created_utc": "2026-07-29T15:41:04Z",
+  "sha256": "608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba",
+  "n_records": 620,
+  "corpus": "data/processed/metar/iem_metar.parquet",
+  "corpus_rows": 6489661,
+  "split_policy": "station+time holdout (ADR-006)",
+  "held_out_stations": [
+    "KEKM",
+    "EGCC",
+    "KSEA",
+    "EPKK"
+  ],
+  "time_boundary_utc": "2026-05-01",
+  "cutoff_floor_utc": "2025-02-01",
+  "targets_per_stratum": {
+    "unseen_station": {
+      "clean": 200,
+      "dissent": 60
+    },
+    "unseen_time": {
+      "clean": 200,
+      "parse_fail": 100,
+      "dissent": 60
+    }
+  },
+  "scan_per_stratum": 30000,
+  "composition": {
+    "unseen_station": {
+      "clean": 200,
+      "dissent": 60
+    },
+    "unseen_time": {
+      "clean": 200,
+      "parse_fail": 100,
+      "dissent": 60
+    }
+  }
+}

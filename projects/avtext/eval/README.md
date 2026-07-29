@@ -14,5 +14,9 @@ Two rules that keep these honest (enforced in `src/avtext/tasks/`):
    model's Jan-2025 data cutoff. No item the base model could have memorized.
 2. **Station split** — stations used in test never appear in training.
 
-Nothing here yet — eval sets are built in Phase 3, after consensus labeling and
-the gold-seed calibration.
+- `v1/` — **frozen 2026-07-29** (620 records). Built by `harness/freeze.py` from the
+  consensus-labelled corpus; split policy in ADR-006; details in `v1/README.md`.
+
+Note: rules 1–2 below are realised with a small, data-forced twist (ADR-006). Rule 2
+(station split) holds for the `unseen_station` slice; rule 1 (time split) is enforced
+as a hard floor on *every* item, and additionally defines the `unseen_time` slice.

@@ -387,3 +387,50 @@ disagreement lives in the gap.
 
 **Next:** freeze `eval/v1` from the pool — stratified (over-sample the 2.09% tail per
 ADR-004), disjoint station+time splits, content-hashed manifest; then scorers / stats / report.
+
+---
+
+## Session 10 — 2026-07-29 · Phase 3: freeze eval/v1 (the immutable eval set)
+
+**Done**
+
+- `harness/freeze.py`: deterministic, station-stratified builder → `eval/v1/eval.jsonl`
+  (**620 records**) + `manifest.json` (sha256 = immutability anchor). Froze twice → identical
+  hash. Pure `assign_split` (station+time → disjoint bucket) unit-tested. **46 green.**
+- ADR-006 (split policy) + `eval/v1/README.md`. Split chosen by the user: **station + time
+  both** (strictest — two generalization axes reported separately).
+
+**The design was discovered by measuring, not decided up front — four findings reshaped it:**
+
+1. **US-volume dominance (again).** A global-random recent sample is swamped by high-freq US
+   airports (all clean); the rare tail stations vanish. Fix: station-stratify the freeze scan,
+   same as the miner. (First symptom: unseen_time found 6 parse_fails in 30k.)
+2. **The station tags were wrong.** `stations.yaml` credits Scandinavia with the parse-fail
+   tail; the data says **UUWW** (Moscow, 38%) and **YSSY** (Sydney, 18%) — and dissent lives at
+   the US T-group fields (KAIG/KOZW/KEKM). Picked held-out stations from the *measured*
+   distribution instead of the tags.
+3. **"Frozen" needs a total order.** The stratified query had no outer `ORDER BY`, so DuckDB
+   streamed rows in nondeterministic parallel order and the set's hash changed run-to-run.
+   A frozen artifact that isn't byte-reproducible is not frozen. Added the outer md5 order.
+4. **Parse failures are non-stationary in time.** YSSY: 53% (2023) → 0% (fixed exactly at
+   2025-02). UUWW: 37% → **74%** across 2026-05. Post-cutoff, UUWW is the *only* real
+   parse-fail source. So abstention can't be tested by station-holdout (holding out UUWW
+   strands the sole source with nothing to train on). Forced design: UUWW stays in training,
+   abstention tested by **time-holdout** on it (train pre-boundary, score post-boundary) — which
+   is actually the cleanest abstention experiment. Hence the **asymmetric** strata:
+   unseen_station = {200 clean, 60 dissent}; unseen_time = {200 clean, 100 parse_fail, 60 dissent}.
+
+**Rigor checks:** every item ≥ 2025-02-01 (past Gemma's Jan-2025 cutoff — no memorization);
+splits provably disjoint (held-out stations appear in exactly one); 620/620 ids unique;
+manifest sha256 == sha256(eval.jsonl). Records are textbook tail: YSSY `RF00.0/000.0`
+(Australian rainfall group), UUWW `22002MPS … R01/000062` (Russian m/s + RVR), KEKM
+`T02450228` RMK (24.5 °C vs body 25).
+
+**Lesson:** an eval set's split policy is a *hypothesis about where difficulty lives*, and the
+data will falsify it. Every a-priori belief here (tags, symmetry, "any-time station holdout")
+was overturned by a measurement. Freeze late, measure first, and let a short cell stand as a
+finding rather than padding it.
+
+**Next:** the scorers — field-level exact match, abstention/hallucination (the None-vs-value
+distinction the schema was built for), whole-record EM — then bootstrap CIs + the run report.
+The harness stays frozen from here.
