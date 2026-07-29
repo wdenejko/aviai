@@ -8,3 +8,31 @@ output model. This is the step where you actually learn the format — the schem
 is the contract every oracle must map into, so its correctness is upstream of
 everything else.
 """
+
+from avtext.schema.metar import (
+    AltimeterSource,
+    CloudCover,
+    CloudLayer,
+    CloudType,
+    MetarObservation,
+    ReportType,
+    SkyClear,
+    WeatherGroup,
+    Wind,
+    WxDescriptor,
+    WxIntensity,
+)
+
+__all__ = [
+    "AltimeterSource",
+    "CloudCover",
+    "CloudLayer",
+    "CloudType",
+    "MetarObservation",
+    "ReportType",
+    "SkyClear",
+    "WeatherGroup",
+    "Wind",
+    "WxDescriptor",
+    "WxIntensity",
+]

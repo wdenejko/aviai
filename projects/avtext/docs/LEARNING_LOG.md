@@ -155,3 +155,35 @@ Reconciling both briefings against the plan + scaffold:
   round-trip/invariants → consensus.
 - Build a **stratified sampler** (per-station cap / cadence downsample) before any
   eval set, so US volume can't dominate.
+
+---
+
+## Session 4 — 2026-07-29 · Phase 2: canonical METAR schema
+
+**Done**
+
+- `schema/metar.py`: pydantic v2 `MetarObservation` + component models (`Wind`,
+  `CloudLayer`, `WeatherGroup`) + controlled-vocab `StrEnum`s. v1 covers report
+  metadata, wind, visibility, weather, clouds, temp/dewpoint, altimeter.
+- `tests/test_schema.py`: builds a real EPGD report into the schema; asserts
+  structural validation rejects bad input and forbids extra fields. 8 tests green.
+
+**Design decisions (encoded as the schema)**
+
+- **Canonical units** (KT, hPa, °C) + a `*_source` field for round-trip — directly
+  fixes the probe's phantom unit "disagreements".
+- **None == absent** — load-bearing for hallucination (value where gold=None) and
+  abstention (correctly None) scoring.
+- **Schema validates STRUCTURE only.** Cross-field physical invariants
+  (dewpoint ≤ temp, gust > wind) and WMO-vocabulary membership go in `quality/`
+  next. The big WMO weather table lives in ONE place (the CCT file), not duplicated
+  as a schema enum — so `phenomena` stay validated strings, small vocab stays enums.
+- **Decode only what the raw encodes:** time = day/hour/minute (DDHHMMZ), not a
+  full datetime (that's external metadata from IEM/AWC).
+
+**Deferred (TODO in code):** RVR, directional/variable visibility, structured RMK
+groups, TAF schema.
+
+**Next:** oracle adapters (`oracles/`) mapping python-metar / avwx / mivek + the
+AWC decode into `MetarObservation`; then tier-0 round-trip + invariants
+(`quality/`); then consensus.
