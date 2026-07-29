@@ -18,7 +18,15 @@ from avtext.oracles.base import (
     parse_header,
     sm_to_m,
 )
-from avtext.schema import CloudCover, CloudLayer, CloudType, MetarObservation, SkyClear, Wind
+from avtext.schema import (
+    AltimeterSource,
+    CloudCover,
+    CloudLayer,
+    CloudType,
+    MetarObservation,
+    SkyClear,
+    Wind,
+)
 
 _COVER = {
     "FEW": CloudCover.FEW,
@@ -87,6 +95,20 @@ class MivekOracle(Oracle):
                 var_to=getattr(w, "max_variation", None),
             )
 
+        # mivek exposes altimeter only as an integer hPa. For a Q-report that integer
+        # is exact; for an A-report (inHg) mivek TRUNCATES the conversion (30.14 inHg =
+        # 1020.66 hPa -> 1020), a systematic ~0.5-1 hPa low bias. Rather than cast a
+        # biased vote at a precision it cannot represent, mivek ABSTAINS on inHg
+        # altimeters (None) and stays a full voice on hPa reports. python-metar and avwx
+        # carry the inHg case at full precision; the gold seed validates that they're
+        # right. (Discovered mining Phase 3: this quirk was 96% of all "dissent".)
+        alt_src = altimeter_source(raw)
+        alt_hpa = (
+            float(m.altimeter)
+            if (m.altimeter is not None and alt_src is AltimeterSource.Q)
+            else None
+        )
+
         clouds: list[CloudLayer] = []
         sky_clear = None
         for c in m.clouds:
@@ -120,7 +142,7 @@ class MivekOracle(Oracle):
             vertical_visibility_ft=getattr(m, "vertical_visibility", None),
             temperature_c=float(m.temperature) if m.temperature is not None else None,
             dewpoint_c=float(m.dew_point) if m.dew_point is not None else None,
-            altimeter_hpa=float(m.altimeter) if m.altimeter is not None else None,
-            altimeter_source=altimeter_source(raw),
+            altimeter_hpa=alt_hpa,
+            altimeter_source=alt_src,
             # weather: TODO(v2) — map m.weather_conditions into WeatherGroup
         )

@@ -12,10 +12,11 @@ from avtext.oracles.base import (
     Oracle,
     altimeter_source,
     detect_modifiers,
+    inhg_to_hpa,
     is_cavok,
     parse_header,
 )
-from avtext.schema import CloudCover, CloudLayer, MetarObservation, SkyClear, Wind
+from avtext.schema import AltimeterSource, CloudCover, CloudLayer, MetarObservation, SkyClear, Wind
 
 _COVER = {
     "FEW": CloudCover.FEW,
@@ -65,6 +66,20 @@ class PythonMetarOracle(Oracle):
             elif cover == "VV":
                 vv = int(dist.value("FT")) if dist else None
 
+        # Canonicalize the altimeter from the parser's READING rather than trusting
+        # python-metar's own inHg->hPa constant, which differs from avwx's in the 5th
+        # digit and flips integer rounding at the X.50 boundary (A2984 -> 1010.501 here
+        # vs 1010.499 in avwx -> 1011 vs 1010, a spurious tie). Converting the inHg
+        # reading with the shared canonical constant leaves only genuine misreads to
+        # disagree. A Q-report is already native hPa; only an A-report needs conversion.
+        alt_src = altimeter_source(raw)
+        if m.press is None:
+            alt_hpa = None
+        elif alt_src is AltimeterSource.A:
+            alt_hpa = inhg_to_hpa(m.press.value("IN"))
+        else:
+            alt_hpa = m.press.value("MB")
+
         cavok = is_cavok(raw)
         return MetarObservation(
             report_type=rtype,
@@ -82,7 +97,7 @@ class PythonMetarOracle(Oracle):
             vertical_visibility_ft=vv,
             temperature_c=m.temp.value("C") if m.temp else None,
             dewpoint_c=m.dewpt.value("C") if m.dewpt else None,
-            altimeter_hpa=m.press.value("MB") if m.press else None,  # keep full precision
-            altimeter_source=altimeter_source(raw),
+            altimeter_hpa=alt_hpa,
+            altimeter_source=alt_src,
             # weather: TODO(v2) — map m.weather tuples into WeatherGroup
         )

@@ -339,3 +339,51 @@ measures the gaps; the gold seed fills the biggest one.
 **Next (Phase 3 — the eval harness, the "heart"):** wire the hard-case queue as a
 first-class artifact (parse-fail + invariant + no-majority + gold divergence); freeze
 `eval/v1` (station+time splits, content hashes); then the scorers / stats / report.
+
+---
+
+## Session 9 — 2026-07-29 · Phase 3: hard-case miner + altimeter panel cleanup
+
+**Done**
+
+- `harness/hardcases.py`: `classify(raw) -> CaseVerdict` — one report through the whole
+  ladder, one structured verdict (headline `label` = hardest signal; keeps every signal
+  + the consensus `reference`). The labeling function the eval set is built from. A richer
+  superset of `mutants.detect()`, kept in `harness/` to preserve layering.
+- `harness/mine.py`: deterministic (md5-ordered), station-stratified scan of the corpus →
+  labeled `pool.jsonl` + provenance `manifest.json`. Stratified because 6.4M rows are
+  US-dominated; equal per-station quotas protect the rare regional formats.
+- Buckets: `parse_fail` > `invariant` > `no_majority` (tie, **no** reference → human/gold
+  queue) > `dissent` (majority resolved, **keeps** reference → the richest auto-scorable
+  stratum) > `clean`. Test: 3 (reuses the mutant injectors as known-labelled inputs). **43 green.**
+
+**The number that lied (and the discipline that caught it)**
+
+- First mine (25,500 reports): **dissent 21.58%.** Suspiciously high. *Looked at which
+  fields* → `altimeter_hpa` was **5,362 of 5,502** (96%). The vote.py docstring had already
+  predicted it: "mivek ~1 hPa low on inHg." Not a messy tail — one parser's systematic quirk.
+- Root cause #1: mivek only exposes **integer** hPa and **truncates** the inHg→hPa convert
+  (30.14 inHg = 1020.66 → `1020`). Unrecoverable at source → mivek now **abstains** on inHg
+  altimeters (`None`), stays a full voice on Q reports. Dissent 5,502 → 233.
+- That *exposed* 114 new `no_majority` **ties** — all altimeter, all inHg. With mivek gone,
+  python-metar vs avwx straddled the X.50 rounding boundary (A2984: `1010.501` vs `1010.499`
+  → 1011 vs 1010) because the two libraries hardcode inHg→hPa constants that differ in the
+  5th digit. Root cause #2: **canonicalize from the reading, not the parser's constant** —
+  python-metar now converts `value("IN")` with the shared `inhg_to_hpa`, identical to avwx.
+  Ties 114 → 0.
+- Honest tail after both fixes: **2.09%** = parse_fail 1.17% + dissent 0.92% (temp / dewpoint
+  / visibility / clouds — genuine, e.g. RMK T-group vs body). Altimeter noise: gone.
+
+**Regression guard:** re-ran the gold seed (5,005 NOAA records) → altimeter **99.98%**
+(was worried the canonicalization would drift it; it didn't). The lone altimeter divergence
+is a dual-altimeter report whose own `Q1002` and `A2962` disagree at source — a data quirk,
+not our bug.
+
+**Lesson:** a headline rate (21.58% "hard") is a story you haven't finished reading. The
+field-level breakdown turned it into *two* latent parser-quality bugs; mining is how you
+find the bugs the unit tests can't see, because they only surface at corpus scale. Separate
+**reading** (what the parser saw) from **canonicalization** (how we normalize) — spurious
+disagreement lives in the gap.
+
+**Next:** freeze `eval/v1` from the pool — stratified (over-sample the 2.09% tail per
+ADR-004), disjoint station+time splits, content-hashed manifest; then scorers / stats / report.
