@@ -509,3 +509,44 @@ reference point, not the real eval. It sets the bar the LLM must clear: high acc
 the first real baseline. Needs the serving call — llama.cpp on the Mac (ADR-005's eval box,
 least friction) vs the GMKtec (needs ROCm/llama.cpp stood up first). Then Phase 4: finetune,
 re-run the SAME frozen harness, McNemar the pair.
+
+---
+
+## Session 13 — 2026-07-29 · Phase 3: model backend + FIRST REAL BASELINE
+
+**Done**
+
+- `harness/models.py`: `http_predictor` — the model backend behind the `predict` seam, an
+  OpenAI-compatible HTTP client via httpx. CI-safe: no inference lib enters the package, so
+  Linux CI stays green and the finetuned model plugs into the identical seam. `runner` CLI +
+  `make serve` / `make harness` wired; pyproject serving note corrected. **59 green.**
+- **Serving reality:** the ADR-003 target `gemma-4-E4B-it` was already on disk (MLX 4-bit —
+  no download). It's Gemma **3n = multimodal**, so plain `mlx-lm` refused it (`126 params not
+  in model`); `mlx-vlm` loads it text-only. Served via `mlx_vlm.server` (a `uv tool`, off the
+  package), harness talks HTTP. ~4 s/record, 620 records in ~40 min, temp 0 (reproducible).
+
+**First real baseline — base Gemma-4-E4B on frozen eval/v1 (620 records)**
+
+| scope | value acc | halluc | EM |
+|-------|----------:|-------:|---:|
+| overall | 75.1% [73.5, 76.7] | 1.5% | 4% |
+
+The single dominant finding, and it's mechanistic:
+
+- **Altimeter is the Achilles heel — 31% overall, and split by source: `Q` (hPa) 90% vs `A`
+  (inHg) 2%.** The model reads hectopascals but ALMOST NEVER converts inHg→hPa (390/416
+  wrong — it emits `30.12` for `A3012` instead of 1019). One narrow arithmetic skill owns the
+  error budget and caps EM: ~400 of 620 records are inHg, so EM can't exceed ~35% until this
+  is fixed (actual EM 4%).
+- **Strong at "reading":** report_type 96%, cavok 92%, temperature 88%, dewpoint 87%.
+  **Weak at "extract/convert":** wind_speed 60%, altimeter 31%.
+- **Hallucination low but NOT zero: 1.5% (11 fabrications — mostly invented wind_gust/wind_dir).**
+  The smoke test's 0% was a 20-record artifact; at scale the model does occasionally fabricate.
+- vs the parser reference (97.5% / 0% / 82%), the base LLM is far behind on structured decode —
+  as ADR-004 predicted — and the gap is dominated by one learnable skill.
+
+**Phase 4 hypothesis, now concrete and measurable:** LoRA the inHg→hPa conversion (and wind
+extraction). Target: altimeter-`A` 2% → 90%+, overall value-acc → mid-80s, EM off the floor —
+while hallucination stays flat (the safety constraint). Re-run the SAME frozen harness (same
+eval sha256, same prompt), McNemar the paired per-record correctness. The harness is frozen;
+nothing about the eval moves from here.

@@ -6,7 +6,10 @@
 # map of the work ahead.
 
 .DEFAULT_GOAL := help
-.PHONY: help sync test lint fmt probe backfill collect harness report
+.PHONY: help sync test lint fmt probe backfill collect serve harness report
+
+# Local Gemma-4-E4B (MLX 4-bit) — override to point at any other checkpoint.
+MODEL ?= $(HOME)/.lmstudio/models/lmstudio-community/gemma-4-E4B-it-MLX-4bit
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -36,8 +39,11 @@ backfill:  ## [Phase 1] One-off, idempotent, checksummed history pull (IEM)
 collect:  ## [Phase 1] Snapshot current AWC caches (raw + official decode)
 	@echo "Not implemented yet — Phase 1 (ingest/awc.py). See docs/research-repo-plan.md §2.2" && exit 1
 
-harness:  ## [Phase 3] Score a model against frozen eval/v1 -> reports/runs/<id>/
-	@echo "Not implemented yet — Phase 3 (harness/). Usage will be: make harness MODEL=..." && exit 1
+serve:  ## [Phase 3] Serve the local model over an OpenAI-compatible HTTP API (mlx_vlm)
+	mlx_vlm.server --model "$(MODEL)" --host 127.0.0.1 --port 8080
 
-report:  ## [Phase 3] Render the before/after markdown report
-	@echo "Not implemented yet — Phase 3 (harness/report.py)." && exit 1
+harness:  ## [Phase 3] Score a served model against frozen eval/v1 -> reports/runs/<id>/
+	uv run python -m avtext.harness.runner --model "$(MODEL)" $(ARGS)
+
+report:  ## [Phase 3] (auto) the report.md is written by `harness`; this lists recent runs
+	@ls -dt reports/runs/*/ 2>/dev/null | head -5 || echo "no runs yet — run 'make harness'"

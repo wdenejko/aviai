@@ -8,10 +8,11 @@ license = "Apache-2.0"
 
 # ── Runtime dependencies ─────────────────────────────────────────────────────
 # Kept deliberately lean. Note what is NOT here:
-#   - No torch / transformers / unsloth: fine-tuning happens in the cloud
-#     (Colab/RunPod), not on this machine. See docs/adr/ADR-003.
-#   - No llama.cpp python bindings: local inference uses the `llama-cli` binary
-#     you already have, driven as a subprocess from the harness.
+#   - No torch / transformers / unsloth: fine-tuning happens off this env. See ADR-003.
+#   - No inference libs (mlx / llama-cpp-python): the harness reaches a model through an
+#     OpenAI-compatible HTTP server via httpx, so Mac-only serving stacks stay out of the
+#     package and CI (ubuntu) stays green. The local Gemma is served by mlx_vlm.server
+#     (installed as a `uv tool`, not a dep). See src/avtext/harness/models.py.
 dependencies = [
     "pydantic>=2.7",        # the canonical decoded-METAR/TAF schema (Phase 2)
     "duckdb>=1.0",          # local analytical store for the Parquet corpus

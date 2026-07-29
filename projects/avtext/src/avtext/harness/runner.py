@@ -13,6 +13,7 @@ training; this is what a training run will be measured against.
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import re
@@ -63,11 +64,15 @@ def run_eval(
     eval_path: Path = _EVAL,
     prompt_id: str = PROMPT_ID,
     decode_params: dict | None = None,
+    limit: int | None = None,
 ) -> RunResult:
     """Run `predict` over every eval record and score it. Deterministic given a deterministic
-    predictor — the eval order is fixed and we never sample here."""
+    predictor — the eval order is fixed and we never sample here. `limit` truncates to the
+    first N records for a smoke test (a limited run is marked in the model_id by the caller)."""
     lines = eval_path.read_text(encoding="utf-8").splitlines()
     records = [json.loads(line) for line in lines]
+    if limit is not None:
+        records = records[:limit]
     eval_sha = hashlib.sha256(eval_path.read_bytes()).hexdigest()
     manifest = json.loads((eval_path.parent / "manifest.json").read_text())
 
@@ -203,3 +208,40 @@ def write_report(result: RunResult, base: Path = _RUNS) -> Path:
                 + "\n"
             )
     return out
+
+
+def main() -> None:
+    """`python -m avtext.harness.runner` — score a model server against frozen eval/v1.
+
+    Backend-agnostic: point --base-url at any OpenAI-compatible server (mlx_vlm.server for
+    the local Gemma, ollama, llama-server, LM Studio). The model is never trained here; this
+    is measurement against a frozen set."""
+    from avtext.harness.models import http_predictor
+
+    ap = argparse.ArgumentParser(description="Score a model against frozen eval/v1.")
+    ap.add_argument("--base-url", default="http://127.0.0.1:8080")
+    ap.add_argument("--model", required=True, help="served model id / path")
+    ap.add_argument("--model-id", default=None, help="label for the report (default: basename)")
+    ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--max-tokens", type=int, default=256)
+    ap.add_argument("--limit", type=int, default=None, help="smoke-test on the first N records")
+    args = ap.parse_args()
+
+    predict = http_predictor(
+        args.base_url, args.model, temperature=args.temperature, max_tokens=args.max_tokens
+    )
+    model_id = args.model_id or Path(args.model).name
+    if args.limit:
+        model_id = f"{model_id} (smoke {args.limit})"
+    result = run_eval(
+        predict,
+        model_id=model_id,
+        decode_params={"temperature": args.temperature, "max_tokens": args.max_tokens},
+        limit=args.limit,
+    )
+    out = write_report(result)
+    print(f"report -> {out}")
+
+
+if __name__ == "__main__":
+    main()
