@@ -475,3 +475,37 @@ Three lessons fell straight out of it:
 interface the demo used, produce the first *real* scored baseline + a reproducible run report.
 That needs a compute/serving decision (ADR-003/005: eval locally — llama.cpp on the Mac, or
 the GMKtec), so it's the next checkpoint.
+
+---
+
+## Session 12 — 2026-07-29 · Phase 3: runner + report (harness plumbing complete)
+
+**Done**
+
+- `harness/prompt.py`: versioned prompt (`decode-json-v1`) — the load-bearing line is
+  "use null; do NOT guess", which is what makes a fabrication the model's own fault rather
+  than obedience to an implied "always answer". Plus a robust output parser: balanced-brace
+  JSON extraction (survives prose + ```json fences + truncation) that canonicalises into the
+  reference's space (visibility→100 m buckets, temps/altimeter→int, clouds list→tuple).
+- `harness/runner.py`: the `Predictor` contract `(raw) -> fields | None` — the one seam
+  between how a decode is produced (parser / local LLM / API) and how it's judged. `run_eval`
+  scores a predictor over eval/v1; `write_report` emits `reports/runs/<id>/` with report.md,
+  run.json, scores.jsonl and a **reproducibility block** (eval sha256 + prompt id + model id +
+  decode params). Phase 3's definition-of-done artifact. Tests: 5. **59 green.**
+
+**Proved end-to-end** with the parser baseline (python-metar behind the predict contract):
+
+| scope | value acc | halluc | EM |
+|-------|----------:|-------:|---:|
+| overall (620) | 97.5% [96.9, 98.1] | 0.0% | 82% |
+
+The plumbing is complete: frozen eval → predict → score → bootstrap CI → report, all
+re-derivable from the sha256 in the block. Caveat recorded in the report: the parser baseline
+is mildly circular (a consensus member scored against the consensus) — a wiring check and a
+reference point, not the real eval. It sets the bar the LLM must clear: high accuracy at
+**zero** hallucination.
+
+**Next (the checkpoint):** the model backend. Put Gemma-4-E4B behind `predict` and generate
+the first real baseline. Needs the serving call — llama.cpp on the Mac (ADR-005's eval box,
+least friction) vs the GMKtec (needs ROCm/llama.cpp stood up first). Then Phase 4: finetune,
+re-run the SAME frozen harness, McNemar the pair.
