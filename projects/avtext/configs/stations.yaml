@@ -1,45 +1,84 @@
-# Station set for the vertical slice.
+# Station set for the vertical slice (51 stations; all validated against IEM 2026-07-29).
 #
-# STATUS: seed / template. ~12 stations below; expand to ~50 during the data
-# session (Phase 1), confirming each exists in its IEM network as you go.
+# WEIGHTING IS EVIDENCE-DRIVEN (scope probe, Session 2): the messy tail the
+# fine-tune targets came from specific sources, so we over-represent them:
+#   - Regional/ICAO format extensions (parse failures)  -> Scandinavia + EU AUTO
+#   - RMK T-group precision (parser disagreement)        -> US AUTO small fields
+#   - MPS wind units (unit handling)                     -> CIS/Russia + China
+# ...plus terrain / coastal / arctic variety for weather diversity.
 #
-# Why stratify (and not just grab 50 big airports): the fine-tune's headroom
-# lives in the MESSY TAILS. Clean METARs from major hubs are near-templated and
-# a 4.5B base model likely already nails them — so a hub-only set would show
-# "fine-tuning did nothing". AUTO stations, mountain/valley winds, convective
-# and snow/fog regimes are where errors (and therefore signal) concentrate.
+# `icao` = IEM ASOS station id. Validate with:
+#   uv run python -m avtext.ingest.iem --validate
+# Candidates that return no IEM data get pruned before the full backfill.
 #
-# Fields:
-#   icao     ICAO identifier (IEM ASOS id)
-#   name     human name
-#   region   us | eu | other
-#   terrain  coastal | plains | mountain | valley | island
-#   tags     free-form reasons this station earns a slot (messy-tail sources)
-
-# Target mix for the full ~50 (fill during Phase 1):
-#   region:  ~25 us / ~20 eu / ~5 other
-#   terrain: balanced coastal / plains / mountain-valley
-#   ≥10 stations that report AUTO frequently (id via IEM metadata)
-#   cover convective, snow/ice, fog, and high-wind regimes
+# Fields: icao, name, region (eu|us|other), terrain, tags (why it earns a slot)
 
 stations:
-  # ── EU ──
-  - {icao: EPGD, name: "Gdańsk im. Lecha Wałęsy",      region: eu, terrain: coastal,  tags: [home, sea-breeze, fog]}
-  - {icao: EPWA, name: "Warsaw Chopin",                region: eu, terrain: plains,   tags: [busy, manned]}
-  - {icao: EGLL, name: "London Heathrow",              region: eu, terrain: plains,   tags: [high-volume, manned, complex-taf]}
-  - {icao: LFPG, name: "Paris Charles de Gaulle",      region: eu, terrain: plains,   tags: [high-volume]}
-  - {icao: LOWI, name: "Innsbruck",                    region: eu, terrain: valley,   tags: [terrain-winds, tricky-taf]}
+  # ── EU · Poland (home region) ──
+  - {icao: EPGD, name: "Gdańsk",          region: eu, terrain: coastal,  tags: [home, sea-breeze, fog]}
+  - {icao: EPWA, name: "Warsaw Chopin",   region: eu, terrain: plains,   tags: [busy, manned]}
+  - {icao: EPKK, name: "Kraków",          region: eu, terrain: plains,   tags: []}
+  - {icao: EPKT, name: "Katowice",        region: eu, terrain: plains,   tags: []}
+  - {icao: EPPO, name: "Poznań",          region: eu, terrain: plains,   tags: []}
 
-  # ── US ──
-  - {icao: KJFK, name: "New York JFK",                 region: us, terrain: coastal,  tags: [busy, sea-breeze]}
-  - {icao: KDEN, name: "Denver Intl",                  region: us, terrain: plains,   tags: [convective, altimeter-extremes, snow]}
-  - {icao: KASE, name: "Aspen/Pitkin County",          region: us, terrain: mountain, tags: [terrain, restricted-ops, tricky-taf]}
-  - {icao: PANC, name: "Anchorage Ted Stevens",        region: us, terrain: coastal,  tags: [snow, ice, cold-extremes]}
-  - {icao: PHNL, name: "Honolulu Daniel K. Inouye",    region: us, terrain: island,   tags: [tropical, trade-winds]}
-  - {icao: KMIA, name: "Miami Intl",                   region: us, terrain: coastal,  tags: [convective, tropical, thunderstorms]}
+  # ── EU · Scandinavia (regional format extensions -> parse failures) ──
+  - {icao: ENGM, name: "Oslo Gardermoen", region: eu, terrain: plains,   tags: [snow]}
+  - {icao: ENBR, name: "Bergen",          region: eu, terrain: coastal,  tags: [rain, terrain]}
+  - {icao: ENVA, name: "Trondheim Værnes",region: eu, terrain: coastal,  tags: [snow]}
+  - {icao: ENAL, name: "Ålesund",         region: eu, terrain: coastal,  tags: [terrain, auto]}
+  - {icao: ENSB, name: "Svalbard/Longyear",region: eu, terrain: coastal, tags: [arctic, auto, regional-ext]}
 
-  # ── other ──
-  # TODO: add ~5 (e.g. Asia/SA/Oceania) for vocabulary + format variety.
+  # ── EU · rest ──
+  - {icao: EGLL, name: "London Heathrow", region: eu, terrain: plains,   tags: [busy, complex-taf]}
+  - {icao: EGPH, name: "Edinburgh",       region: eu, terrain: coastal,  tags: [wind]}
+  - {icao: EGCC, name: "Manchester",      region: eu, terrain: plains,   tags: []}
+  - {icao: EDDF, name: "Frankfurt",       region: eu, terrain: plains,   tags: [busy]}
+  - {icao: EDDM, name: "Munich",          region: eu, terrain: plains,   tags: [snow]}
+  - {icao: LFPG, name: "Paris CDG",       region: eu, terrain: plains,   tags: [busy]}
+  - {icao: LFML, name: "Marseille",       region: eu, terrain: coastal,  tags: [mistral]}
+  - {icao: LOWI, name: "Innsbruck",       region: eu, terrain: valley,   tags: [terrain-winds, tricky-taf]}
+  - {icao: LOWS, name: "Salzburg",        region: eu, terrain: valley,   tags: [terrain]}
+  - {icao: BIKF, name: "Keflavík",        region: eu, terrain: coastal,  tags: [wind, harsh]}
+  - {icao: LEBL, name: "Barcelona",       region: eu, terrain: coastal,  tags: []}
+  - {icao: EHAM, name: "Amsterdam Schiphol",region: eu, terrain: coastal,tags: [wind]}
 
-  # TODO: add AUTO-heavy small-field ASOS stations (≥10). These surface the
-  # malformed / abbreviated tails that dominate the hard-case queue.
+  # ── US · major / terrain / coastal ──
+  - {icao: KJFK, name: "New York JFK",    region: us, terrain: coastal,  tags: [busy]}
+  - {icao: KBOS, name: "Boston Logan",    region: us, terrain: coastal,  tags: [nor-easters]}
+  - {icao: KMIA, name: "Miami",           region: us, terrain: coastal,  tags: [convective, tropical]}
+  - {icao: KDEN, name: "Denver",          region: us, terrain: plains,   tags: [convective, snow, altimeter-extremes]}
+  - {icao: KSEA, name: "Seattle-Tacoma",  region: us, terrain: coastal,  tags: [marine-layer]}
+  - {icao: KORD, name: "Chicago O'Hare",  region: us, terrain: plains,   tags: [busy, snow]}
+  - {icao: KASE, name: "Aspen",           region: us, terrain: mountain, tags: [terrain, tricky-taf]}
+  - {icao: KJAC, name: "Jackson Hole",    region: us, terrain: mountain, tags: [terrain]}
+
+  # ── US · Alaska (AUTO-heavy, arctic, harsh) ──
+  - {icao: PANC, name: "Anchorage",       region: us, terrain: coastal,  tags: [snow, ice]}
+  - {icao: PABR, name: "Utqiaġvik/Barrow",region: us, terrain: coastal,  tags: [arctic, auto]}
+  - {icao: PAOM, name: "Nome",            region: us, terrain: coastal,  tags: [auto, remote]}
+  - {icao: PAFA, name: "Fairbanks",       region: us, terrain: plains,   tags: [extreme-cold]}
+
+  # ── US · Pacific / tropical ──
+  - {icao: PHNL, name: "Honolulu",        region: us, terrain: island,   tags: [tropical, trade-winds]}
+  - {icao: PHTO, name: "Hilo",            region: us, terrain: island,   tags: [tropical, rain]}
+
+  # ── US · AUTO-heavy small fields (RMK T-group precision -> disagreement) ──
+  - {icao: KAIG, name: "Langlade (WI)",   region: us, terrain: plains,   tags: [auto, t-group]}
+  - {icao: KOZW, name: "Howell (MI)",     region: us, terrain: plains,   tags: [auto, t-group]}
+  - {icao: KEKM, name: "Elkhart (IN)",    region: us, terrain: plains,   tags: [auto, t-group]}
+  - {icao: KOVL, name: "Olivia (MN)",     region: us, terrain: plains,   tags: [auto, t-group]}
+
+  # ── Other · CIS/Russia + China (MPS wind units) ──
+  - {icao: UUWW, name: "Moscow Vnukovo",  region: other, terrain: plains,  tags: [mps-units]}
+  - {icao: UUEE, name: "Moscow Sheremetyevo",region: other, terrain: plains, tags: [mps-units]}
+  - {icao: UMMS, name: "Minsk",           region: other, terrain: plains,  tags: [mps-units]}
+  - {icao: ZBAA, name: "Beijing Capital", region: other, terrain: plains,  tags: [mps-units]}
+  - {icao: ZSSS, name: "Shanghai Hongqiao",region: other, terrain: coastal, tags: [mps-units]}
+
+  # ── Other · format/climate variety ──
+  - {icao: CYYZ, name: "Toronto Pearson", region: other, terrain: plains,  tags: [snow]}
+  - {icao: CYVR, name: "Vancouver",       region: other, terrain: coastal, tags: [rain]}
+  - {icao: RJTT, name: "Tokyo Haneda",    region: other, terrain: coastal, tags: []}
+  - {icao: YSSY, name: "Sydney",          region: other, terrain: coastal, tags: []}
+  - {icao: OMDB, name: "Dubai",           region: other, terrain: coastal, tags: [heat, haze]}
+  - {icao: VABB, name: "Mumbai",          region: other, terrain: coastal, tags: [monsoon]}

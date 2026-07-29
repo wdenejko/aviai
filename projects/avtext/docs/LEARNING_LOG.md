@@ -114,3 +114,44 @@ Reconciling both briefings against the plan + scaffold:
 - Phase-1 data: finalize ~50 stations (weight EU + AUTO-heavy to raise the failure
   signal); `ingest/iem.py` historical backfill; extend probe/collector to capture
   RMK + international feeds; run the collector on a schedule (`dashi` or Actions).
+
+---
+
+## Session 3 — 2026-07-29 · Phase 1: station set + IEM backfill
+
+**Done**
+
+- Finalized **51 stations** (`configs/stations.yaml`), evidence-weighted per the
+  scope probe (Scandinavia + EU-AUTO for regional formats, US-AUTO small fields for
+  the T-group, CIS/China for MPS units, plus terrain/coastal/arctic variety).
+  Validated **51/51** against IEM.
+- Wrote `ingest/iem.py` (fetch / validate / backfill / to_parquet), reusing awc.py's
+  raw-zone + manifest discipline; gzip `mtime=0` for byte-idempotent raw.
+- Backfilled 3 years (2023-07-30 → 2026-07-28): **6,489,661 observations**, 51
+  stations, **152 MB** Parquet (`data/processed/metar/iem_metar.parquet`),
+  100% distinct raw.
+
+**Learned**
+
+- **The row counts betrayed a sampling trap.** US stations carry ~320k obs each vs
+  ~52k for EU — US ASOS is archived sub-hourly (~5-min) vs EU half-hourly, a **6:1**
+  gap (all genuine distinct reports, not dupes). Uniform row-level sampling would be
+  ~70% US and **drown the EU messy tail I deliberately selected for.** Station-level
+  weighting is necessary but *not sufficient*: downstream eval/train sampling must be
+  **stratified per station** (or downsampled to a common cadence, e.g. hourly). The
+  careful station picks only pay off if the row sampler respects them.
+- **Reproducibility lives at the eval-freeze layer, not the raw pull.** Last session
+  I flagged the drifting "3-years-from-today" end-date as a wrinkle; corrected view:
+  the raw corpus is *meant* to grow (the collector extends it), so a moving end-date
+  is fine. The manifest records each pull's provenance; byte-reproducibility is
+  enforced when we freeze `eval/v1` with content hashes (Phase 3), not on the raw
+  layer.
+
+**Next**
+
+- **Phase 2 (schema):** canonical pydantic model from FMH-1 / AC 00-45H, encoding
+  the rules the probe already gave us (wind → kt; prefer the RMK `T`-group for
+  temp/dewpoint). Then oracle adapters over the 3 parsers + AWC decode → tier-0
+  round-trip/invariants → consensus.
+- Build a **stratified sampler** (per-station cap / cadence downsample) before any
+  eval set, so US volume can't dominate.
