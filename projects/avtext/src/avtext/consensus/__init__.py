@@ -12,3 +12,8 @@ KPI to track: panel agreement (Krippendorff's α). Consensus is only trustworthy
 errors; confirm the panel catches them). "Three parsers agree" can be three
 parsers sharing a bug.
 """
+
+from avtext.consensus.alpha import krippendorff_alpha
+from avtext.consensus.vote import FIELDS, ConsensusResult, consensus, flatten
+
+__all__ = ["FIELDS", "ConsensusResult", "consensus", "flatten", "krippendorff_alpha"]

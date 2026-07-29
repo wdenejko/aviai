@@ -262,3 +262,38 @@ station ∈ registry); failures route to the hard-case queue. Then consensus.
 **Next:** tier-1 **consensus** — field-level majority vote across the 3 oracles
 (+ AWC decoded JSON as a 4th voice); disagreement → hard-case queue; track panel
 agreement (Krippendorff's α). Then the gold seed + mutant-injection calibration.
+
+---
+
+## Session 7 — 2026-07-29 · Phase 2: tier-1 consensus
+
+**Done**
+
+- `consensus/vote.py`: field-level majority vote across voices → consensus label +
+  per-field agreement + hard-case trigger (**no clear majority**, not mere dissent).
+- `consensus/alpha.py`: hand-rolled **Krippendorff's α** (nominal, missing-tolerant)
+  — the panel-agreement KPI.
+- Tests: 4 α (incl. a hand-computed 0.444) + 3 consensus. **34 green.**
+- Demonstrated on 2,040 real reports (3-voice panel).
+
+**Findings**
+
+- Per-field α: wind / clouds / report-type / cavok = 1.000; vis / temp / dew
+  0.997–0.999; **altimeter = 0.856** — α cleanly quantifies mivek's ~1 hPa inHg
+  dissent as a KPI, isolating the one field where the panel is least unanimous.
+- **0% no-majority hard cases on every field.** With 3 voices, mivek's altimeter
+  dissent is always outvoted 2-1 by python-metar+avwx → resolved, not flagged. The
+  design choice (hard case = *no majority*, not *any dissent*) is what keeps 22%
+  dissent from flooding the queue while α still records it.
+- So on this clean archive the panel essentially never genuinely conflicts. The open
+  risk is no longer "do they disagree" but "is the AGREEING majority *correct*" —
+  which is exactly what the gold seed + mutant audit calibrate next.
+
+**Property-test aside:** the Hypothesis round-trip caught my own *test strategy*
+generating an impossible METAR (VRB + 75 kt), whose encoding is ambiguous. Fixed the
+strategy to realistic winds and made it deterministic (`derandomize`) so CI can't flake.
+
+**Next:** the AWC decoded JSON as an independent **4th voice** (different lineage —
+guards the "3 parsers share a bug" risk); then the **gold seed** (transcribe
+100–200 worked examples from AC 00-45H / FMH-1) + **mutant-injection audit** to
+calibrate whether the consensus is actually right, not merely agreed.
