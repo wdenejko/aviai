@@ -224,3 +224,41 @@ AWC decode into `MetarObservation`; then tier-0 round-trip + invariants
 **Next:** `quality/` tier-0 — round-trip (re-encode ≈ raw after canonicalization,
 via Hypothesis) + invariant suite (dewpoint ≤ temp, gust > wind, vocab ∈ WMO/CCT,
 station ∈ registry); failures route to the hard-case queue. Then consensus.
+
+---
+
+## Session 6 — 2026-07-29 · Phase 2: tier-0 quality (invariants + round-trip)
+
+**Done**
+
+- `quality/invariants.py`: cross-field physical checks (dewpoint ≤ temp, gust >
+  wind, variable-range completeness, cloud-base ordering, plausible temp/altimeter
+  ranges, CAVOK consistency). `check_invariants(obs)` → violations; non-empty routes
+  to the hard-case queue.
+- `quality/roundtrip.py`: `encode_metar(obs)` — minimal canonical encoder (header,
+  wind, temp/dew, Q-altimeter) enabling the round-trip property.
+- Tests: 6 invariant unit tests + a **Hypothesis round-trip** (`decode(encode(obs))`
+  reproduces the numeric core, 150 generated examples). 27 green.
+- Scanned the corpus through decode → invariants (15,300, then a 3× rescan of 46,920).
+
+**Findings**
+
+- After fixes, **0 invariant violations in 46,695 parsed reports** (3× rescan) — archived ASOS
+  data is physically clean (QC'd). So tier-0's live signal on this archive is
+  parse-failures; the invariants are the safety net for corrupted/messy inputs
+  (corruption augmentation, later) and a dev-time adapter-bug detector.
+
+**Two bugs the scan caught (both fixed) — tier-0 working in both directions**
+
+- `is_cavok` matched `CAVOK` inside a trend group (`BECMG CAVOK`) and falsely
+  flagged the whole obs as CAVOK. A real *adapter* bug, caught by the CAVOK
+  invariant. Fixed: `is_cavok` now reads only the body (truncate at
+  BECMG/TEMPO/NOSIG/RMK/PROB/FM).
+- cloud-base-ascending fired on `BKN100 FEW054CB` — CB/TCU are legitimately
+  reported out of height order. The *invariant* was too strict. Fixed: exempt
+  CB/TCU. (One real bug below the checker, one mis-calibrated checker — exactly the
+  two things tier-0 exists to surface.)
+
+**Next:** tier-1 **consensus** — field-level majority vote across the 3 oracles
+(+ AWC decoded JSON as a 4th voice); disagreement → hard-case queue; track panel
+agreement (Krippendorff's α). Then the gold seed + mutant-injection calibration.

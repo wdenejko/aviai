@@ -11,3 +11,8 @@ Failures are NEVER dropped — they route to the hard-case queue. Those messy
 records are exactly the material the fine-tune must learn to handle (and to
 *abstain* on when truly garbled).
 """
+
+from avtext.quality.invariants import check_invariants
+from avtext.quality.roundtrip import encode_metar
+
+__all__ = ["check_invariants", "encode_metar"]

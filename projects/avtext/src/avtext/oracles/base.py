@@ -55,7 +55,10 @@ def detect_modifiers(raw: str) -> tuple[bool, bool]:
 
 
 def is_cavok(raw: str) -> bool:
-    return "CAVOK" in raw.split()
+    # Only the main body counts: a trailing "BECMG CAVOK" forecasts CAVOK, it does
+    # not describe current conditions. Truncate at the first trend/remark keyword.
+    body = re.split(r"\b(?:BECMG|TEMPO|NOSIG|RMK|PROB\d\d|FM\d)\b", raw, maxsplit=1)[0]
+    return "CAVOK" in body.split()
 
 
 def altimeter_source(raw: str) -> AltimeterSource | None:
