@@ -2,13 +2,20 @@
 
 ## Research question
 
-> Does LoRA/QLoRA fine-tuning a small open model (**Gemma 4 E4B**, ~4.5B
-> effective params, Apache-2.0) measurably improve performance on
-> aviation-specific text tasks — decoding METAR/TAF into structured data —
-> versus the base model, and how does that compare to a frontier API baseline?
+> On the tasks where an LLM actually has headroom over a deterministic parser —
+> **decoding messy/garbled METAR/TAF, faithful plain-language briefing, and
+> knowing when to abstain** — does LoRA/QLoRA fine-tuning **Gemma 4 E4B**
+> (~4.5B effective params, Apache-2.0) beat the base model, and how does it
+> compare to a frontier API baseline?
 
-And, as a deployment-reality kicker: how much of any gain survives **4-bit
-quantization** when the model runs locally via `llama.cpp`?
+Clean-input decoding is **not** the target: mature parsers already hit
+~99–100% there, so it serves only as a **reference ceiling**. The prize is the
+messy tail, measured for **hallucination and abstention**, not just accuracy.
+(See [ADR-004](docs/adr/ADR-004-primary-target-messy-tail.md) and the two
+briefings in [`docs/research/`](docs/research/).)
+
+Deployment-reality kicker: how much of any gain survives **4-bit quantization**
+running locally via `llama.cpp`?
 
 ## Why this is really three learning projects
 
@@ -37,12 +44,15 @@ data cutoff**, with **station + time** splits enforced in code.
 
 _Nothing measured yet — the harness must be frozen before any training._
 
-| Model | Task slice | Whole-record EM | Micro-F1 | Hallucination rate | Notes |
+Headline is the messy tail; clean decode is a reference column (parser ≈ ceiling).
+
+| Model | Messy-tail macro-F1 | Hallucination ↓ | Abstention correct. | Clean decode (ref) | Notes |
 |---|---|---|---|---|---|
-| Gemma 4 E4B (base, fp16) | decode→JSON (clean) | — | — | — | pending |
-| Gemma 4 E4B (base, Q4)   | decode→JSON (clean) | — | — | — | pending |
-| Gemma 4 E4B (fine-tuned) | decode→JSON (clean) | — | — | — | pending |
-| Frontier API (reference) | decode→JSON (clean) | — | — | — | pending |
+| Deterministic parser | — | — | — | ~99–100% | the bar to beat on messy input |
+| Gemma 4 E4B (base, fp16) | — | — | — | — | the "before" |
+| Gemma 4 E4B (fine-tuned, fp16) | — | — | — | — | the "after" |
+| Gemma 4 E4B (fine-tuned, Q4) | — | — | — | — | quantization cost |
+| Frontier API (reference) | — | — | — | — | is a small specialized model competitive? |
 
 ## Layout
 
