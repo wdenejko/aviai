@@ -29,6 +29,32 @@ def test_parse_invalid_returns_none():
     assert parse_prediction('{"temperature_c": ') is None  # truncated -> no balanced object
 
 
+def test_parse_survives_weird_clouds_shape():
+    # the model sometimes emits clouds as dicts, not [cover, base] pairs. That must not
+    # crash the whole record (a KeyError used to mark it invalid); the unusable field
+    # becomes None (abstain) while the rest still parses.
+    p = parse_prediction('{"temperature_c": 9, "clouds": [{"cover": "FEW", "base_ft": 33000}]}')
+    assert p is not None
+    assert p["temperature_c"] == 9
+    assert p["clouds"] is None
+
+
+def test_canon_coerces_types_to_reference_space():
+    # a model that emits right values in the wrong TYPE/CASE must still score as correct —
+    # the reference stores ints, upper-case report_type, and bools.
+    p = parse_prediction(
+        '{"wind_speed": "5", "wind_dir": 190.0, "report_type": "metar", '
+        '"automated": "false", "cavok": "true", "clouds": [["bkn", 900]]}'
+    )
+    assert p is not None
+    assert p["wind_speed"] == 5 and isinstance(p["wind_speed"], int)  # "5" -> 5
+    assert p["wind_dir"] == 190  # 190.0 -> 190
+    assert p["report_type"] == "METAR"  # case-folded
+    assert p["automated"] is False  # NOT the bool("false")==True trap
+    assert p["cavok"] is True
+    assert p["clouds"] == (("BKN", 900),)  # cover upper-cased
+
+
 def test_canonicalisation_matches_reference_space():
     p = parse_prediction('{"visibility_m": 9999, "altimeter_hpa": 1013.4, "temperature_c": null}')
     assert p is not None

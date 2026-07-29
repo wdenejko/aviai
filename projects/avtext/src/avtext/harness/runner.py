@@ -55,6 +55,7 @@ class RunResult:
     created_utc: str
     n_invalid: int  # predictions that were unusable (no JSON) — a formatting failure
     scores: list[RecordScore] = field(default_factory=list)
+    predictions: dict[str, dict] = field(default_factory=dict)  # id -> canonical pred
 
 
 def run_eval(
@@ -77,6 +78,7 @@ def run_eval(
     manifest = json.loads((eval_path.parent / "manifest.json").read_text())
 
     scores: list[RecordScore] = []
+    predictions: dict[str, dict] = {}
     n_invalid = 0
     for rec in records:
         try:
@@ -86,6 +88,7 @@ def run_eval(
         if pred is None:
             n_invalid += 1
             pred = {}  # scored as abstention everywhere
+        predictions[rec["id"]] = pred
         scores.append(
             score_record(
                 rec["reference"], pred, id=rec["id"], split=rec["split"], label=rec["label"]
@@ -100,6 +103,7 @@ def run_eval(
         created_utc=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         n_invalid=n_invalid,
         scores=scores,
+        predictions=predictions,
     )
 
 
@@ -120,6 +124,7 @@ def _row(name: str, scores: list[RecordScore]) -> str:
 def _render_report(r: RunResult) -> str:
     overall = aggregate(r.scores)
     n = overall.n_records
+    valid_frac = (1 - r.n_invalid / n) if n else 0.0  # guard: empty eval must not divide by zero
     lines = [
         f"# Run report — {r.model_id}",
         "",
@@ -127,7 +132,7 @@ def _render_report(r: RunResult) -> str:
         f"- **Model:** `{r.model_id}`  ·  **Prompt:** `{r.prompt_id}`",
         f"- **Eval:** {r.eval_version} · `sha256:{r.eval_sha256[:16]}…`",
         f"- **Decode:** `{json.dumps(r.decode_params) if r.decode_params else 'n/a'}`",
-        f"- **Records:** {n}  ·  **JSON-valid:** {1 - r.n_invalid / n:.1%}"
+        f"- **Records:** {n}  ·  **JSON-valid:** {valid_frac:.1%}"
         f" ({r.n_invalid} unusable)",
         "",
         "Columns: **value acc** = recall (hits / values that existed), with 95% bootstrap CI;"
@@ -203,6 +208,7 @@ def write_report(result: RunResult, base: Path = _RUNS) -> Path:
                         "label": s.label,
                         "exact_match": s.exact_match,
                         "outcomes": {k: v.value for k, v in s.outcomes.items()},
+                        "prediction": result.predictions.get(s.id, {}),
                     }
                 )
                 + "\n"

@@ -82,21 +82,44 @@ def _extract_json(text: str) -> dict | None:
     return None
 
 
+# Numeric fields the reference (vote.flatten) stores as rounded INTs — coerce the model's
+# value into the same type/space so "5" (str), 5.0 (float) and 5 (int) all compare equal to
+# the reference's 5. Without this a right-but-differently-typed answer scores WRONG.
+_INT_FIELDS = (
+    "temperature_c", "dewpoint_c", "altimeter_hpa", "wind_dir", "wind_speed", "wind_gust",
+)
+_BOOL_FIELDS = ("automated", "cavok")
+
+
 def _canon(field: str, v: object) -> object:
-    """Apply the SAME canonicalisation the consensus reference used (vote.flatten), so the
-    model's output is compared in the reference's space — e.g. visibility bucketed to 100 m,
-    temps/altimeter rounded to integers. Otherwise the model is dinged for our bucketing."""
+    """Coerce a model field into the SAME type/space the consensus reference uses
+    (vote.flatten), so scoring measures value-correctness, not formatting. Every field the
+    reference canonicalises must be matched here — visibility bucketed to 100 m, numerics
+    rounded to int, report_type upper-cased, bools normalised, clouds as (cover, base) tuples.
+    An un-canonicalisable value is treated as absent (abstain), never a crash."""
     if v is None:
         return None
     try:
         if field == "visibility_m":
-            return round(float(v) / 100) * 100
-        if field in ("temperature_c", "dewpoint_c", "altimeter_hpa"):
-            return round(float(v))
+            return round(float(v) / 100) * 100  # 100 m buckets, matching flatten
+        if field in _INT_FIELDS:
+            return round(float(v))  # handles "16", 16.0, 16 -> 16 (int in the reference)
+        if field == "report_type":
+            return str(v).upper()  # "metar" -> "METAR" (reference is the enum value)
+        if field in _BOOL_FIELDS:
+            if isinstance(v, bool):
+                return v
+            if isinstance(v, str):
+                return v.strip().lower() in ("true", "yes", "1")  # bool("false") is True — don't
+            return bool(v)
         if field == "clouds":
-            return tuple((c[0], c[1]) for c in v)  # list[list] -> tuple[tuple] for ==
-    except (TypeError, ValueError, IndexError):
-        return None  # malformed value for this field -> treat as absent, never crash
+            return tuple((str(c[0]).upper(), c[1]) for c in v)  # cover upper; list->tuple for ==
+    except Exception:
+        # Model output is untrusted — it may emit clouds as dicts, numbers as strings, nested
+        # shapes, anything. A field we can't canonicalise is scored absent (abstain), which is
+        # correct: no usable value was given in the agreed form. (A bare KeyError from
+        # dict-shaped clouds used to bubble up and mark the whole record invalid.)
+        return None
     return v
 
 
