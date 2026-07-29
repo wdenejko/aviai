@@ -187,3 +187,40 @@ groups, TAF schema.
 **Next:** oracle adapters (`oracles/`) mapping python-metar / avwx / mivek + the
 AWC decode into `MetarObservation`; then tier-0 round-trip + invariants
 (`quality/`); then consensus.
+
+---
+
+## Session 5 — 2026-07-29 · Phase 2: oracle adapters
+
+**Done**
+
+- `oracles/`: one interface (`Oracle` → `OracleResult`) + shared header/unit helpers
+  (`base.py`), and 3 adapters mapping python-metar / avwx / mivek into
+  `MetarObservation` (core fields; weather is TODO(v2)). `ORACLES` panel.
+- `tests/test_oracles.py` (12): clean decode, uniform failure, MPS→kt, COR — 20 green.
+- Cross-checked all 3 on **1,020 real corpus METARs**.
+
+**Findings**
+
+- True per-parser failure ≈ **0.6–0.7%**, each on a *different* regional format:
+  python-metar on Australian `RF` groups + clouds-after-CAVOK (YSSY), mivek on
+  Russian RVR (UUWW), avwx on none. Oracle independence demonstrated — different
+  lineages fail on different things, so the panel covers more than any one parser.
+- Field agreement (of all-parsed): wind / clouds / visibility ≈ 100%. Genuine
+  remaining differences: **temp/dew 0.3%** (RMK T-group precision — python-metar
+  reads it, the others use the body) and **alt 22%** (mivek rounds inHg→hPa ~1 hPa
+  low; majority vote python-metar+avwx outvotes it). Both are the panel working as
+  designed, not bugs.
+
+**Bugs the cross-check caught (all fixed) — measurement artifacts, again**
+
+- Leading `COR` modifier (`COR EGCC ...`) broke the header regex + mivek's strip.
+- mivek fractional SM (`1/8SM`) parsed as 1 SM (the fraction was dropped).
+- python-metar "day out of range" crash: it assumes the *current* month for the
+  DDHHMMZ datetime, so day-31 reports crashed (~2% phantom "failure"). Passing
+  `month=1` fixes it — and it's exactly why the schema takes day/hour/min from the
+  raw header, not the parser's constructed datetime.
+
+**Next:** `quality/` tier-0 — round-trip (re-encode ≈ raw after canonicalization,
+via Hypothesis) + invariant suite (dewpoint ≤ temp, gust > wind, vocab ∈ WMO/CCT,
+station ∈ registry); failures route to the hard-case queue. Then consensus.
