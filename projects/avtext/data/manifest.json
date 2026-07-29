@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "description": "Provenance ledger for every fetched artifact. Populated by ingest/ scripts in Phase 1.",
+  "artifacts": []
+}

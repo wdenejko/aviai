@@ -1,0 +1,50 @@
+# ── aviai ── umbrella workspace root ─────────────────────────────────────────
+#
+# This file is NOT a package. It exists only to declare a *uv workspace*: an
+# umbrella that owns one shared virtual environment + one lockfile, while each
+# subproject under projects/* stays a self-contained package with its own
+# pyproject.toml and its own dependency list.
+#
+# Why a workspace (and not N independent repos, or one big shared src/)?
+#   - aviai is a multi-topic learning sandbox (aviation-text today; RAG, other
+#     finetuning studies later). Each topic wants its own deps and its own
+#     history of decisions, but you only want ONE env to activate and ONE
+#     `uv sync` to run.
+#   - Trade-off to know: workspace members share a single *resolved* dependency
+#     set (one .venv). Two projects cannot pin conflicting versions of the same
+#     library. For a personal sandbox that's fine and usually desirable; if it
+#     ever bites, split that project into its own repo.
+#
+# Everyday commands (run from anywhere in the repo):
+#   uv sync                       # create/update .venv from the lockfile
+#   uv run pytest                 # run tests
+#   uv run ruff check .           # lint
+#   uv run --package avtext <cmd> # run something inside the avtext project
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.uv.workspace]
+members = ["projects/*"]
+
+# Dev tooling is shared across every subproject and lives here at the root so
+# style/test config stays consistent no matter which topic you're working in.
+# (PEP 735 dependency-groups — installed by `uv sync` by default.)
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+    "pytest>=8",
+    "hypothesis>=6.100",   # property-based tests — you'll lean on this hard in Phase 2 (round-trip oracle checks)
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["projects/avtext/src"]
+
+[tool.ruff.lint]
+# A deliberately small, high-signal rule set. E/F = pyflakes/pycodestyle errors,
+# I = import sorting, UP = pyupgrade (modern syntax), B = bugbear (real footguns).
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["projects"]
+addopts = "-q"

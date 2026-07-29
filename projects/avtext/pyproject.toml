@@ -1,0 +1,43 @@
+[project]
+name = "avtext"
+version = "0.0.1"
+description = "Aviation-text LLM lab: METAR/TAF decoding dataset, eval harness, and a LoRA fine-tuning study on Gemma 4 E4B."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+
+# ── Runtime dependencies ─────────────────────────────────────────────────────
+# Kept deliberately lean. Note what is NOT here:
+#   - No torch / transformers / unsloth: fine-tuning happens in the cloud
+#     (Colab/RunPod), not on this machine. See docs/adr/ADR-003.
+#   - No llama.cpp python bindings: local inference uses the `llama-cli` binary
+#     you already have, driven as a subprocess from the harness.
+dependencies = [
+    "pydantic>=2.7",        # the canonical decoded-METAR/TAF schema (Phase 2)
+    "duckdb>=1.0",          # local analytical store for the Parquet corpus
+    "pyarrow>=16",          # Parquet read/write
+    "httpx>=0.27",          # HTTP client for IEM/AWC ingest
+    "pyyaml>=6",            # configs/*.yaml
+    "huggingface-hub>=0.24",# push raw snapshots to a HF dataset repo (collector)
+]
+
+# Optional extras, installed only when we reach the phase that needs them, so a
+# not-yet-verified package name can't break `uv sync` today.
+[project.optional-dependencies]
+# Phase 2 — the three independent parsers behind the oracle interface.
+# ⚠️  Verify exact PyPI names before enabling (that's a Phase-2 task):
+#   python-metar          -> import `metar`            (PyPI: "metar")
+#   mivek metar-taf-parser -> PyPI name TBD             (github.com/mivek/python-metar-taf-parser)
+#   avwx-engine           -> import `avwx`             (PyPI: "avwx-engine")
+# oracles = [
+#     "metar",
+#     "avwx-engine",
+#     "metar-taf-parser-mivek",
+# ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/avtext"]

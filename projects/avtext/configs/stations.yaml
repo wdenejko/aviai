@@ -1,0 +1,45 @@
+# Station set for the vertical slice.
+#
+# STATUS: seed / template. ~12 stations below; expand to ~50 during the data
+# session (Phase 1), confirming each exists in its IEM network as you go.
+#
+# Why stratify (and not just grab 50 big airports): the fine-tune's headroom
+# lives in the MESSY TAILS. Clean METARs from major hubs are near-templated and
+# a 4.5B base model likely already nails them — so a hub-only set would show
+# "fine-tuning did nothing". AUTO stations, mountain/valley winds, convective
+# and snow/fog regimes are where errors (and therefore signal) concentrate.
+#
+# Fields:
+#   icao     ICAO identifier (IEM ASOS id)
+#   name     human name
+#   region   us | eu | other
+#   terrain  coastal | plains | mountain | valley | island
+#   tags     free-form reasons this station earns a slot (messy-tail sources)
+
+# Target mix for the full ~50 (fill during Phase 1):
+#   region:  ~25 us / ~20 eu / ~5 other
+#   terrain: balanced coastal / plains / mountain-valley
+#   ≥10 stations that report AUTO frequently (id via IEM metadata)
+#   cover convective, snow/ice, fog, and high-wind regimes
+
+stations:
+  # ── EU ──
+  - {icao: EPGD, name: "Gdańsk im. Lecha Wałęsy",      region: eu, terrain: coastal,  tags: [home, sea-breeze, fog]}
+  - {icao: EPWA, name: "Warsaw Chopin",                region: eu, terrain: plains,   tags: [busy, manned]}
+  - {icao: EGLL, name: "London Heathrow",              region: eu, terrain: plains,   tags: [high-volume, manned, complex-taf]}
+  - {icao: LFPG, name: "Paris Charles de Gaulle",      region: eu, terrain: plains,   tags: [high-volume]}
+  - {icao: LOWI, name: "Innsbruck",                    region: eu, terrain: valley,   tags: [terrain-winds, tricky-taf]}
+
+  # ── US ──
+  - {icao: KJFK, name: "New York JFK",                 region: us, terrain: coastal,  tags: [busy, sea-breeze]}
+  - {icao: KDEN, name: "Denver Intl",                  region: us, terrain: plains,   tags: [convective, altimeter-extremes, snow]}
+  - {icao: KASE, name: "Aspen/Pitkin County",          region: us, terrain: mountain, tags: [terrain, restricted-ops, tricky-taf]}
+  - {icao: PANC, name: "Anchorage Ted Stevens",        region: us, terrain: coastal,  tags: [snow, ice, cold-extremes]}
+  - {icao: PHNL, name: "Honolulu Daniel K. Inouye",    region: us, terrain: island,   tags: [tropical, trade-winds]}
+  - {icao: KMIA, name: "Miami Intl",                   region: us, terrain: coastal,  tags: [convective, tropical, thunderstorms]}
+
+  # ── other ──
+  # TODO: add ~5 (e.g. Asia/SA/Oceania) for vocabulary + format variety.
+
+  # TODO: add AUTO-heavy small-field ASOS stations (≥10). These surface the
+  # malformed / abbreviated tails that dominate the hard-case queue.

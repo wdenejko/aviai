@@ -1,0 +1,36 @@
+# ── Python / uv ──────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+
+# ── Data zones (see projects/avtext/data/README.md) ──────────────────────────
+# Rule from the plan: data never lives in git EXCEPT tiny committed anchors
+# (manifests, frozen eval JSONL, gold seeds). We ignore the bulk zones and then
+# force-add the small committed files with a leading '!'.
+projects/avtext/data/raw/
+projects/avtext/data/processed/
+projects/avtext/data/reference/
+projects/avtext/data/third_party/
+projects/avtext/data/gold/
+!projects/avtext/data/README.md
+!projects/avtext/data/manifest.json
+
+# Frozen eval sets and run reports ARE committed (reproducibility contract),
+# so they are intentionally NOT ignored here.
+
+# ── Models / weights (never in git — pull via HF/GGUF) ───────────────────────
+*.gguf
+*.safetensors
+*.bin
+*.pt
+adapters/
+
+# ── Experiment tracking ──────────────────────────────────────────────────────
+wandb/

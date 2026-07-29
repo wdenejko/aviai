@@ -1,0 +1,28 @@
+# Continuous integration — lint + tests, no GPU.
+#
+# Dormant until this repo is pushed to GitHub; harmless to keep here in the
+# meantime. The plan (§1) also calls for a "10-item smoke-score on fixed
+# outputs" step here once the harness exists — we'll add that in Phase 3, since
+# it needs frozen eval fixtures that don't exist yet.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync workspace
+        run: uv sync
+      - name: Lint
+        run: uv run ruff check .
+      - name: Test
+        run: uv run pytest
