@@ -82,7 +82,7 @@ class PythonMetarOracle(Oracle):
             vertical_visibility_ft=vv,
             temperature_c=m.temp.value("C") if m.temp else None,
             dewpoint_c=m.dewpt.value("C") if m.dewpt else None,
-            altimeter_hpa=round(m.press.value("MB"), 1) if m.press else None,
+            altimeter_hpa=m.press.value("MB") if m.press else None,  # keep full precision
             altimeter_source=altimeter_source(raw),
             # weather: TODO(v2) — map m.weather tuples into WeatherGroup
         )

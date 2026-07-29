@@ -297,3 +297,45 @@ strategy to realistic winds and made it deterministic (`derandomize`) so CI can'
 guards the "3 parsers share a bug" risk); then the **gold seed** (transcribe
 100–200 worked examples from AC 00-45H / FMH-1) + **mutant-injection audit** to
 calibrate whether the consensus is actually right, not merely agreed.
+
+---
+
+## Session 8 — 2026-07-29 · Phase 2: gold seed + mutant audit (trust-ladder calibration)
+
+**Done**
+
+- `consensus/mutants.py`: mutant injectors + `detect()` (parse | invariant | consensus)
+  + audit. Judgment-free — plant a known error, confirm it's caught.
+- `consensus/gold.py`: `calibrate(consensus vs authoritative reference)` +
+  `gold_from_awc_rows` (NOAA's official decode as the scalable Tier-2 authority). The
+  AC 00-45H hand-transcribed gold is the user's copy-task, plugging into the same
+  `GoldRecord` format — **not fabricated here** (correctness comes from an authority,
+  never our own judgment).
+- Tests: 4 mutant + 2 gold. **40 green.**
+
+**Mutant audit (604 clean reports)**
+
+- dewpoint>temp, altimeter-out-of-range: **100%** caught by invariants; gust<wind 99%;
+  garble **100%** by parse. **temp+4 / altimeter+6 (plausible): 0% caught.** The empirical
+  proof that consensus catches *disagreement*, invariants catch *impossibility*, but a
+  plausible-but-wrong value slips through everything short of an authority. That 0% is
+  *why* Tier-2 exists.
+
+**Gold calibration (consensus vs NOAA official, ~800 reports)**
+
+- Caught a **real shared bug** consensus was blind to: altimeter 93.5% — every divergence
+  identical (consensus 1012 vs official 1013 on inHg reports). Root cause: the adapters
+  `round(…,1)`'d 1012.53 → 1012.5, then Python's banker's rounding took 1012.5 → 1012. All
+  parsers shared it, so consensus *agreed on the wrong value*; only the authority caught it.
+- **Fixed** (keep full precision, round only at compare) → altimeter **100%**. The full
+  loop: gold reveals bug → fix → re-calibrate → resolved. Every field now ≥98.7% vs NOAA;
+  the residual temp/dew ~1% is the known RMK T-group-vs-body precision (v2: prefer the
+  T-group in consensus).
+
+**The trust ladder, whole:** tier-0 (impossibility) + tier-1 (disagreement) + tier-2
+(authority) each catch a *different* error class; none alone suffices. The mutant audit
+measures the gaps; the gold seed fills the biggest one.
+
+**Next (Phase 3 — the eval harness, the "heart"):** wire the hard-case queue as a
+first-class artifact (parse-fail + invariant + no-majority + gold divergence); freeze
+`eval/v1` (station+time splits, content hashes); then the scorers / stats / report.

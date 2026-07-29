@@ -92,7 +92,7 @@ class AvwxOracle(Oracle):
         alt_hpa = None
         if alt is not None:
             in_inhg = str(u.altimeter).lower() in ("inhg", "in")
-            alt_hpa = round(inhg_to_hpa(alt), 1) if in_inhg else round(alt, 1)
+            alt_hpa = inhg_to_hpa(alt) if in_inhg else float(alt)  # keep full precision
 
         return MetarObservation(
             report_type=rtype,
