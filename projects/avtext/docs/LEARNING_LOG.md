@@ -590,3 +590,37 @@ findings → measurement integrity → Phase-4 targets → threats to validity).
 the measurement code before a headline number gates the next phase — the scorer is as much on trial
 as the model. Two ways of being wrong (fabricate vs abstain), and two places a bug can hide (scoring
 vs reference): check both.
+
+---
+
+## Session 15 — 2026-07-30 · Phase 4 pivot to dashi + small-model size sweep
+
+Pivoted Phase 4 to **dashi** (GMKtec Strix Halo, AMD, 123 GiB) — more headroom, and the study is stronger as a
+**size sweep** than one model. Full write-up: `reports/size_sweep_v1.md`; decision: ADR-007.
+
+**dashi analysis:** Fedora 43, Ryzen AI Max+ 395, GPU via **Vulkan** (ROCm only inside `kyuz0/amd-strix-halo`
+**toolbox** containers), models served `toolbox run … llama-server` on **:8080** (only firewall-open port; M5
+reaches it over LAN). `*-Unsloth` dirs → an existing finetune workflow. Built `~/serve.sh` to swap the :8080
+model; harness runs from the M5 → `dashi:8080`.
+
+**Size sweep (5 models, Q8_0 GGUF, frozen eval/v1):**
+
+| model | value-acc | halluc | EM | inHg→hPa |
+|-------|----------:|-------:|---:|---------:|
+| 270M / 0.5B-Qwen / 1B / 2B / 4B | 17 / 5 / 26 / 51 / **69**% | 67 / 1 / 20 / 10 / 8% | 0 / 0 / 0 / 0 / 4% | 0 / 0 / 0 / 0 / **1**% |
+
+Three findings:
+
+1. **Decode scales cleanly** (Gemma 17→26→51→69%), but **whole-record EM needs ~4B**.
+2. **The unit-conversion gap is UNIVERSAL** — inHg→hPa 0–1% and m/s→kt 0–2% at *every* size, including 4B. Not a
+   scaling problem; a capability none of them have. The strongest confirmation yet that conversion is the lever.
+3. **Two opposite tiny-model failure modes (cross-family):** Gemma-270M is *reckless* (67% hallucination), Qwen-0.5B
+   is *conservative* (abstains ~60% of fields → 5% acc, 1% halluc, 99% JSON). Same size, opposite safety profiles.
+
+**The serving stack is a variable:** the SAME E4B scores **69% on dashi (llama.cpp/Q8)** vs **77.8% on the M5
+(MLX/4-bit)** — ~9 points, *not* quantization (Q8 > 4-bit). Likely llama.cpp's Gemma-3n (PLE/MatFormer) being
+less faithful than MLX. So the finetune anchor is the **same-stack 69%**, never the M5 number — which is exactly
+why redoing the baseline on dashi was right.
+
+**Lesson:** the inference stack is part of the measurement, worth ~9 points on a hard arch — a before/after must
+never cross stacks. **Next:** plan the LoRA finetune (Unsloth on dashi), targeting the universal conversion gap.

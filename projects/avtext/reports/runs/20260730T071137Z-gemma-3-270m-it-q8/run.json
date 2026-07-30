@@ -1,0 +1,25 @@
+{
+  "model_id": "gemma-3-270m-it-Q8",
+  "prompt_id": "decode-json-v1",
+  "eval_version": "v1",
+  "eval_sha256": "608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "created_utc": "2026-07-30T07:11:37Z",
+  "n_invalid": 191,
+  "overall": {
+    "n_records": 620,
+    "hits": 1067,
+    "wrong": 2595,
+    "abstain": 2448,
+    "hallucinate": 475,
+    "true_abstain": 235,
+    "precision": 0.2579163645153493,
+    "recall": 0.1746317512274959,
+    "f1": 0.2082560749487655,
+    "hallucination_rate": 0.6690140845070423,
+    "exact_match": 0.0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "model_id": "gemma-3n-E2B-it-Q8",
+  "prompt_id": "decode-json-v1",
+  "eval_version": "v1",
+  "eval_sha256": "608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "created_utc": "2026-07-30T07:57:59Z",
+  "n_invalid": 47,
+  "overall": {
+    "n_records": 620,
+    "hits": 3140,
+    "wrong": 2368,
+    "abstain": 602,
+    "hallucinate": 74,
+    "true_abstain": 636,
+    "precision": 0.5625223934073809,
+    "recall": 0.513911620294599,
+    "f1": 0.5371193978788916,
+    "hallucination_rate": 0.10422535211267606,
+    "exact_match": 0.0
+  }
+}

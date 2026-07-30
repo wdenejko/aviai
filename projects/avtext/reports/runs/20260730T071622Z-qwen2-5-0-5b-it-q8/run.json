@@ -1,0 +1,25 @@
+{
+  "model_id": "qwen2.5-0.5b-it-Q8",
+  "prompt_id": "decode-json-v1",
+  "eval_version": "v1",
+  "eval_sha256": "608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "created_utc": "2026-07-30T07:16:22Z",
+  "n_invalid": 8,
+  "overall": {
+    "n_records": 620,
+    "hits": 322,
+    "wrong": 1720,
+    "abstain": 4068,
+    "hallucinate": 7,
+    "true_abstain": 703,
+    "precision": 0.15714982918496828,
+    "recall": 0.05270049099836334,
+    "f1": 0.07893124157372228,
+    "hallucination_rate": 0.009859154929577466,
+    "exact_match": 0.0
+  }
+}
