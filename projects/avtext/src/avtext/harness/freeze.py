@@ -94,17 +94,20 @@ def _quote_list(items: tuple[str, ...]) -> str:
     return ", ".join(f"'{s}'" for s in items)
 
 
-def _scan(where: str) -> list[tuple[str, str, str]]:
+def _scan(where: str, corpus: Path = _CORPUS, scan_per_stratum: int = SCAN_PER_STRATUM
+          ) -> list[tuple[str, str, str]]:
     """Deterministic, STATION-STRATIFIED pull of (station, valid_utc, raw) for a pool.
 
     Equal per-station quota (not a global LIMIT): otherwise high-frequency US stations —
     all clean — swamp the sample and the rare parse-fail stations (YSSY, ~18%) barely
     appear, starving the tail. Same US-volume trap the miner already avoids. md5 ordering
-    keeps it reproducible.
+    keeps it reproducible. (corpus/scan are params so v2 can reuse this verbatim — the
+    per-station quota is exactly the geo-balancing that keeps v2's 35%-US-by-volume corpus
+    from letting US dominate the sample.)
     """
-    base = f"read_parquet('{_CORPUS.as_posix()}') WHERE raw IS NOT NULL AND ({where})"
+    base = f"read_parquet('{corpus.as_posix()}') WHERE raw IS NOT NULL AND ({where})"
     n_stations = duckdb.sql(f"SELECT count(DISTINCT station) FROM {base}").fetchone()[0]
-    per_station = max(1, SCAN_PER_STRATUM // n_stations)
+    per_station = max(1, scan_per_stratum // n_stations)
     # The OUTER ORDER BY is load-bearing: _select_stratum takes the first N of each label
     # in the order rows arrive, so that order must be fixed. Without it DuckDB streams rows
     # in nondeterministic parallel order and the frozen set's hash changes run-to-run.
@@ -122,10 +125,11 @@ def _scan(where: str) -> list[tuple[str, str, str]]:
     return duckdb.sql(q).fetchall()
 
 
-def _select_stratum(stratum: str, rows: list[tuple[str, str, str]]) -> tuple[list[dict], dict]:
+def _select_stratum(stratum: str, rows: list[tuple[str, str, str]],
+                    targets_by_stratum: dict = TARGETS) -> tuple[list[dict], dict]:
     """Classify a pool, dedup by raw, and take up to the stratum's target of each bucket
     in scan order. Returns (records, per-label counts actually taken)."""
-    targets = TARGETS[stratum]
+    targets = targets_by_stratum[stratum]
     taken: dict[str, int] = {lbl: 0 for lbl in targets}
     seen_raw: set[str] = set()
     records: list[dict] = []
@@ -155,10 +159,23 @@ def _select_stratum(stratum: str, rows: list[tuple[str, str, str]]) -> tuple[lis
     return records, taken
 
 
-def build(out: Path) -> dict:
-    held_sql = _quote_list(HELD_OUT_STATIONS)
-    after_floor = f"CAST(valid_utc AS VARCHAR) >= '{CUTOFF_FLOOR}'"
-    after_boundary = f"CAST(valid_utc AS VARCHAR) >= '{TIME_BOUNDARY}'"
+def build(
+    out: Path,
+    *,
+    corpus: Path = _CORPUS,
+    held_out: tuple[str, ...] = HELD_OUT_STATIONS,
+    targets: dict = TARGETS,
+    boundary: str = TIME_BOUNDARY,
+    floor: str = CUTOFF_FLOOR,
+    scan_per_stratum: int = SCAN_PER_STRATUM,
+    version: str = "v1",
+) -> dict:
+    """Freeze an immutable eval set. Defaults reproduce eval/v1 byte-for-byte; the params
+    let eval/v2 reuse the SAME sampler with a bigger geo-balanced corpus, more held-out
+    stations, and 10x targets — so v1 and v2 differ only in config, never in method."""
+    held_sql = _quote_list(held_out)
+    after_floor = f"CAST(valid_utc AS VARCHAR) >= '{floor}'"
+    after_boundary = f"CAST(valid_utc AS VARCHAR) >= '{boundary}'"
 
     pools = {
         # held-out station, but still post-cutoff so the base model can't have memorized it
@@ -169,11 +186,11 @@ def build(out: Path) -> dict:
     records: list[dict] = []
     composition: dict[str, dict[str, int]] = {}
     for stratum, where in pools.items():
-        rows = _scan(where)
-        recs, taken = _select_stratum(stratum, rows)
+        rows = _scan(where, corpus, scan_per_stratum)
+        recs, taken = _select_stratum(stratum, rows, targets)
         records.extend(recs)
         composition[stratum] = taken
-        tgt = TARGETS[stratum]
+        tgt = targets[stratum]
         short = {lbl: tgt[lbl] - n for lbl, n in taken.items() if n < tgt[lbl]}
         note = f"  (short: {short})" if short else ""
         print(f"{stratum:16s} scanned {len(rows):6d} -> {taken}{note}")
@@ -188,20 +205,20 @@ def build(out: Path) -> dict:
     (out / "eval.jsonl").write_text(payload, encoding="utf-8")
 
     manifest = {
-        "version": "v1",
+        "version": version,
         "created_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),  # metadata, not hashed
         "sha256": set_hash,  # over eval.jsonl — the immutability anchor
         "n_records": len(records),
-        "corpus": _CORPUS.as_posix(),
+        "corpus": corpus.as_posix(),
         "corpus_rows": duckdb.sql(
-            f"SELECT count(*) FROM read_parquet('{_CORPUS.as_posix()}')"
+            f"SELECT count(*) FROM read_parquet('{corpus.as_posix()}')"
         ).fetchone()[0],
         "split_policy": "station+time holdout (ADR-006)",
-        "held_out_stations": list(HELD_OUT_STATIONS),
-        "time_boundary_utc": TIME_BOUNDARY,
-        "cutoff_floor_utc": CUTOFF_FLOOR,
-        "targets_per_stratum": TARGETS,
-        "scan_per_stratum": SCAN_PER_STRATUM,
+        "held_out_stations": list(held_out),
+        "time_boundary_utc": boundary,
+        "cutoff_floor_utc": floor,
+        "targets_per_stratum": targets,
+        "scan_per_stratum": scan_per_stratum,
         "composition": composition,
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -209,10 +226,37 @@ def build(out: Path) -> dict:
     return manifest
 
 
+# ── v2 config (Session 19): 490-station geo-balanced corpus, 78 held-out stations spanning
+# every region (each keeps same-prefix siblings in training), 10x targets (~6,200 records).
+# Same split policy, same sampler — only the config differs. ────────────────────────────────
+V2_CORPUS = Path("data/processed/metar/iem_metar_v2.parquet")
+V2_OUT = Path("eval/v2")
+V2_HELD_OUT = (
+    "AYMH", "BIAR", "DAAE", "DGSI", "DNEN", "DTNH", "EBAW", "EDDF", "EFIV", "EGCC", "EHBK",
+    "EICK", "EKAH", "ENAN", "EPKK", "EQYR", "ESGP", "FABL", "GCLA", "GMFF", "GOGG", "HEBL",
+    "HKEL", "HTDO", "KOZW", "LBGO", "LDDU", "LFML", "LGEL", "LHKE", "LIBA", "LKKV", "LLER",
+    "LOWL", "LPAZ", "LRBS", "LSGC", "LTAF", "LZZI", "MDLR", "MGMM", "MMAN", "MPPA", "MRLB",
+    "MUCF", "NFNL", "OEAB", "OIAM", "OJAM", "OMAD", "OOMS", "OPKC", "ORMM", "PAOM", "RCKH",
+    "RJTT", "RKJB", "RPLC", "SAAR", "SBAN", "SECU", "SGES", "SKBG", "SLCO", "SPCL", "SULS",
+    "SVBM", "UACP", "UBBB", "UZNU", "VAAH", "VCRI", "VTBS", "VVPB", "WADD", "WBGG", "YBAS", "ZBAA",
+)
+V2_TARGETS = {  # 10x v1 -> ~6,200 records
+    "unseen_station": {CLEAN: 2000, DISSENT: 600},
+    "unseen_time": {CLEAN: 2000, PARSE_FAIL: 1000, DISSENT: 600},
+}
+V2_SCAN_PER_STRATUM = 300_000  # bigger pool to fill 10x targets (esp. the parse_fail tail)
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Freeze the immutable eval/v1 set.")
-    ap.add_argument("--out", type=Path, default=_OUT)
-    build(ap.parse_args().out)
+    ap = argparse.ArgumentParser(description="Freeze the immutable eval set (v1 default, --v2).")
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--v2", action="store_true", help="build eval/v2 (500-station, 10x)")
+    args = ap.parse_args()
+    if args.v2:
+        build(args.out or V2_OUT, corpus=V2_CORPUS, held_out=V2_HELD_OUT, targets=V2_TARGETS,
+              scan_per_stratum=V2_SCAN_PER_STRATUM, version="v2")
+    else:
+        build(args.out or _OUT)
 
 
 if __name__ == "__main__":

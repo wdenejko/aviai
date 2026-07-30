@@ -22,7 +22,7 @@ from pathlib import Path
 import duckdb
 
 from avtext.consensus.vote import FIELDS
-from avtext.harness.freeze import HELD_OUT_STATIONS, TIME_BOUNDARY
+from avtext.harness.freeze import HELD_OUT_STATIONS, TIME_BOUNDARY, V2_CORPUS, V2_HELD_OUT
 from avtext.harness.hardcases import CLEAN, DISSENT, classify
 from avtext.harness.prompt import format_prompt
 
@@ -39,9 +39,9 @@ def _target_json(ref: dict) -> str:
     return json.dumps(out)
 
 
-def sample_train(corpus: Path, per_station: int) -> list[str]:
-    """Deterministic, station-stratified sample of the TRAIN split (disjoint from eval/v1)."""
-    held = ", ".join(f"'{s}'" for s in HELD_OUT_STATIONS)
+def sample_train(corpus: Path, per_station: int, held_out: tuple = HELD_OUT_STATIONS) -> list[str]:
+    """Deterministic, station-stratified sample of the TRAIN split (disjoint from the eval)."""
+    held = ", ".join(f"'{s}'" for s in held_out)
     q = f"""
         SELECT raw FROM (
             SELECT raw, row_number() OVER (
@@ -67,9 +67,14 @@ def main() -> None:
     ap.add_argument("--max", type=int, default=3000)
     ap.add_argument("--corpus", type=Path, default=_CORPUS)
     ap.add_argument("--out", type=Path, default=_OUT)
+    ap.add_argument("--v2", action="store_true", help="v2 corpus + 78-station holdout, 8k examples")
     args = ap.parse_args()
 
-    raws = sample_train(args.corpus, args.per_station)
+    held = HELD_OUT_STATIONS
+    if args.v2:  # 490-station geo-balanced corpus; disjoint from eval/v2's held-out + time split
+        args.corpus, held, args.out, args.max = (
+            V2_CORPUS, V2_HELD_OUT, Path("data/processed/sft/train_v2.jsonl"), 8000)
+    raws = sample_train(args.corpus, args.per_station, held)
     seen: set[str] = set()
     examples: list[dict] = []
     mix = Counter()

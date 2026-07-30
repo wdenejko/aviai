@@ -66,6 +66,7 @@ def run_eval(
     prompt_id: str = PROMPT_ID,
     decode_params: dict | None = None,
     limit: int | None = None,
+    concurrency: int = 1,
 ) -> RunResult:
     """Run `predict` over every eval record and score it. Deterministic given a deterministic
     predictor — the eval order is fixed and we never sample here. `limit` truncates to the
@@ -77,14 +78,27 @@ def run_eval(
     eval_sha = hashlib.sha256(eval_path.read_bytes()).hexdigest()
     manifest = json.loads((eval_path.parent / "manifest.json").read_text())
 
+    def _safe(raw: str) -> dict | None:
+        try:
+            return predict(raw)
+        except Exception:  # a backend crash on one report must not sink the whole run
+            return None
+
+    # Predict concurrently — the v2 eval is 6,200 records (10x v1); a threadpool over a
+    # --parallel llama.cpp server cuts wall-clock ~Nx. Order is preserved (ex.map), so
+    # scoring and the saved predictions stay deterministic regardless of concurrency.
+    if concurrency > 1:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=concurrency) as ex:
+            preds = list(ex.map(_safe, (r["raw"] for r in records)))
+    else:
+        preds = [_safe(r["raw"]) for r in records]
+
     scores: list[RecordScore] = []
     predictions: dict[str, dict] = {}
     n_invalid = 0
-    for rec in records:
-        try:
-            pred = predict(rec["raw"])
-        except Exception:  # a backend crash on one report must not sink the whole run
-            pred = None
+    for rec, pred in zip(records, preds, strict=True):
         if pred is None:
             n_invalid += 1
             pred = {}  # scored as abstention everywhere
@@ -237,6 +251,8 @@ def main() -> None:
     # Finetuned models overfit to the exact training prompt; the chat-template render can drift
     # (minja vs HF). --completion sends the raw training wrapper to /completion so serve==train.
     ap.add_argument("--completion", action="store_true", help="use raw /completion, not chat")
+    ap.add_argument("--eval", default=str(_EVAL), help="path to eval.jsonl (default eval/v1)")
+    ap.add_argument("--concurrency", type=int, default=1, help="parallel requests (v2: 8+)")
     args = ap.parse_args()
 
     if args.completion:
@@ -255,8 +271,10 @@ def main() -> None:
     result = run_eval(
         predict,
         model_id=model_id,
+        eval_path=Path(args.eval),
         decode_params={"temperature": args.temperature, "max_tokens": args.max_tokens},
         limit=args.limit,
+        concurrency=args.concurrency,
     )
     out = write_report(result, base=Path(args.out_dir))
     print(f"report -> {out}")
