@@ -655,3 +655,54 @@ bitsandbytes is imported even for bf16; Unsloth's SFTTrainer won't auto-format `
 iteration, but it trains. **Next:** finish the 1B run, merge -> GGUF, serve on dashi:8080,
 re-run the frozen harness, McNemar the finetuned-1b vs base-1b (26%). Then test whether Unsloth
 can load gemma-3n for the E4B anchor.
+
+---
+
+## Session 17 — 2026-07-30 · Re-anchor on *real* Gemma 4 + E2B finetune (the big correction)
+
+The user asked why I'd finetuned "gemma 3." I hadn't noticed: **Gemma 4 shipped 2026-04-02, after my
+knowledge cutoff**, so every prior session silently ran **Gemma 3n** while *labelling* it gemma-4 (the
+baseline header literally read "gemma-4-E4B-it (Gemma 3n)"). Verified real Gemma 4 exists via the HF API
+(`unsloth/gemma-4-E2B-it`), archived all gemma-3 work (repo `reports/gemma-3/`, dashi `~/models/gemma-3/`,
+`~/ft/gemma-3/` — nothing deleted), and redid E2B on the real model. Full record: ADR-009; write-up:
+`reports/gemma-4/e2b_finetune_analysis.{md,html}`.
+
+**The E2B result (real Gemma 4, same-stack, 620 records):**
+
+| metric | base | finetuned | Δ | McNemar |
+|--------|-----:|----------:|---:|---------|
+| value accuracy | 69.5% | **92.9%** | +23.5 | 1437 fix / 3 regress, p≈10⁻³¹² |
+| hallucination | 31.0% | **0.8%** | −30.1 | — |
+| whole-record EM | 2.4% | **38.2%** | +35.8 | 223 fix / 1 regress, p≈10⁻⁴⁹ |
+
+Uniform across difficulty (clean +24.2, dissent +23.4, parse_fail +20.6). LoRA r=16, 1 epoch, 3000 pairs,
+loss 1.73→0.15, ~34 min. Unsloth 2026.7.6 loads the Gemma-4 PLE arch natively (resolves ADR-008's open Q).
+
+**Learned**
+
+- **A post-cutoff release is a load-bearing blind spot, and *labels lie*.** Session 1's log even flagged
+  "verify the linchpin fact" — but the check decayed: the name `gemma-4-E4B-it` on disk was gemma-3n, and I
+  trusted the name for weeks. The famed "77.8% M5 vs 69% dashi stack gap" was **gemma-3n mislabelled on both
+  sides** — not a stack finding at all. Re-verify identity against reality (HF API / config `model_type`),
+  not the filename, before a number gates anything.
+- **Gemma 4 is a *reasoning* model.** Served naively it thinks until the token cap and returns empty
+  `content`; needs `--reasoning-budget 0` to answer directly (which matches the finetune's bare-JSON target).
+  A generational arch change the gemma-3n path didn't have.
+- **Template drift is a serving stack.** The finetuned model first scored 73.5% JSON-valid — it emitted
+  `<|turn>model` as text on 164 records. Cause: llama.cpp renders Gemma-4's tool-calling chat template with
+  its own engine (minja), diverging from HF Transformers' render at *training*. A base model shrugs it off;
+  a hard-finetuned model (loss 0.06) overfits to the exact training prompt and shatters. Feeding the training
+  wrapper raw via `/completion` → 100% valid, 92.9%. **"Same template, different engine" is a different
+  stack — serve == train, byte for byte.** (→ `harness/models.completion_predictor`, `runner --completion`.)
+- **The eval is a *fidelity* test, not a *superiority* test — and I'd half-forgotten it.** Every reference is
+  parser-consensus + NOAA gold, so the LLM's ceiling *is* the parser (~99.9%). I teased "parse_fail is where
+  the LLM earns its keep"; the data corrected me — `parse_fail` here means "≥1 parser choked, consensus held,"
+  its reference still parser-derived. The finetune reaches 92.9% *fidelity to the parser*, never beats it.
+  Testing LLM > parser needs new data: non-conforming input the decoders get wrong, vs. **human** gold.
+
+**Next**
+
+- **E4B** for the size-scaling curve (baseline → LoRA → same completion-path eval → McNemar), same recipe.
+- **Later (user-requested):** (a) a messy-tail / human-gold eval that could actually test LLM > parser;
+  (b) research scaling the corpus past 51 stations toward *all* stations (data volume, stratified sampling,
+  storage, and what a global station set does to the messy-tail signal).

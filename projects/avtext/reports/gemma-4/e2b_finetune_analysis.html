@@ -1,0 +1,286 @@
+<title>E2B finetune — teaching Gemma-4 the conversion</title>
+<style>
+  :root{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --maxw:880px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+      --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+      --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+      --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+      --bad:#E5715F; --bad-soft:#2E1815;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+    --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+    --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+    --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+    --bad:#E5715F; --bad-soft:#2E1815;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.65;-webkit-font-smoothing:antialiased;margin:0}
+  .page{max-width:var(--maxw);margin:0 auto;padding:clamp(20px,5vw,56px) clamp(18px,5vw,40px) 72px}
+
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  a{color:var(--accent-2);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:currentColor}
+  b,strong{font-weight:650;color:var(--ink)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--inset);color:var(--ink-2);
+    padding:.08em .38em;border-radius:4px;border:1px solid var(--line)}
+  .num{font-variant-numeric:tabular-nums}
+
+  .masthead{border-bottom:1px solid var(--line);padding-bottom:34px;margin-bottom:8px}
+  h1{font-size:clamp(1.9rem,5.2vw,2.9rem);line-height:1.08;letter-spacing:-.02em;
+    text-wrap:balance;margin:.5rem 0 .2rem;font-weight:720}
+  h1 .q{color:var(--good)} h1 .a{color:var(--bad)}
+  .dek{font-size:1.12rem;color:var(--ink-2);max-width:64ch;margin:.6rem 0 0;text-wrap:pretty}
+  .strip{display:flex;flex-wrap:wrap;gap:2px 0;font-family:var(--mono);font-size:.76rem;
+    background:var(--inset);border:1px solid var(--line);border-radius:8px;
+    margin:26px 0 0;overflow:hidden}
+  .strip span{padding:8px 14px;color:var(--muted);border-right:1px solid var(--line);white-space:nowrap}
+  .strip span:last-child{border-right:0}
+  .strip b{color:var(--ink-2);font-weight:600}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 16px 14px;
+    display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden}
+  .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tint,var(--accent))}
+  .tile .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .tile .v{font-family:var(--mono);font-size:1.72rem;font-weight:640;line-height:1.1;letter-spacing:-.02em;
+    color:var(--ink);font-variant-numeric:tabular-nums}
+  .tile .v small{font-size:.9rem;color:var(--muted);font-weight:500}
+  .tile .s{font-size:.76rem;color:var(--muted)}
+  .t-good{--tint:var(--good)} .t-bad{--tint:var(--bad)} .t-accent{--tint:var(--accent)} .t-warn{--tint:var(--warn)}
+
+  section{margin-top:52px;scroll-margin-top:20px}
+  h2{font-size:1.42rem;letter-spacing:-.01em;margin:.2rem 0 .1rem;font-weight:680;text-wrap:balance}
+  .sec-no{font-family:var(--mono);font-size:.74rem;color:var(--muted);letter-spacing:.08em}
+  h3{font-size:1.02rem;margin:1.8rem 0 .4rem;font-weight:660;color:var(--ink)}
+  p{margin:.7rem 0;max-width:68ch}
+  .lede{font-size:1.06rem;color:var(--ink-2)}
+
+  .scroll{overflow-x:auto;margin:1.1rem 0;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:.72rem;
+    text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:0 0 8px}
+  th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{background:var(--surface-2);font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  td.good{color:var(--good);font-weight:640} td.bad{color:var(--bad);font-weight:640}
+  tr.total td{font-weight:680;background:var(--accent-soft);border-top:2px solid var(--line)}
+  .mono{font-family:var(--mono)}
+
+  pre{background:var(--inset);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:14px 16px;overflow-x:auto;margin:1.1rem 0;
+    font-family:var(--mono);font-size:.82rem;line-height:1.6;color:var(--ink-2)}
+  pre .raw{color:var(--muted)} pre .wrong{color:var(--bad);font-weight:600} pre .ok{color:var(--good)}
+  pre b{color:var(--ink)}
+
+  .callout{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+    border-radius:10px;padding:16px 18px;margin:1.3rem 0;font-size:1.02rem;color:var(--ink)}
+  .callout.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 34%,var(--line))}
+  .callout.good{background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 34%,var(--line))}
+  .callout .eyebrow{margin-bottom:4px;display:block}
+  ul.notes{margin:.8rem 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  ul.notes li{padding-left:18px;position:relative;max-width:70ch}
+  ul.notes li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  ul.notes li b{color:var(--ink)}
+
+  footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+  footer pre{background:var(--inset);border-left-color:var(--muted);font-size:.78rem}
+
+  @media (max-width:640px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .strip{border-radius:8px}
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="eyebrow">Phase 4 · aviation-weather decode · Gemma-4 E2B</div>
+    <h1>Finetuning <span class="q">teaches the conversion</span>.<br>The hallucination <span class="q">is gone</span>.</h1>
+    <p class="dek">A one-epoch LoRA on 3,000 examples took base Gemma-4 E2B from 69.5% to 92.9% value
+      accuracy and eliminated its 31% hallucination — 1,437 fixes against 3 regressions, p ≈ 10⁻³¹².
+      What it <em>doesn't</em> do is beat the parser it's imitating.</p>
+
+    <div class="strip" role="group" aria-label="run metadata">
+      <span>base&nbsp; <b>gemma-4-E2B-it · Q8_0</b></span>
+      <span>adapter&nbsp; <b>bf16 LoRA r=16 · 1 epoch</b></span>
+      <span>eval&nbsp; <b>v1 · sha256 60870798…</b></span>
+      <span>stack&nbsp; <b>dashi · llama.cpp</b></span>
+    </div>
+
+    <div class="tiles">
+      <div class="tile t-good"><span class="k">Value accuracy</span><span class="v">92.9% <small>← 69.5</small></span><span class="s num">+23.5 pts</span></div>
+      <div class="tile t-good"><span class="k">Hallucination</span><span class="v">0.8% <small>← 31.0</small></span><span class="s num">−30.1 pts</span></div>
+      <div class="tile t-good"><span class="k">Whole-record EM</span><span class="v">38.2% <small>← 2.4</small></span><span class="s num">16× · +35.8 pts</span></div>
+      <div class="tile t-accent"><span class="k">McNemar p (value)</span><span class="v">10⁻³¹²</span><span class="s">1437 fixes / 3 regress.</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section id="summary">
+      <div class="sec-no">01 — Executive summary</div>
+      <h2>A decisive, clean win — and an honest ceiling</h2>
+      <p class="lede">The base model reads METARs well but can't do the arithmetic a decode needs
+        (inHg→hPa, m·s⁻¹→kt, SM→m) and fabricates absent fields. One epoch of LoRA installs the
+        conversion habit and the "use null" discipline at once. The lift is large and paired-significant.</p>
+      <ul class="notes">
+        <li><b>Value accuracy 69.5% → 92.9%</b> (+23.5 pts). McNemar on paired per-field correctness:
+          <b>1,437 fixes vs. 3 regressions</b>, p ≈ 4.6×10⁻³¹² — near-zero collateral damage.</li>
+        <li><b>Hallucination 31.0% → 0.8%</b>. The safety axis, essentially closed — the finetune learned
+          to emit <code>null</code> instead of inventing a value.</li>
+        <li><b>Whole-record exact match 2.4% → 38.2%</b> (16×; 223 records fixed, 1 regressed). 38% of
+          reports are now decoded <em>perfectly</em>, all 11 fields.</li>
+        <li><b>The improvement is uniform across difficulty</b> — clean +24.2, dissent +23.4, parse_fail
+          +20.6 — so it's a genuine skill, not overfit to easy records.</li>
+      </ul>
+      <div class="callout warn"><span class="eyebrow">The ceiling</span>
+        Every reference in <code>eval/v1</code> comes from the parser consensus + NOAA gold. By construction
+        this is a <b>fidelity test, not a superiority test</b>: the LLM's ceiling <em>is</em> the parser
+        (~99.9%). The finetune reaches 92.9% fidelity to that oracle — it approaches the parser, it never
+        exceeds it. Demonstrating LLM&nbsp;&gt;&nbsp;parser needs a different eval (§6).</div>
+    </section>
+
+    <section id="result">
+      <div class="sec-no">02 — Before / after</div>
+      <h2>Base vs. finetuned, on the same 620 records</h2>
+      <p>Both models served on the same box (dashi, llama.cpp, Q8 base), scored against the same frozen
+        eval, same prompt, temperature 0. Each is served in its <em>correct</em> mode — the base via its
+        chat template, the finetune via its exact training prompt (see §5).</p>
+      <div class="scroll">
+        <table>
+          <caption>Overall metrics</caption>
+          <thead><tr><th>Metric</th><th class="n">Base</th><th class="n">Finetuned</th><th class="n">Δ</th></tr></thead>
+          <tbody>
+            <tr><td>Value accuracy (recall)</td><td class="n">69.5%</td><td class="n good">92.9%</td><td class="n good">+23.5</td></tr>
+            <tr><td>Hallucination rate</td><td class="n">31.0%</td><td class="n good">0.8%</td><td class="n good">−30.1</td></tr>
+            <tr><td>Whole-record EM</td><td class="n">2.4%</td><td class="n good">38.2%</td><td class="n good">+35.8</td></tr>
+            <tr><td>JSON-valid</td><td class="n">98.9%</td><td class="n">100%</td><td class="n">+1.1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="scroll">
+        <table>
+          <caption>Value accuracy by difficulty label</caption>
+          <thead><tr><th>Label</th><th class="n">Base</th><th class="n">Finetuned</th><th class="n">Δ</th></tr></thead>
+          <tbody>
+            <tr><td>clean</td><td class="n">69.5%</td><td class="n good">93.6%</td><td class="n good">+24.2</td></tr>
+            <tr><td>dissent</td><td class="n">68.8%</td><td class="n good">92.3%</td><td class="n good">+23.4</td></tr>
+            <tr><td>parse_fail</td><td class="n">70.2%</td><td class="n good">90.9%</td><td class="n good">+20.6</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Note on <code>parse_fail</code>:</b> in this eval that label means "≥1 of the 3 parsers choked,
+        but the consensus of the others still produced a reference" — <em>not</em> "no parser could read it."
+        Its reference is still parser-derived, which is why it can't be the place the LLM "beats" the parser.</p>
+    </section>
+
+    <section id="fixed">
+      <div class="sec-no">03 — What the finetune fixed</div>
+      <h2>Conversions the base could not do at all</h2>
+      <p>The base model's errors concentrated in two places: it never converted units, and it fabricated a
+        <code>wind_gust</code> when none was reported (167 of its 220 hallucinations — 76% — were invented
+        gusts). The finetune addresses both directly, because the SFT targets carry the correct conversions
+        and correct <code>null</code>s.</p>
+      <pre><span class="raw">KSEA … A2994 …</span>   inHg→hPa   base <span class="wrong">null / 29.94</span>   →  finetuned <span class="ok">1014 ✓</span>
+<span class="raw">UUWW … 16005MPS …</span>  m·s⁻¹→kt   base <span class="wrong">null / 16</span>      →  finetuned <span class="ok">10 ✓</span>
+<span class="raw">… 10SM …</span>          SM→metres  base <span class="wrong">10</span>           →  finetuned <span class="ok">16100 ✓</span>
+<span class="raw">… (no gust group)</span>  wind_gust  base <span class="wrong">fabricated</span>    →  finetuned <span class="ok">null ✓</span></pre>
+      <div class="callout"><span class="eyebrow">The nuance</span>
+        LoRA installs the conversion <em>behaviour</em> — the model now attempts every conversion, where
+        before it did none. Precision is capped by model size: a 2B model does the multiply approximately,
+        so <code>A2979</code> can still land on 1014 instead of 1009. It's a faithful <em>approximate</em>
+        converter, which is exactly why value accuracy climbs to 93% but whole-record EM stops at 38%.</div>
+    </section>
+
+    <section id="serving">
+      <div class="sec-no">04 — The serving bug that hid the win</div>
+      <h2>Template drift: minja vs. HF</h2>
+      <p>The first finetuned eval scored only <b>73.5% JSON-valid</b> — the model emitted the turn delimiter
+        <code>&lt;|turn&gt;model</code> as literal text instead of JSON, on 164 of 620 records. It was not a
+        model failure. Gemma-4's chat template is a large tool-calling template; at serve time llama.cpp
+        renders it with its own engine (<b>minja</b>), which diverges subtly from how HF Transformers rendered
+        the same template at training. A base model tolerates the drift; a hard-finetuned model (train loss
+        0.06) overfits to the exact training prompt and falls off distribution.</p>
+      <p>Fed the <em>exact</em> training-format prompt via the raw <code>/completion</code> endpoint, every
+        broken record produced clean JSON (<code>stop=eos</code>). The harness gained a <code>--completion</code>
+        path that reproduces the training wrapper byte-for-byte, sidestepping the server's template engine.</p>
+      <div class="scroll"><table>
+        <caption>Same adapter, two serving paths</caption>
+        <thead><tr><th>Serving path</th><th class="n">JSON-valid</th><th class="n">Value acc</th></tr></thead>
+        <tbody>
+          <tr><td>chat template (<code>--jinja</code>)</td><td class="n bad">73.5%</td><td class="n">68.2%</td></tr>
+          <tr><td>raw <code>/completion</code> (train format)</td><td class="n good">100%</td><td class="n good">92.9%</td></tr>
+        </tbody>
+      </table></div>
+      <p class="lede">Lesson: a before/after must never cross serving stacks — and for a hard-finetuned model,
+        "same template, different engine" <em>is</em> a different stack. Serve == train, byte for byte.</p>
+    </section>
+
+    <section id="limit">
+      <div class="sec-no">05 — Is it viable?</div>
+      <h2>Works decisively; usefulness is a separate question</h2>
+      <p>Two honest headlines sit side by side. <b>The finetune works</b> — large, uniform, paired-significant.
+        And <b>this eval cannot tell us if the model is <em>useful</em></b>, only that it faithfully mimics the
+        parser that defines its ground truth. As a production METAR decoder the LLM is not viable — a 200-line
+        parser does clean decode at ~99.9%, instantly, with zero hallucination. As a <em>learning vehicle</em>
+        this is close to ideal: formal grammar means perfect ground truth, a crisp measurable skill, and a
+        textbook before/after.</p>
+      <p>The genuinely interesting frontier — where an LLM could beat a parser — is <b>non-conforming input the
+        automated decoders get wrong</b>, validated against independent human gold. That data does not exist in
+        <code>eval/v1</code> and is the next investment worth making.</p>
+    </section>
+
+    <section id="train">
+      <div class="sec-no">06 — Training &amp; reproducibility</div>
+      <h2>The recipe</h2>
+      <ul class="notes">
+        <li><b>Base:</b> <code>unsloth/gemma-4-E2B-it</code> (5.15B params, Dense+PLE). Unsloth 2026.7.6 has
+          native <em>Fast Gemma4 patching</em> — <code>FastLanguageModel</code> loads the PLE arch directly.</li>
+        <li><b>Adapter:</b> bf16 LoRA, <b>r=16</b>, α=32, dropout 0, on q/k/v/o/gate/up/down_proj →
+          25.3M trainable (0.49%). Adapters attach to the language tower only.</li>
+        <li><b>Data:</b> 3,000 conversion-heavy pairs from the disjoint train split (held-out stations
+          excluded, before the time boundary). Targets are gold-validated consensus decodes.</li>
+        <li><b>Schedule:</b> lr 2×10⁻⁴, batch 8 × grad-accum 2, 1 epoch = 188 steps. Loss 1.73 → 0.15.
+          ~34 min on dashi's Radeon 8060S (gfx1151, ROCm 7.2, ~10.5 s/step).</li>
+        <li><b>Deploy:</b> LoRA → GGUF (<code>convert_lora_to_gguf.py</code>, 50.7 MB) → served as base Q8 +
+          adapter on llama.cpp, evaluated via <code>--completion</code>.</li>
+      </ul>
+      <div class="callout good"><span class="eyebrow">Context</span>
+        This is the study's <b>first result on real Gemma-4</b>. Earlier sessions conflated Gemma-4 (released
+        2026-04-02, after the assistant's knowledge cutoff) with Gemma-3n and unknowingly measured gemma-3n
+        under a gemma-4 label. All that work is archived under <code>reports/gemma-3/</code>; the redo starts here.</div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Reproducibility — every number re-derives from the frozen eval and the run artifacts:</p>
+    <pre>eval        v1 · sha256 608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba
+prompt      decode-json-v1 · decode temp 0 · max_tokens 256
+base run    reports/gemma-4/runs/20260730T111552Z-gemma-4-e2b-it-q8/
+finetuned   reports/gemma-4/runs/20260730T130553Z-gemma-4-e2b-it-q8-lora/  (served via --completion)
+compare     python -m avtext.harness.compare &lt;base&gt; &lt;finetuned&gt;</pre>
+  </footer>
+</div>

@@ -17,6 +17,11 @@ import httpx
 
 from avtext.harness.prompt import format_prompt, parse_prediction
 
+# Gemma-4's chat turn wrapper, exactly as Unsloth's tokenizer renders it at train time.
+# A hard-finetuned model overfits to this precise string; see completion_predictor for why
+# reproducing it byte-for-byte (rather than trusting the server's --jinja render) matters.
+GEMMA4_TURN_WRAP = "<|turn>user\n{}<turn|>\n<|turn>model\n"
+
 
 def http_predictor(
     base_url: str,
@@ -42,5 +47,39 @@ def http_predictor(
         resp.raise_for_status()
         text = resp.json()["choices"][0]["message"]["content"]
         return parse_prediction(text)
+
+    return predict
+
+
+def completion_predictor(
+    base_url: str,
+    wrapper: str = GEMMA4_TURN_WRAP,
+    *,
+    temperature: float = 0.0,
+    max_tokens: int = 256,
+    timeout: float = 180.0,
+):
+    """A Predictor that POSTs a pre-templated prompt to the raw `/completion` endpoint.
+
+    Why this exists: the chat path (`/v1/chat/completions` + `--jinja`) makes llama.cpp render
+    the model's chat template with its own engine (minja), which can differ subtly from how HF
+    Transformers rendered the SAME template at training. A base model tolerates the drift; a hard
+    LoRA-finetuned model (train loss ~0.06) overfits to the exact training prompt and falls off
+    distribution — emitting turn-delimiter garbage instead of JSON. Reproducing the training
+    wrapper byte-for-byte here and sending it raw sidesteps the server's template engine entirely,
+    so serve == train. The server still prepends BOS. `wrapper` has one `{}` for format_prompt."""
+    client = httpx.Client(base_url=base_url, timeout=timeout)
+
+    def predict(raw: str) -> dict | None:
+        resp = client.post(
+            "/completion",
+            json={
+                "prompt": wrapper.format(format_prompt(raw)),
+                "n_predict": max_tokens,
+                "temperature": temperature,
+            },
+        )
+        resp.raise_for_status()
+        return parse_prediction(resp.json().get("content", ""))
 
     return predict

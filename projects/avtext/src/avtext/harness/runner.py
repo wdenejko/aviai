@@ -231,11 +231,24 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int, default=256)
     ap.add_argument("--limit", type=int, default=None, help="smoke-test on the first N records")
+    # Runs are namespaced by model family (reports/gemma-4/runs, reports/gemma-3/runs) so a
+    # model-family pivot never silently mixes results — default keeps the pre-split layout.
+    ap.add_argument("--out-dir", default=str(_RUNS), help="where to write reports/<...>/runs")
+    # Finetuned models overfit to the exact training prompt; the chat-template render can drift
+    # (minja vs HF). --completion sends the raw training wrapper to /completion so serve==train.
+    ap.add_argument("--completion", action="store_true", help="use raw /completion, not chat")
     args = ap.parse_args()
 
-    predict = http_predictor(
-        args.base_url, args.model, temperature=args.temperature, max_tokens=args.max_tokens
-    )
+    if args.completion:
+        from avtext.harness.models import completion_predictor
+
+        predict = completion_predictor(
+            args.base_url, temperature=args.temperature, max_tokens=args.max_tokens
+        )
+    else:
+        predict = http_predictor(
+            args.base_url, args.model, temperature=args.temperature, max_tokens=args.max_tokens
+        )
     model_id = args.model_id or Path(args.model).name
     if args.limit:
         model_id = f"{model_id} (smoke {args.limit})"
@@ -245,7 +258,7 @@ def main() -> None:
         decode_params={"temperature": args.temperature, "max_tokens": args.max_tokens},
         limit=args.limit,
     )
-    out = write_report(result)
+    out = write_report(result, base=Path(args.out_dir))
     print(f"report -> {out}")
 
 
