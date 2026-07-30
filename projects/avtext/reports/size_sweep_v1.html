@@ -1,0 +1,255 @@
+<title>Small-model size sweep — aviation decode</title>
+<style>
+  :root{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --maxw:900px;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+    --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+    --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+    --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+    --bad:#E5715F; --bad-soft:#2E1815;
+  }}
+  :root[data-theme="light"]{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+    --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+    --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+    --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+    --bad:#E5715F; --bad-soft:#2E1815;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;-webkit-font-smoothing:antialiased;margin:0}
+  .page{max-width:var(--maxw);margin:0 auto;padding:clamp(20px,5vw,56px) clamp(18px,5vw,40px) 72px}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  a{color:var(--accent-2);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:currentColor}
+  b,strong{font-weight:650;color:var(--ink)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--inset);color:var(--ink-2);padding:.08em .38em;border-radius:4px;border:1px solid var(--line)}
+
+  .masthead{border-bottom:1px solid var(--line);padding-bottom:34px}
+  h1{font-size:clamp(1.9rem,5vw,2.8rem);line-height:1.1;letter-spacing:-.02em;text-wrap:balance;margin:.5rem 0 .2rem;font-weight:720}
+  h1 .up{color:var(--good)} h1 .flat{color:var(--bad)}
+  .dek{font-size:1.12rem;color:var(--ink-2);max-width:66ch;margin:.6rem 0 0;text-wrap:pretty}
+  .strip{display:flex;flex-wrap:wrap;font-family:var(--mono);font-size:.76rem;background:var(--inset);border:1px solid var(--line);border-radius:8px;margin:26px 0 0;overflow:hidden}
+  .strip span{padding:8px 14px;color:var(--muted);border-right:1px solid var(--line);white-space:nowrap}
+  .strip span:last-child{border-right:0}
+  .strip b{color:var(--ink-2);font-weight:600}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden}
+  .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tint,var(--accent))}
+  .tile .k{font-family:var(--mono);font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .tile .v{font-family:var(--mono);font-size:1.7rem;font-weight:640;line-height:1.12;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
+  .tile .s{font-size:.75rem;color:var(--muted)}
+  .t-good{--tint:var(--good)} .t-bad{--tint:var(--bad)} .t-accent{--tint:var(--accent)} .t-warn{--tint:var(--warn)}
+
+  section{margin-top:52px}
+  .sec-no{font-family:var(--mono);font-size:.74rem;color:var(--muted);letter-spacing:.08em}
+  h2{font-size:1.42rem;letter-spacing:-.01em;margin:.2rem 0 .1rem;font-weight:680;text-wrap:balance}
+  p{margin:.7rem 0;max-width:68ch}
+  .lede{font-size:1.06rem;color:var(--ink-2)}
+
+  .scroll{overflow-x:auto;margin:1.1rem 0;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  th,td{padding:9px 13px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{background:var(--surface-2);font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  tr.anchor td{font-weight:680;background:var(--accent-soft)}
+  tr.anchor td:first-child{color:var(--accent)}
+  .mono{font-family:var(--mono)}
+
+  /* scaling visual */
+  .chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 22px;margin:1.2rem 0}
+  .crow{display:grid;grid-template-columns:112px 1fr;gap:16px;align-items:center;padding:15px 0;border-top:1px solid var(--line)}
+  .crow:first-child{border-top:0}
+  .cname{font-weight:640;font-size:.95rem}
+  .cname small{display:block;font-weight:400;color:var(--muted);font-size:.75rem;font-family:var(--mono)}
+  .bars{display:flex;flex-direction:column;gap:8px}
+  .bar{display:grid;grid-template-columns:96px 1fr 44px;gap:12px;align-items:center}
+  .bar .lab{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
+  .track{position:relative;display:block;height:19px;background:var(--inset);border-radius:5px;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;width:var(--w);min-width:3px}
+  .fill.g{background:var(--good);background:linear-gradient(90deg,var(--good),color-mix(in srgb,var(--good) 78%,#fff))}
+  .fill.b{background:var(--bad);background:linear-gradient(90deg,var(--bad),color-mix(in srgb,var(--bad) 80%,#fff))}
+  .fill.a{background:var(--accent);background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 72%,#fff))}
+  .pct{font-family:var(--mono);font-weight:660;font-variant-numeric:tabular-nums;text-align:right;font-size:.88rem}
+  .pct.g{color:var(--good)} .pct.b{color:var(--bad)} .pct.a{color:var(--accent-2)}
+
+  /* two failure-mode cards */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.2rem 0}
+  .mode{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--surface)}
+  .mode.reckless{border-top:3px solid var(--bad)}
+  .mode.safe{border-top:3px solid var(--good)}
+  .mode h3{margin:.1rem 0 .5rem;font-size:1.05rem}
+  .mode .tag{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em}
+  .mode.reckless .tag{color:var(--bad)} .mode.safe .tag{color:var(--good)}
+  .mode ul{margin:.6rem 0 0;padding-left:1.1em} .mode li{margin:.25rem 0;font-size:.92rem;color:var(--ink-2)}
+  .mode li b{color:var(--ink);font-family:var(--mono)}
+
+  .callout{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:10px;padding:16px 18px;margin:1.3rem 0;font-size:1.02rem}
+  .callout .eyebrow{display:block;margin-bottom:4px}
+  ul.notes{margin:.8rem 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  ul.notes li{padding-left:18px;position:relative;max-width:70ch}
+  ul.notes li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  ul.notes li b{color:var(--ink)}
+  footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+
+  @media (max-width:640px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .modes{grid-template-columns:1fr}
+    .crow{grid-template-columns:1fr;gap:8px}
+    .bar{grid-template-columns:1fr auto;gap:8px 10px}
+    .bar .lab{grid-column:1/-1}
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="eyebrow">Small-model size sweep · aviation decode</div>
+    <h1>Bigger models <span class="up">read better</span>.<br>None can <span class="flat">convert units</span>.</h1>
+    <p class="dek">Five small models — a Gemma ladder from 270M to 4B, plus a Qwen point — decoding 620 held-out
+      METARs on dashi via llama.cpp. Decode accuracy scales cleanly with size; unit conversion stays pinned at
+      zero at every rung, including 4B.</p>
+    <div class="strip">
+      <span>server&nbsp; <b>dashi · Strix Halo</b></span>
+      <span>serving&nbsp; <b>llama.cpp · Q8_0 GGUF</b></span>
+      <span>eval&nbsp; <b>v1 · sha256 60870798…</b></span>
+      <span>prompt&nbsp; <b>decode-json-v1</b></span>
+    </div>
+    <div class="tiles">
+      <div class="tile t-accent"><span class="k">Value-acc range</span><span class="v">17→69%</span><span class="s">270M → 4B</span></div>
+      <div class="tile t-bad"><span class="k">inHg→hPa</span><span class="v">≤1%</span><span class="s">every size, incl. 4B</span></div>
+      <div class="tile t-good"><span class="k">E4B anchor</span><span class="v">69%</span><span class="s">Phase-4 number to beat</span></div>
+      <div class="tile t-warn"><span class="k">Stack gap</span><span class="v">−9 pts</span><span class="s">vs M5 MLX — not quant</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="sec-no">01 — Results</div>
+      <h2>The whole ladder</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Model</th><th class="n">Params</th><th class="n">Value-acc</th><th class="n">Halluc</th><th class="n">EM</th><th class="n">JSON</th><th class="n">inHg→hPa</th><th class="n">m/s→kt</th></tr></thead>
+          <tbody>
+            <tr><td>Gemma 3 270M</td><td class="n">0.27B</td><td class="n">17%</td><td class="n">67%</td><td class="n">0%</td><td class="n">69%</td><td class="n">0%</td><td class="n">0%</td></tr>
+            <tr><td>Qwen2.5 0.5B</td><td class="n">0.5B</td><td class="n">5%</td><td class="n">1%</td><td class="n">0%</td><td class="n">99%</td><td class="n">0%</td><td class="n">0%</td></tr>
+            <tr><td>Gemma 3 1B</td><td class="n">1B</td><td class="n">26%</td><td class="n">20%</td><td class="n">0%</td><td class="n">90%</td><td class="n">0%</td><td class="n">0%</td></tr>
+            <tr><td>Gemma-3n E2B</td><td class="n">~2B</td><td class="n">51%</td><td class="n">10%</td><td class="n">0%</td><td class="n">92%</td><td class="n">0%</td><td class="n">2%</td></tr>
+            <tr class="anchor"><td>Gemma-3n E4B</td><td class="n">~4B</td><td class="n">69%</td><td class="n">8%</td><td class="n">4%</td><td class="n">99%</td><td class="n">1%</td><td class="n">1%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lede">Read the Gemma rows top-to-bottom for the clean size curve. Qwen-0.5B is the one cross-family
+        point — and it fails in the opposite direction (see §3).</p>
+    </section>
+
+    <section>
+      <div class="sec-no">02 — The core finding</div>
+      <h2>Decode scales. Conversion doesn't.</h2>
+      <p>For each model: <b>value accuracy</b> (does size help reading?) beside <b>inHg→hPa</b> (the hardest
+        conversion). The green bars climb with size; the red stays flat on the floor.</p>
+      <div class="chart" role="img" aria-label="Value accuracy rises with model size — 17, 26, 51, 69 percent for the Gemma ladder — while inHg-to-hPa conversion stays at 0 to 1 percent at every size.">
+        <div class="crow"><div class="cname">270M<small>Gemma 3</small></div><div class="bars">
+          <div class="bar"><span class="lab">value-acc</span><span class="track"><span class="fill g" style="--w:17%"></span></span><span class="pct g">17%</span></div>
+          <div class="bar"><span class="lab">inHg→hPa</span><span class="track"><span class="fill b" style="--w:0%"></span></span><span class="pct b">0%</span></div>
+        </div></div>
+        <div class="crow"><div class="cname">0.5B<small>Qwen2.5</small></div><div class="bars">
+          <div class="bar"><span class="lab">value-acc</span><span class="track"><span class="fill g" style="--w:5%"></span></span><span class="pct g">5%</span></div>
+          <div class="bar"><span class="lab">inHg→hPa</span><span class="track"><span class="fill b" style="--w:0%"></span></span><span class="pct b">0%</span></div>
+        </div></div>
+        <div class="crow"><div class="cname">1B<small>Gemma 3</small></div><div class="bars">
+          <div class="bar"><span class="lab">value-acc</span><span class="track"><span class="fill g" style="--w:26%"></span></span><span class="pct g">26%</span></div>
+          <div class="bar"><span class="lab">inHg→hPa</span><span class="track"><span class="fill b" style="--w:0%"></span></span><span class="pct b">0%</span></div>
+        </div></div>
+        <div class="crow"><div class="cname">2B<small>Gemma-3n E2B</small></div><div class="bars">
+          <div class="bar"><span class="lab">value-acc</span><span class="track"><span class="fill g" style="--w:51%"></span></span><span class="pct g">51%</span></div>
+          <div class="bar"><span class="lab">inHg→hPa</span><span class="track"><span class="fill b" style="--w:0%"></span></span><span class="pct b">0%</span></div>
+        </div></div>
+        <div class="crow"><div class="cname">4B<small>Gemma-3n E4B</small></div><div class="bars">
+          <div class="bar"><span class="lab">value-acc</span><span class="track"><span class="fill g" style="--w:69%"></span></span><span class="pct g">69%</span></div>
+          <div class="bar"><span class="lab">inHg→hPa</span><span class="track"><span class="fill b" style="--w:1%"></span></span><span class="pct b">1%</span></div>
+        </div></div>
+      </div>
+      <div class="callout"><span class="eyebrow">Why it matters</span>
+        Unit conversion isn't a scaling problem — it's a <b>capability none of these models have</b>, confirmed
+        across five. That makes it the clean finetuning lever, and it's missing at every size. A small model that
+        <em>learned</em> the ×33.86 and ×1.94 mappings could jump disproportionately.</div>
+    </section>
+
+    <section>
+      <div class="sec-no">03 — The tiny end</div>
+      <h2>Two ways to fail at ~0.5B</h2>
+      <p>Same size class, opposite personalities — and the family, not the size, decides which.</p>
+      <div class="modes">
+        <div class="mode reckless">
+          <div class="tag">Reckless</div>
+          <h3>Gemma 3 270M</h3>
+          <ul>
+            <li>hallucination <b>67%</b> — fabricates a value for almost every absent field</li>
+            <li>JSON-valid <b>69%</b> — often can't even format</li>
+            <li>value-acc <b>17%</b> — confident and wrong</li>
+          </ul>
+        </div>
+        <div class="mode safe">
+          <div class="tag">Conservative</div>
+          <h3>Qwen2.5 0.5B</h3>
+          <ul>
+            <li>abstains on <b>~60%</b> of fields — mostly emits null</li>
+            <li>hallucination <b>1%</b> · JSON-valid <b>99%</b></li>
+            <li>value-acc <b>5%</b> — safe and empty</li>
+          </ul>
+        </div>
+      </div>
+      <p>For a safety domain, Qwen's silence beats Gemma-270M's confident fabrication. Hallucination otherwise
+        <b>shrinks with Gemma size</b> — 67% → 20% → 10% → 8% — so bigger Gemma is also safer Gemma.</p>
+    </section>
+
+    <section>
+      <div class="sec-no">04 — Stack</div>
+      <h2>The serving stack is worth ~9 points</h2>
+      <p>The <b>same E4B</b> scores <b>69% here</b> (dashi · llama.cpp · Q8_0) versus <b>77.8% on the M5</b>
+        (MLX · 4-bit). Q8 is <em>higher</em> fidelity than 4-bit, so this isn't quantization — it's the stack,
+        most likely llama.cpp's Gemma-3n implementation (a tricky Per-Layer-Embeddings / MatFormer architecture)
+        being less faithful than MLX, or a chat-template difference.</p>
+      <div class="callout"><span class="eyebrow">Consequence</span>
+        A paired before/after must never cross stacks. Phase 4 trains and evaluates on dashi, so the anchor is the
+        same-stack <b>69%</b>, not 77.8%. Re-running the baseline here was the right call.</div>
+    </section>
+
+    <section>
+      <div class="sec-no">05 — Phase 4</div>
+      <h2>What the sweep hands the finetune</h2>
+      <ul class="notes">
+        <li><b>Confirmed lever:</b> LoRA the unit conversions — the gap is universal, so the target is real at
+          every size.</li>
+        <li><b>Richer question:</b> does finetuning help more at small or large sizes? Can a finetuned 1–2B reach
+          base-4B decode? A small model that gains conversion <em>and</em> sheds the reckless hallucination is the
+          on-device story worth chasing.</li>
+        <li><b>Success criterion:</b> beat the E4B anchor (69% value-acc, 4% EM) <em>without</em> raising the 8%
+          hallucination, verified by a McNemar paired test on the same 620 records.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Reproduce: <code>~/serve.sh &lt;gguf&gt; &lt;alias&gt;</code> on dashi, then
+    <code>make harness MODEL=&lt;alias&gt; BASE=http://192.168.0.131:8080</code>.
+    Anchor: eval <code>sha256 60870798…</code> · prompt <code>decode-json-v1</code> · temp 0.
+    Full write-up: <code>reports/size_sweep_v1.md</code>.
+  </footer>
+</div>
