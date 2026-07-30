@@ -624,3 +624,34 @@ why redoing the baseline on dashi was right.
 
 **Lesson:** the inference stack is part of the measurement, worth ~9 points on a hard arch — a before/after must
 never cross stacks. **Next:** plan the LoRA finetune (Unsloth on dashi), targeting the universal conversion gap.
+
+---
+
+## Session 16 — 2026-07-30 · Phase 4 training stack: Unsloth bf16 LoRA on Strix Halo (ROCm)
+
+Stood up a real GPU finetuning stack on dashi's AMD iGPU — a frontier combo (Unsloth is
+CUDA-first; gfx1151 is new silicon). Full runbook + traps: ADR-008. Built layer by layer,
+checkpointing each:
+
+1. **PyTorch-ROCm sees the GPU.** `torch 2.11+rocm7.2` → `cuda.is_available()==True`, device
+   "AMD Radeon 8060S", real matmul — **natively, no HSA override** (ROCm 7.2 has genuine
+   gfx1151 support). The make-or-break layer, and it cleared first try.
+2. **Unsloth bf16 LoRA loads on the GPU.** `unsloth[amd]`; no QLoRA/bitsandbytes quantisation
+   needed at ≤4B on 123 GiB (though bnb must still be *importable* — Unsloth loads Linear4bit
+   during patching).
+3. **SFT data** (`finetune/build_sft.py`): 3000 conversion-heavy pairs from the disjoint train
+   split — targets carry the CORRECT conversions (`18005MPS -> wind_kt 10`, A-reports -> hPa),
+   inHg 1195 / m/s 333. (Caught + fixed a coverage bug: the row cap starved MPS to 0 until I
+   interleaved stations by md5.)
+4. **Training loop works** (`finetune/train_lora.py`): gemma-3-1b smoke, loss 3.75 → 3.57,
+   adapter saved. Full 1-epoch 1B run launched.
+
+**Traps worth remembering (each cost a cycle):** system Python 3.14 has no ML wheels (pin
+3.12); uv rejects the bnb preview wheel's non-PEP440 version "1.33.7.preview" (use pip);
+bitsandbytes is imported even for bf16; Unsloth's SFTTrainer won't auto-format `{"messages"}`
+(apply the chat template into a `text` field yourself).
+
+**Cost:** ~14 s/step for a 1B LoRA — early ROCm, no CK/flash-attn on gfx1151, so no fast
+iteration, but it trains. **Next:** finish the 1B run, merge -> GGUF, serve on dashi:8080,
+re-run the frozen harness, McNemar the finetuned-1b vs base-1b (26%). Then test whether Unsloth
+can load gemma-3n for the E4B anchor.
