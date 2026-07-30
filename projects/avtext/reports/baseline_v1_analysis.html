@@ -1,0 +1,463 @@
+<title>Baseline analysis — Gemma-4-E4B on eval/v1</title>
+<style>
+  :root{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --maxw:880px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+      --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+      --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+      --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+      --bad:#E5715F; --bad-soft:#2E1815;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#EDF1F6; --inset:#F0F3F7;
+    --ink:#16202B; --ink-2:#37485A; --muted:#647587; --line:#DBE2EB;
+    --accent:#14507D; --accent-2:#1E6BA0; --accent-soft:#E7EFF6;
+    --good:#2E7D5B; --good-soft:#E4F1EA; --warn:#B7791F; --warn-soft:#F7EEDC;
+    --bad:#BE3A2B; --bad-soft:#F7E6E3;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1219; --surface:#141C25; --surface-2:#1B2531; --inset:#111A23;
+    --ink:#E7EEF4; --ink-2:#C4D0DC; --muted:#8697A7; --line:#25313F;
+    --accent:#5AA6E0; --accent-2:#7FBCEC; --accent-soft:#15283A;
+    --good:#54B584; --good-soft:#142A20; --warn:#D9A441; --warn-soft:#2C2413;
+    --bad:#E5715F; --bad-soft:#2E1815;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.65;-webkit-font-smoothing:antialiased;margin:0}
+  .page{max-width:var(--maxw);margin:0 auto;padding:clamp(20px,5vw,56px) clamp(18px,5vw,40px) 72px}
+
+  /* ---- shared bits ---- */
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  a{color:var(--accent-2);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:currentColor}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+  b,strong{font-weight:650;color:var(--ink)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--inset);color:var(--ink-2);
+    padding:.08em .38em;border-radius:4px;border:1px solid var(--line)}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ---- masthead ---- */
+  .masthead{border-bottom:1px solid var(--line);padding-bottom:34px;margin-bottom:8px}
+  h1{font-size:clamp(1.9rem,5.2vw,2.9rem);line-height:1.08;letter-spacing:-.02em;
+    text-wrap:balance;margin:.5rem 0 .2rem;font-weight:720}
+  h1 .q{color:var(--good)} h1 .a{color:var(--bad)}
+  .dek{font-size:1.12rem;color:var(--ink-2);max-width:64ch;margin:.6rem 0 0;text-wrap:pretty}
+  .strip{display:flex;flex-wrap:wrap;gap:2px 0;font-family:var(--mono);font-size:.76rem;
+    background:var(--inset);border:1px solid var(--line);border-radius:8px;
+    margin:26px 0 0;overflow:hidden}
+  .strip span{padding:8px 14px;color:var(--muted);border-right:1px solid var(--line);white-space:nowrap}
+  .strip span:last-child{border-right:0}
+  .strip b{color:var(--ink-2);font-weight:600}
+
+  /* ---- stat tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 16px 14px;
+    display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden}
+  .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tint,var(--accent))}
+  .tile .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .tile .v{font-family:var(--mono);font-size:1.86rem;font-weight:640;line-height:1.1;letter-spacing:-.02em;
+    color:var(--ink);font-variant-numeric:tabular-nums}
+  .tile .s{font-size:.76rem;color:var(--muted)}
+  .t-good{--tint:var(--good)} .t-bad{--tint:var(--bad)} .t-accent{--tint:var(--accent)} .t-warn{--tint:var(--warn)}
+
+  /* ---- sections ---- */
+  section{margin-top:52px;scroll-margin-top:20px}
+  h2{font-size:1.42rem;letter-spacing:-.01em;margin:.2rem 0 .1rem;font-weight:680;text-wrap:balance}
+  .sec-no{font-family:var(--mono);font-size:.74rem;color:var(--muted);letter-spacing:.08em}
+  h3{font-size:1.02rem;margin:1.8rem 0 .4rem;font-weight:660;color:var(--ink)}
+  p{margin:.7rem 0;max-width:68ch}
+  .lede{font-size:1.06rem;color:var(--ink-2)}
+
+  /* ---- tables ---- */
+  .scroll{overflow-x:auto;margin:1.1rem 0;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:.72rem;
+    text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:0 0 8px}
+  th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{background:var(--surface-2);font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  tr.total td{font-weight:680;background:var(--accent-soft);border-top:2px solid var(--line)}
+  tr.total td:first-child{color:var(--accent)}
+  .mono{font-family:var(--mono)}
+
+  /* ---- conversion cliff ---- */
+  .cliff{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 22px;margin:1.2rem 0}
+  .cfield{display:grid;grid-template-columns:104px 1fr;gap:16px;align-items:center;
+    padding:16px 0;border-top:1px solid var(--line)}
+  .cfield:first-child{border-top:0}
+  .cname{font-weight:640;font-size:.98rem}
+  .cbars{display:flex;flex-direction:column;gap:9px}
+  .crow{display:grid;grid-template-columns:206px 1fr 44px;gap:14px;align-items:center}
+  .crow .lab{font-family:var(--mono);font-size:.75rem;color:var(--muted);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .track{position:relative;display:block;height:20px;background:var(--inset);border-radius:5px;overflow:hidden}
+  .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;width:var(--w);min-width:4px}
+  .fill.g{background:var(--good);background:linear-gradient(90deg,var(--good),color-mix(in srgb,var(--good) 78%,#fff))}
+  .fill.b{background:var(--bad);background:linear-gradient(90deg,var(--bad),color-mix(in srgb,var(--bad) 80%,#fff))}
+  .fill.w{background:var(--warn);background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn) 80%,#fff))}
+  .pct{font-family:var(--mono);font-weight:660;font-variant-numeric:tabular-nums;text-align:right;font-size:.9rem}
+  .pct.g{color:var(--good)} .pct.b{color:var(--bad)} .pct.w{color:var(--warn)}
+  @media (max-width:640px){
+    .cfield{grid-template-columns:1fr;gap:8px}
+    .crow{grid-template-columns:1fr auto;gap:8px 10px}
+    .crow .lab{grid-column:1/-1}
+  }
+
+  /* ---- code blocks ---- */
+  pre{background:var(--inset);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:14px 16px;overflow-x:auto;margin:1.1rem 0;
+    font-family:var(--mono);font-size:.82rem;line-height:1.6;color:var(--ink-2)}
+  pre .raw{color:var(--muted)} pre .wrong{color:var(--bad);font-weight:600} pre .ok{color:var(--good)}
+  pre b{color:var(--ink)}
+
+  /* ---- callouts ---- */
+  .callout{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+    border-radius:10px;padding:16px 18px;margin:1.3rem 0;font-size:1.02rem;color:var(--ink)}
+  .callout .eyebrow{margin-bottom:4px;display:block}
+  .audit{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 22px 16px;margin:1.2rem 0}
+  .audit h3{margin-top:1.3rem}
+  .pill{display:inline-block;font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.04em;
+    padding:2px 8px;border-radius:999px;vertical-align:middle}
+  .pill.fixed{background:var(--bad-soft);color:var(--bad)}
+  .pill.clean{background:var(--good-soft);color:var(--good)}
+  ul.notes{margin:.8rem 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+  ul.notes li{padding-left:18px;position:relative;max-width:70ch}
+  ul.notes li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  ul.notes li b{color:var(--ink)}
+
+  footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.84rem}
+  footer pre{background:var(--inset);border-left-color:var(--muted);font-size:.78rem}
+
+  @media (max-width:640px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .strip{border-radius:8px}
+    .cliff .row{grid-template-columns:1fr}
+    .cliff .field{grid-row:auto;margin-bottom:2px}
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="eyebrow">Phase 3 baseline · aviation-weather decode</div>
+    <h1>The base model reads METARs.<br>It <span class="a">can't convert units</span>.</h1>
+    <p class="dek">Base Gemma-4-E4B decoded 620 held-out reports against a gold-calibrated harness.
+      It reads temperature, dewpoint and station state at 86–100% — and converts almost nothing.
+      One missing skill caps whole-record accuracy at&nbsp;4%.</p>
+
+    <div class="strip" role="group" aria-label="run metadata">
+      <span>model&nbsp; <b>gemma-4-E4B-it · MLX 4-bit</b></span>
+      <span>eval&nbsp; <b>v1 · sha256 60870798…</b></span>
+      <span>prompt&nbsp; <b>decode-json-v1</b></span>
+      <span>decode&nbsp; <b>temp 0</b></span>
+    </div>
+
+    <div class="tiles">
+      <div class="tile t-accent"><span class="k">Value accuracy</span><span class="v">77.8%</span><span class="s num">95% CI 76.8–78.9</span></div>
+      <div class="tile t-good"><span class="k">Hallucination</span><span class="v">1.5%</span><span class="s">11 fabrications</span></div>
+      <div class="tile t-bad"><span class="k">Whole-record EM</span><span class="v">4%</span><span class="s">ceiling ~28% if altimeter fixed</span></div>
+      <div class="tile t-good"><span class="k">JSON-valid</span><span class="v">100%</span><span class="s">0 unusable</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section id="summary">
+      <div class="sec-no">01 — Executive summary</div>
+      <h2>Good at reading, bad at arithmetic</h2>
+      <p class="lede">The base model extracts labelled scalars well but fails whenever a value must be
+        transformed. Because two-thirds of the eval requires a unit conversion somewhere, that single
+        weakness drags whole-record exactness to near zero.</p>
+      <ul class="notes">
+        <li><b>Overall value accuracy 77.8%</b> (hits / values that existed), <b>whole-record EM 4%</b>,
+          <b>hallucination 1.5%</b>, <b>JSON-valid 100%</b>.</li>
+        <li><b>The dominant failure is unit conversion</b>, uniform across every field that needs one:
+          altimeter inHg→hPa <b>2%</b>, wind m/s→kt <b>1%</b>, visibility SM→m <b>71%</b> — versus
+          94–95% on the <em>same fields</em> when no conversion is required.</li>
+        <li><b>Hallucination is low but non-zero</b> — the model mostly respects “use null, don’t guess,”
+          but occasionally fabricates (wind gust/direction, and masked <code>///</code> wind groups).</li>
+        <li>Against the parser reference (97.5% / 0% / 82%), the base LLM is far behind on structured
+          decode — as ADR-004 predicted — but the gap is <b>one concrete, learnable skill</b>.</li>
+      </ul>
+      <div class="callout"><span class="eyebrow">Takeaway</span>
+        The model reads correctly and converts almost nothing. Fix conversion and whole-record accuracy
+        should move from ~4% to ~30%+.</div>
+    </section>
+
+    <section id="method">
+      <div class="sec-no">02 — Method</div>
+      <h2>What was measured, and how</h2>
+      <p>Each record is one raw METAR. The model is prompted (<code>decode-json-v1</code>) to emit a JSON
+        decode in canonical units, with explicit permission to abstain — <em>“use null; do NOT guess,”</em>
+        the line that makes a fabrication the model’s own fault rather than obedience. Its output is scored
+        field-by-field against the <b>reference</b>: the 3-parser consensus, gold-calibrated against NOAA’s
+        official decode at ~99.98% on altimeter. Scoring keeps the two ways of being wrong distinct:</p>
+      <div class="scroll">
+        <table>
+          <caption>Scoring taxonomy</caption>
+          <thead><tr><th>Reference</th><th>Prediction</th><th>Outcome</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">value</td><td class="mono">= value</td><td><b>HIT</b></td><td>correct</td></tr>
+            <tr><td class="mono">value</td><td class="mono">≠ value</td><td><b>WRONG</b></td><td>wrong value</td></tr>
+            <tr><td class="mono">value</td><td class="mono">null</td><td><b>ABSTAIN</b></td><td>declined a knowable value — safe miss</td></tr>
+            <tr><td class="mono">null</td><td class="mono">value</td><td><b style="color:var(--bad)">HALLUCINATE</b></td><td>fabricated from nothing — dangerous</td></tr>
+            <tr><td class="mono">null</td><td class="mono">null</td><td><b>TRUE_ABSTAIN</b></td><td>correctly silent</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>Value accuracy</b> = hits / values-that-existed; <b>hallucination rate</b> = fabrications /
+        fields-truly-absent; <b>EM</b> = records with every value right and nothing fabricated. Intervals are
+        record-level bootstrap.</p>
+    </section>
+
+    <section id="headline">
+      <div class="sec-no">03 — Results</div>
+      <h2>Headline, by split × label</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Split</th><th>Label</th><th class="n">n</th><th class="n">Value acc [95% CI]</th><th class="n">Halluc</th><th class="n">EM</th></tr></thead>
+          <tbody>
+            <tr><td>unseen_station</td><td>clean</td><td class="n">200</td><td class="n">80.4 [78.3–82.4]</td><td class="n">1.0%</td><td class="n">6%</td></tr>
+            <tr><td>unseen_station</td><td>dissent</td><td class="n">60</td><td class="n">70.0 [66.7–73.2]</td><td class="n">0.0%</td><td class="n">0%</td></tr>
+            <tr><td>unseen_time</td><td>clean</td><td class="n">200</td><td class="n">79.4 [77.6–81.2]</td><td class="n">2.9%</td><td class="n">7%</td></tr>
+            <tr><td>unseen_time</td><td>dissent</td><td class="n">60</td><td class="n">79.7 [76.0–83.0]</td><td class="n">0.0%</td><td class="n">2%</td></tr>
+            <tr><td>unseen_time</td><td>parse_fail</td><td class="n">100</td><td class="n">73.0 [71.5–74.5]</td><td class="n">1.3%</td><td class="n">0%</td></tr>
+            <tr class="total"><td>overall</td><td>—</td><td class="n">620</td><td class="n">77.8 [76.8–78.9]</td><td class="n">1.5%</td><td class="n">4%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The two generalization axes land within a couple of points of each other — <b>no memorization
+        advantage</b> from having seen a station before, a small vote of confidence in the leak-free split.</p>
+    </section>
+
+    <section id="conversion">
+      <div class="sec-no">04 — Finding 1</div>
+      <h2>The model cannot convert units</h2>
+      <p>This is the whole story. Split each conversion-bearing field by whether a conversion is required —
+        the same field, read vs. transformed:</p>
+
+      <div class="cliff" role="img" aria-label="Accuracy collapses when a unit conversion is required. Altimeter: 95 percent read as hPa versus 2 percent converting inHg. Wind speed: 75 percent in knots versus 1 percent converting metres per second. Visibility: 94 percent metric versus 71 percent converting statute miles.">
+        <div class="cfield">
+          <div class="cname">Altimeter</div>
+          <div class="cbars">
+            <div class="crow"><span class="lab">Q — hPa, read as-is · n=204</span><span class="track"><span class="fill g" style="--w:95%"></span></span><span class="pct g">95%</span></div>
+            <div class="crow"><span class="lab">A — inHg, must convert · n=416</span><span class="track"><span class="fill b" style="--w:2%"></span></span><span class="pct b">2%</span></div>
+          </div>
+        </div>
+        <div class="cfield">
+          <div class="cname">Wind speed</div>
+          <div class="cbars">
+            <div class="crow"><span class="lab">KT — read as-is · n=506</span><span class="track"><span class="fill g" style="--w:75%"></span></span><span class="pct g">75%</span></div>
+            <div class="crow"><span class="lab">MPS — m/s → kt · n=107</span><span class="track"><span class="fill b" style="--w:1%"></span></span><span class="pct b">1%</span></div>
+          </div>
+        </div>
+        <div class="cfield">
+          <div class="cname">Visibility</div>
+          <div class="cbars">
+            <div class="crow"><span class="lab">metric — read as-is · n=108</span><span class="track"><span class="fill g" style="--w:94%"></span></span><span class="pct g">94%</span></div>
+            <div class="crow"><span class="lab">SM — statute mi → m · n=415</span><span class="track"><span class="fill w" style="--w:71%"></span></span><span class="pct w">71%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <p>The pattern is unmistakable: <b>when the value is already in the target unit, the model reads it;
+        when arithmetic is required, it fails</b> — most totally for the conversions far from 1:1
+        (inHg×33.86, m/s×1.94), least for statute-miles (a rounder, more likely-memorised mapping).</p>
+
+      <h3>Concrete examples — verbatim, temp 0</h3>
+      <pre><span class="raw">RAW  : KSEA 280840Z AUTO 35005KT 10SM CLR 13/11 A2979 RMK T01300110</span>
+MODEL: altimeter_hpa=<span class="wrong">1013</span>   <span class="raw">(A2979 = 29.79 inHg = 1009 hPa)  → WRONG</span>
+       temperature_c=13 <span class="ok">✓</span>   dewpoint_c=11 <span class="ok">✓</span>   visibility_m=16100 <span class="ok">✓</span></pre>
+      <p>The model emits <b>1013</b> — the ISA standard-pressure default — instead of converting. When it
+        does attempt a conversion it can be wildly off (an <code>A2993</code> case produced <code>1029</code>,
+        not the correct <code>1014</code>).</p>
+      <pre><span class="raw">RAW  : UUWW 090100Z 16005MPS 9999 SCT022 17/15 Q1005 R24/000062 NOSIG</span>
+MODEL: wind_speed=<span class="wrong">5</span>   <span class="raw">(16005MPS = 5 m/s = 10 kt)  → WRONG</span>
+       wind_dir=160 <span class="ok">✓</span>   altimeter_hpa=1005 <span class="ok">✓ (Q-report, no conversion)</span></pre>
+
+      <div class="callout"><span class="eyebrow">Why EM is pinned near zero</span>
+        EM requires <em>every</em> value correct. <b>147 of 620 records fail on altimeter alone</b> — the
+        model gets everything else right and only misses the inHg conversion. Fix that one skill and the EM
+        ceiling rises from <b>4% to ~28%</b>; fixing wind + visibility conversion lifts it further.</div>
+    </section>
+
+    <section id="perfield">
+      <div class="sec-no">05 — Finding 2</div>
+      <h2>Strong at reading, weak at extraction</h2>
+      <div class="scroll">
+        <table>
+          <caption>Per-field value accuracy · all 620 records</caption>
+          <thead><tr><th>Field</th><th class="n">Value acc</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">report_type</td><td class="n">100%</td><td>near-vacuous — IEM data is all METAR (§11)</td></tr>
+            <tr><td class="mono">cavok</td><td class="n">96%</td><td>strong</td></tr>
+            <tr><td class="mono">temperature_c</td><td class="n">91%</td><td>strong</td></tr>
+            <tr><td class="mono">dewpoint_c</td><td class="n">90%</td><td>strong</td></tr>
+            <tr><td class="mono">automated</td><td class="n">86%</td><td>misreads AUTO ~1 in 7</td></tr>
+            <tr><td class="mono">wind_dir</td><td class="n">78%</td><td>mostly good</td></tr>
+            <tr><td class="mono">visibility_m</td><td class="n">75%</td><td>dragged by SM conversion</td></tr>
+            <tr><td class="mono">wind_gust</td><td class="n">72%</td><td>small n=53</td></tr>
+            <tr><td class="mono">clouds</td><td class="n">69%</td><td>layer/type extraction is lossy</td></tr>
+            <tr><td class="mono">wind_speed</td><td class="n">62%</td><td>dragged by m/s + extraction errors</td></tr>
+            <tr><td class="mono" style="color:var(--bad)">altimeter_hpa</td><td class="n" style="color:var(--bad);font-weight:660">33%</td><td>the inHg cliff</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Two clusters. Reliable at <b>“read a labelled scalar”</b> (temperature, dewpoint, report type,
+        CAVOK); unreliable at <b>“extract-and-transform”</b> (wind speed, altimeter) and structured
+        extraction (clouds, 69%). A raw slip appears even without conversion: on <code>35005KT</code> the
+        model returned <code>wind_dir=280, wind_speed=35</code> for what is <code>350° / 5 kt</code> — a
+        tokenisation error, not arithmetic.</p>
+    </section>
+
+    <section id="halluc">
+      <div class="sec-no">06 — Finding 3</div>
+      <h2>Hallucination is low but real</h2>
+      <p><b>1.5% overall — 11 fabrications:</b> wind_gust (4), wind_dir (3), visibility (2), wind_speed (1),
+        dewpoint (1). The model mostly abstains rather than invents, but it is <em>not</em> at zero (the
+        20-record smoke test’s 0% was an artifact). The sharpest case is a masked wind group:</p>
+      <pre><span class="raw">RAW  : KJFK 172115Z AUTO ///18G24KT 10SM CLR 22/15 A3004 RMK T02200150</span>
+MODEL: wind_dir=<span class="wrong">180</span>   <span class="raw">(raw is `///` = direction unavailable; reference is null) → HALLUCINATE</span>
+       wind_speed=<span class="wrong">24</span>  <span class="raw">(should be 18 — it grabbed the gust)   altimeter=1013 (should 1017)</span></pre>
+      <p><code>///</code> means the automated station could not determine wind direction — the honest answer
+        is “unknown.” The model manufactured <code>180</code>, almost certainly reading the <code>18</code>
+        speed digits as a heading. This is the exact failure a safety-domain eval must catch, and holding it
+        flat is a hard constraint on Phase 4: a finetune that lifts accuracy by learning to always-answer is
+        a regression, not a win.</p>
+    </section>
+
+    <section id="general">
+      <div class="sec-no">07 — Finding 4</div>
+      <h2>Generalization, hard cases, robustness</h2>
+      <ul class="notes">
+        <li><b>Generalization is flat across axes.</b> unseen_station clean 80.4% ≈ unseen_time clean 79.4%
+          — no gain from station familiarity, a sanity check on the leak-free split.</li>
+        <li><b>Dissent cells</b> (70–80%) sit near the clean cells — the model’s errors are dominated by
+          conversion, orthogonal to the parser-disagreement that defines “dissent.”</li>
+        <li><b>parse_fail (73%)</b> is telling: these UUWW m/s reports break a parser, yet the LLM reads them
+          fine — it fails the <em>m/s conversion</em>, the same Finding-1 story, not a collapse. Tolerance of
+          messy formats is a genuine (if modest) edge over the brittle parsers.</li>
+      </ul>
+    </section>
+
+    <section id="integrity">
+      <div class="sec-no">08 — Measurement integrity</div>
+      <h2>Bugs found and fixed</h2>
+      <p>“Your measurement code is part of the test” is the project’s refrain — so this section stays in the
+        report. Preparing it triggered a two-part audit of the harness itself.</p>
+      <div class="audit">
+        <h3><span class="pill fixed">FIXED</span>&nbsp; Scoring path — 3 issues</h3>
+        <ul class="notes">
+          <li><b>Clouds-shape crash.</b> The parser assumed <code>clouds</code> = <code>[cover, base]</code>
+            pairs; the model sometimes emits <em>dicts</em>, and the <code>KeyError</code> scored the whole
+            record invalid — even when temperature, altimeter, etc. were right. This alone was <b>all 25</b>
+            of the run’s “invalid” records; fixing it took JSON-valid 96% → <b>100%</b> and lifted overall
+            accuracy <b>75.1% → 77.8%</b>. The conversion findings were unaffected — those are wrong values,
+            not invalids.</li>
+          <li><b>Under-canonicalisation.</b> <code>_canon</code> passed the model’s raw value through for
+            wind ints, report-type case, and bools — a right-but-mistyped answer scored WRONG. Fixed to
+            coerce every field. <b>Audit: re-scoring saved predictions with vs without the fix flipped 0
+            outcomes</b> — a no-op for this clean-JSON model, kept for robustness.</li>
+          <li><b>Div-by-zero</b> on an empty eval — guarded (latent, never triggered).</li>
+        </ul>
+        <h3><span class="pill clean">CLEAN</span>&nbsp; Reference path — no bugs</h3>
+        <p style="margin-top:.4rem">Gold validated only the numeric fields; <code>clouds</code>,
+          <code>cavok</code>, <code>automated</code>, <code>report_type</code> were never checked, and the
+          last three are shared functions echoed across all parsers (illusory consensus). Adversarial review
+          + empirical checks: conversions correct; <code>automated</code>/<code>cavok</code> matched an
+          independent recompute <b>620/620</b>; <code>clouds</code> decode hand-verified, adapters agree 99%
+          (disagreements are same-base ordering), <b>0 references None</b>; <b>0/620 degenerate</b>; all 100
+          parse_fail references are <b>2-way cross-checked</b>. The ground truth is trustworthy.</p>
+      </div>
+    </section>
+
+    <section id="parser">
+      <div class="sec-no">09 — Comparison</div>
+      <h2>Versus the parser reference</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th></th><th class="n">Value acc</th><th class="n">Halluc</th><th class="n">EM</th></tr></thead>
+          <tbody>
+            <tr><td>python-metar (parser)<sup>†</sup></td><td class="n">97.5%</td><td class="n">0%</td><td class="n">82%</td></tr>
+            <tr class="total"><td>base Gemma-4-E4B</td><td class="n">77.8%</td><td class="n">1.5%</td><td class="n">4%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><sup>†</sup> Mildly circular (a consensus member scored against the consensus) — a reference point,
+        not a fair rival. The direction is unambiguous: <b>on clean structured decode the parser dominates</b>,
+        and even a strong finetune is unlikely to beat 200 lines of deterministic parser. The LLM’s durable
+        advantage (per ADR-004) is the free-text/generative tail — NOTAM/SIGMET briefing — where no parser
+        competes. The METAR finetune is the method being learned, not the destination.</p>
+    </section>
+
+    <section id="phase4">
+      <div class="sec-no">10 — Phase 4</div>
+      <h2>What the baseline hands the finetune</h2>
+      <div class="callout" style="background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 34%,var(--line))">
+        <span class="eyebrow" style="color:var(--good)">Hypothesis</span>
+        LoRA the unit conversions (inHg→hPa, m/s→kt, SM→m) and the raw-extraction slips; measure the lift on
+        the same frozen harness.</div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Metric</th><th class="n">Baseline</th><th class="n">Target</th><th>How</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">altimeter A</td><td class="n">2%</td><td class="n">≥ 90%</td><td>teach the ×33.86 mapping</td></tr>
+            <tr><td class="mono">wind MPS</td><td class="n">1%</td><td class="n">≥ 90%</td><td>teach the ×1.94 mapping</td></tr>
+            <tr><td class="mono">value acc</td><td class="n">77.8%</td><td class="n">~85%+</td><td>above + extraction</td></tr>
+            <tr><td class="mono">whole-record EM</td><td class="n">4%</td><td class="n">≥ 28%</td><td>flows from altimeter alone</td></tr>
+            <tr><td class="mono" style="color:var(--bad)">hallucination</td><td class="n">1.5%</td><td class="n">≤ 1.5%</td><td>must not rise — the safety floor</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Evaluation is fixed: re-run the identical harness (same eval <code>sha256</code>, same prompt), then
+        a <b>McNemar paired test</b> on per-record correctness (base vs finetuned on the same 620 records).
+        The training set is the disjoint <code>train</code> split — station+time held out from eval/v1 — so a
+        lift is generalization, not memorisation.</p>
+    </section>
+
+    <section id="threats">
+      <div class="sec-no">11 — Threats to validity</div>
+      <h2>What could bend these numbers</h2>
+      <ul class="notes">
+        <li><b>Reference circularity.</b> The reference is parser-consensus, not human decode. Mitigated by
+          the gold calibration; on dissent records the “correct” answer is the parser majority, a soft target.</li>
+        <li><b>report_type is near-vacuous.</b> IEM data carries no METAR/SPECI keyword, so every reference is
+          <code>METAR</code> and the 100% tells us nothing about capability. Ignore it as signal.</li>
+        <li><b>Cloud scoring is order-sensitive.</b> Layers at the same base (<code>FEW030 BKN030</code>) have
+          ambiguous order; the reference commits to one and dings the other valid reading — a slight downward
+          bias on the 69%.</li>
+        <li><b>CAVOK → visibility is null.</b> A model that emits <code>10000</code> for CAVOK scores as
+          hallucinating. Defensible, but it penalises a reasonable interpretation on the handful of CAVOK records.</li>
+        <li><b>Single prompt.</b> All results are for <code>decode-json-v1</code>. The prompt already says
+          “convert m/s→kt, inHg→hPa,” so the failure reads as a capability gap — but a prompt ablation is worth
+          doing before over-reading absolutes.</li>
+        <li><b>4-bit quantisation &amp; small cells.</b> Served at MLX 4-bit (evaluate the finetune at the same
+          quant); dissent cells are n=60 so per-cell CIs span ~7 points — treat them as directional.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Reproduce — reproducibility anchor: eval <code>sha256 608707987dfc8f13…</code>, prompt
+      <code>decode-json-v1</code>, decode <code>temp 0</code>.</p>
+    <pre>make serve                 # mlx_vlm.server on the local Gemma
+make harness MODEL=&lt;path&gt;  # scores it against frozen eval/v1 → reports/runs/&lt;id&gt;/</pre>
+    <p>Artifacts under <code>reports/runs/20260729T220516Z-…/</code> — <code>report.md</code>,
+      <code>run.json</code>, <code>scores.jsonl</code> (per-record outcomes and predictions).
+      Source report: <code>reports/baseline_v1_analysis.md</code>.</p>
+  </footer>
+</div>
