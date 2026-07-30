@@ -706,3 +706,47 @@ loss 1.73→0.15, ~34 min. Unsloth 2026.7.6 loads the Gemma-4 PLE arch natively 
 - **Later (user-requested):** (a) a messy-tail / human-gold eval that could actually test LLM > parser;
   (b) research scaling the corpus past 51 stations toward *all* stations (data volume, stratified sampling,
   storage, and what a global station set does to the messy-tail signal).
+
+---
+
+## Session 18 — 2026-07-30 · E4B finetune + the size-scaling curve (+ aviation-SME demo)
+
+Ran the full E4B pipeline (real Gemma-4 E4B) with the identical E2B recipe — baseline → LoRA (r=16, 1 epoch,
+3000 pairs) → GGUF → serve base+adapter → eval via `--completion` → McNemar — to turn one before/after into a
+**size-scaling curve**. Also built an aviation-SME demo (`reports/gemma-4/finetuning_explainer.html`, published
+as an Artifact).
+
+**The curve (620 records, all served via `/completion`, same stack):**
+
+| model | base value | FT value | base EM | FT EM | base halluc | FT halluc |
+|-------|-----------:|---------:|--------:|------:|------------:|----------:|
+| E2B | 69.5% | 92.9% | 2.4% | 38.2% | 31.0% | 0.8% |
+| E4B | 81.4% | **98.3%** | 5.6% | **83.7%** | 15.6% | 0.4% |
+
+McNemar (value): E2B 1437 fix / 3 regress, p≈10⁻³¹²; E4B 1041 fix / 5 regress, p≈10⁻²²⁴. Reference (single
+python-metar vs the consensus): 97.5% / 82% EM. E4B-FT **edges a single parser** and sits just under the
+3-parser+gold ceiling (~99.9%).
+
+**Learned**
+
+- **The finetune installs the *habit* at any size; the *precision* scales with capacity.** Both sizes learn to
+  attempt every conversion (base did ~0%). But whole-record EM — which needs the arithmetic *exactly* right —
+  jumps 38%→84% from 2B to 4B. The 2B converts approximately (`A2979` → "about 1014" not 1009); the 4B converts
+  exactly. So the finetune's *lift* is large at both sizes, but its *ceiling* scales with the model. The single
+  cleanest takeaway of the whole study.
+- **A scaling curve must be served-consistently, and Gemma-4 makes that non-trivial.** E4B is a stronger reasoner:
+  on the chat path (even with `--reasoning-budget 0`) it writes its reasoning into `content` and overruns the
+  256-token cap before emitting JSON — 4/5 invalid. The raw `/completion` wrapper fixes it (direct JSON, 100%
+  valid). Adopted `/completion` uniformly for all gemma-4 base+finetuned; **verified E2B base is path-invariant**
+  (chat 69.5% ≈ completion 70.0%), so base-to-base comparison across sizes is valid.
+- **The honest ceiling holds at 4B.** 98.3% is *fidelity to the parser consensus*, not superiority — every eval
+  reference is parser/gold-derived, so the LLM can approach but not beat it. The LLM>parser question still needs
+  the messy-tail / human-gold dataset.
+- **Demo craft:** the SME explainer went through several rounds — no horizontal scroll (wrap table cells, reflow
+  code), a chart grouped *by metric* (Base vs FT pairs, consistent colours, direction + delta), quiet inline
+  asides instead of repeated callout boxes, and — for an SME audience — drop the "what is a METAR" hand-holding
+  and show 3 full parsed-data decodes of the trickiest conversions (inHg, m/s, compound-fraction SM) with the
+  base model's real wrong answers.
+
+**Next** — (user-queued) the messy-tail / human-gold eval and the corpus scale-up past 51 stations. Optional
+wider curve: the dense 12B or the 26B-A4B MoE rungs (bigger/slower) if the scaling trend is worth extending.

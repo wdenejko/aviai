@@ -1,0 +1,25 @@
+{
+  "model_id": "gemma-4-E4B-it-Q8-lora",
+  "prompt_id": "decode-json-v1",
+  "eval_version": "v1",
+  "eval_sha256": "608707987dfc8f139775021b48895fbfacba1c17c77e4bb733b1f0b61bd95aba",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "created_utc": "2026-07-30T15:42:09Z",
+  "n_invalid": 0,
+  "overall": {
+    "n_records": 620,
+    "hits": 6008,
+    "wrong": 101,
+    "abstain": 1,
+    "hallucinate": 3,
+    "true_abstain": 707,
+    "precision": 0.9829842931937173,
+    "recall": 0.9833060556464812,
+    "f1": 0.9831451480936019,
+    "hallucination_rate": 0.004225352112676056,
+    "exact_match": 0.8370967741935483
+  }
+}

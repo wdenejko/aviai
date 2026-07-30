@@ -1,0 +1,521 @@
+<title>Teaching a small AI to read the weather — a finetuning walkthrough</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#FBFAF7; --surface:#FFFFFF; --surface-2:#F3F0EA; --inset:#F1EEE8;
+    --ink:#17202A; --ink-2:#3A4653; --muted:#6B7784; --line:#E2DDD3;
+    --accent:#0E6BA8; --accent-2:#1583C4; --accent-soft:#E4EFF6;
+    --amber:#B06E12; --amber-soft:#F6EDDC;
+    --good:#1F7A4D; --good-soft:#E1F0E7; --bad:#C23B2E; --bad-soft:#F8E6E3;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --maxw:840px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0C1116; --surface:#131A22; --surface-2:#1A232D; --inset:#0F161D;
+      --ink:#E9EEF3; --ink-2:#C3CDD7; --muted:#8494A1; --line:#233039;
+      --accent:#4FB3E8; --accent-2:#74C4EF; --accent-soft:#132534;
+      --amber:#E0A63F; --amber-soft:#2B2413;
+      --good:#4FB784; --good-soft:#12281E; --bad:#E5715F; --bad-soft:#2E1714;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#FBFAF7; --surface:#FFFFFF; --surface-2:#F3F0EA; --inset:#F1EEE8;
+    --ink:#17202A; --ink-2:#3A4653; --muted:#6B7784; --line:#E2DDD3;
+    --accent:#0E6BA8; --accent-2:#1583C4; --accent-soft:#E4EFF6;
+    --amber:#B06E12; --amber-soft:#F6EDDC;
+    --good:#1F7A4D; --good-soft:#E1F0E7; --bad:#C23B2E; --bad-soft:#F8E6E3;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1116; --surface:#131A22; --surface-2:#1A232D; --inset:#0F161D;
+    --ink:#E9EEF3; --ink-2:#C3CDD7; --muted:#8494A1; --line:#233039;
+    --accent:#4FB3E8; --accent-2:#74C4EF; --accent-soft:#132534;
+    --amber:#E0A63F; --amber-soft:#2B2413;
+    --good:#4FB784; --good-soft:#12281E; --bad:#E5715F; --bad-soft:#2E1714;
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.68;
+    -webkit-font-smoothing:antialiased;margin:0;overflow-x:hidden}
+  .page{max-width:var(--maxw);margin:0 auto;padding:clamp(20px,5vw,52px) clamp(18px,5vw,36px) 80px}
+
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  b,strong{font-weight:660;color:var(--ink)}
+  em{font-style:italic}
+  code{font-family:var(--mono);font-size:.85em;background:var(--inset);color:var(--ink-2);
+    padding:.09em .4em;border-radius:4px;border:1px solid var(--line)}
+  a{color:var(--accent-2);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:currentColor}
+
+  /* masthead */
+  .masthead{border-bottom:1px solid var(--line);padding-bottom:30px;margin-bottom:10px}
+  h1{font-size:clamp(2rem,5.6vw,3.1rem);line-height:1.06;letter-spacing:-.022em;text-wrap:balance;
+    margin:.5rem 0 .3rem;font-weight:740}
+  h1 .hl{color:var(--accent)}
+  .dek{font-size:1.14rem;color:var(--ink-2);max-width:60ch;margin:.7rem 0 0;text-wrap:pretty}
+  .byline{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:18px;
+    display:flex;flex-wrap:wrap;gap:6px 16px}
+  .byline b{color:var(--ink-2);font-weight:600}
+
+  /* hero result tiles */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:26px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:16px 16px 14px;
+    position:relative;overflow:hidden;display:flex;flex-direction:column;gap:4px}
+  .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tint,var(--accent))}
+  .tile .k{font-family:var(--mono);font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .tile .v{font-family:var(--mono);font-size:1.6rem;font-weight:660;line-height:1.15;letter-spacing:-.02em;
+    color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px}
+  .tile .v small{font-size:.8rem;color:var(--muted);font-weight:500}
+  .tile .s{font-size:.75rem;color:var(--muted);margin-top:1px}
+  .t-good{--tint:var(--good)} .t-accent{--tint:var(--accent)} .t-amber{--tint:var(--amber)}
+
+  /* sections */
+  section{margin-top:56px;scroll-margin-top:16px}
+  .sec-no{font-family:var(--mono);font-size:.74rem;color:var(--accent);letter-spacing:.08em;font-weight:600}
+  h2{font-size:clamp(1.4rem,3.6vw,1.72rem);letter-spacing:-.015em;margin:.3rem 0 .2rem;font-weight:700;text-wrap:balance}
+  h3{font-size:1.06rem;margin:1.9rem 0 .3rem;font-weight:660}
+  p{margin:.75rem 0;max-width:66ch}
+  .lede{font-size:1.08rem;color:var(--ink-2)}
+
+  /* quiet inline aside — replaces the boxed "in plain english" device */
+  .aside{border-left:3px solid var(--accent);padding:1px 0 1px 16px;margin:1.25rem 0;
+    font-style:italic;color:var(--ink-2);max-width:64ch}
+  .aside b{font-style:normal;color:var(--ink);font-weight:640}
+  .note{border-left:3px solid var(--amber);background:var(--amber-soft);border-radius:0 8px 8px 0;
+    padding:12px 16px;margin:1.3rem 0;font-size:.96rem;max-width:none}
+  .note .tag{font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
+  .note p{margin:.35rem 0;max-width:64ch}
+
+  /* annotated metar → json (all reflows, never scrolls) */
+  .decoder{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin:1.3rem 0}
+  .metar{font-family:var(--mono);font-size:clamp(.82rem,2.5vw,1.02rem);line-height:2.3;font-weight:600}
+  .tok{border-radius:5px;padding:.12em .3em;border:1px solid transparent;white-space:nowrap}
+  .tok.s{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 25%,transparent)}
+  .tok.w{background:var(--good-soft);color:var(--good);border-color:color-mix(in srgb,var(--good) 25%,transparent)}
+  .tok.a{background:var(--amber-soft);color:var(--amber);border-color:color-mix(in srgb,var(--amber) 30%,transparent)}
+  .arrow{text-align:center;color:var(--muted);font-family:var(--mono);font-size:.78rem;margin:14px 0}
+  .json{font-family:var(--mono);font-size:.82rem;line-height:1.75;background:var(--inset);border:1px solid var(--line);
+    border-radius:8px;padding:14px 16px;white-space:pre-wrap;word-break:break-word;color:var(--ink-2);margin:0}
+  .json .key{color:var(--accent)} .json .conv{color:var(--good);font-weight:660}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .chip{display:flex;align-items:center;flex-wrap:wrap;gap:6px;background:var(--good-soft);
+    border:1px solid color-mix(in srgb,var(--good) 26%,var(--line));border-radius:9px;padding:8px 12px;font-size:.85rem}
+  .chip code{background:var(--surface)} .chip b{color:var(--good)} .chip .ar{color:var(--muted)}
+  .chip small{flex-basis:100%;color:var(--muted);font-size:.72rem;font-family:var(--sans)}
+  .legend{display:flex;flex-wrap:wrap;gap:9px 18px;margin-top:16px;font-size:.78rem;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+  /* full parsed-data examples — real test records for the tricky conversions */
+  .ex-tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .pd{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px 18px 16px;margin:1.1rem 0}
+  .pd-raw{font-family:var(--mono);font-size:.8rem;color:var(--ink-2);background:var(--inset);border:1px solid var(--line);
+    border-radius:7px;padding:9px 12px;margin:8px 0 10px;word-break:break-word;line-height:1.8}
+  .pd-raw .hot{background:var(--amber-soft);color:var(--amber);font-weight:700;border-radius:4px;padding:.05em .3em;
+    border:1px solid color-mix(in srgb,var(--amber) 30%,transparent)}
+  .pd-note{font-size:.85rem;color:var(--ink-2);margin-top:10px}
+  .pd-note .wrongv{color:var(--bad);font-family:var(--mono);font-weight:660;text-decoration:line-through}
+
+  /* tables — cells wrap, only numbers stay on one line */
+  .tbl{margin:1.2rem 0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{background:var(--surface-2);font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.g{color:var(--good);font-weight:660}
+  .rowlab{font-weight:640;white-space:nowrap}
+
+  /* metric chart — grouped by metric, Base vs Finetuned, consistent colours */
+  .chart{display:flex;flex-direction:column;gap:13px;margin:1.4rem 0}
+  .metric{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px 16px}
+  .mh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:11px;flex-wrap:wrap}
+  .mname{font-weight:660;font-size:1rem}
+  .mdir{font-size:.76rem;color:var(--muted)}
+  .mbar{display:grid;grid-template-columns:74px 1fr auto;gap:12px;align-items:center;padding:3px 0}
+  .who{font-size:.84rem;color:var(--muted)}
+  .who.ft{color:var(--accent);font-weight:640}
+  .mtrack{position:relative;height:20px;background:var(--inset);border-radius:6px;overflow:hidden}
+  .mfill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;width:var(--w);min-width:4px}
+  .mfill.base{background:color-mix(in srgb,var(--muted) 40%,transparent)}
+  .mfill.ft{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .mend{display:flex;align-items:baseline;gap:9px;white-space:nowrap}
+  .mpct{font-family:var(--mono);font-weight:660;font-variant-numeric:tabular-nums;font-size:.92rem;min-width:48px;text-align:right}
+  .mdelta{font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--good)}
+
+  /* lora diagram */
+  .diagram{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;margin:1.4rem 0;text-align:center}
+  .diagram svg{max-width:100%;height:auto}
+  .cap{font-size:.8rem;color:var(--muted);margin:12px auto 0;max-width:58ch}
+
+  /* pipeline */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:1.4rem 0}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:15px}
+  .step .n{font-family:var(--mono);font-size:.7rem;color:var(--accent);font-weight:700;letter-spacing:.06em}
+  .step h4{margin:.3rem 0;font-size:.98rem;font-weight:660}
+  .step p{font-size:.85rem;color:var(--ink-2);margin:.2rem 0;max-width:none}
+
+  ul.notes{margin:.8rem 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+  ul.notes li{padding-left:20px;position:relative;max-width:66ch}
+  ul.notes li::before{content:"";position:absolute;left:0;top:.66em;width:7px;height:7px;border-radius:2px;background:var(--accent)}
+
+  .keypoint{background:var(--surface-2);border-radius:12px;padding:18px 20px;margin:1.4rem 0;
+    border:1px solid var(--line);font-size:1.04rem;max-width:none}
+  .keypoint b{color:var(--ink)}
+
+  .gloss{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:1.2rem 0}
+  .gloss div{background:var(--surface);padding:13px 16px;display:grid;grid-template-columns:170px 1fr;gap:16px}
+  .gloss dt{font-weight:660;font-size:.9rem}
+  .gloss dd{margin:0;color:var(--ink-2);font-size:.9rem}
+
+  footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);font-size:.82rem}
+  footer b{color:var(--ink-2)}
+
+  @media (max-width:620px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .mbar{grid-template-columns:64px 1fr auto;gap:8px}
+    .gloss div{grid-template-columns:1fr;gap:2px}
+  }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="eyebrow">A finetuning walkthrough · from scratch</div>
+    <h1>Teaching a small AI to <span class="hl">read the weather</span></h1>
+    <p class="dek">A general-purpose LLM can almost decode a METAR — it just fumbles the unit conversions and
+      invents details a dispatcher never would. This is the story of <em>finetuning</em> a small model to fix
+      exactly that, and measuring — rigorously — whether it worked. Assumes you know METARs; explains the ML.</p>
+    <div class="byline">
+      <span>project&nbsp; <b>avtext</b></span>
+      <span>models&nbsp; <b>Gemma&nbsp;4 · 2B &amp; 4B</b></span>
+      <span>method&nbsp; <b>LoRA finetuning</b></span>
+      <span>hardware&nbsp; <b>one home GPU</b></span>
+    </div>
+    <div class="tiles">
+      <div class="tile t-accent"><span class="k">Correct fields · 4B</span><span class="v">98.3%<small> ← 81.4</small></span><span class="s">after finetuning</span></div>
+      <div class="tile t-accent"><span class="k">Perfect records · 4B</span><span class="v">83.7%<small> ← 5.6</small></span><span class="s">whole report correct</span></div>
+      <div class="tile t-good"><span class="k">Made-up values</span><span class="v">0.4%<small> ← 15.6</small></span><span class="s">hallucination, near-zero</span></div>
+      <div class="tile t-amber"><span class="k">Training time</span><span class="v">~45<small> min</small></span><span class="s">one desktop GPU</span></div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===================== THE TASK ===================== -->
+    <section id="task">
+      <div class="sec-no">01 — The task</div>
+      <h2>Where a general-purpose LLM breaks on a METAR</h2>
+      <p class="lede">Decoding a METAR to structured JSON is trivial for a dispatcher and for a 200-line parser.
+        An off-the-shelf LLM handles most of it too — station, wind, temperature, cloud state — then falls over
+        on exactly two things: the <strong>unit conversions</strong>, and knowing when to <strong>stay
+        silent</strong> rather than invent a value. A clean decode, for reference:</p>
+
+      <div class="decoder">
+        <div class="metar">
+          <span class="tok s">KSEA</span> <span class="tok">280840Z</span> <span class="tok">AUTO</span>
+          <span class="tok w">35005KT</span> <span class="tok a">10SM</span> <span class="tok">CLR</span>
+          <span class="tok w">13/11</span> <span class="tok a">A2979</span> <span class="tok">RMK …</span>
+        </div>
+        <div class="arrow">▼ &nbsp; decode into structured data &nbsp; ▼</div>
+        <pre class="json">{
+  <span class="key">"station"</span>: "KSEA",
+  <span class="key">"wind_dir"</span>: 350,
+  <span class="key">"wind_speed"</span>: 5,
+  <span class="key">"visibility_m"</span>: <span class="conv">16100</span>,
+  <span class="key">"temperature_c"</span>: 13,
+  <span class="key">"dewpoint_c"</span>: 11,
+  <span class="key">"altimeter_hpa"</span>: <span class="conv">1009</span>
+}</pre>
+        <div class="chips">
+          <div class="chip"><code>10SM</code> <span class="ar">→</span> <b>16,100&nbsp;m</b><small>visibility: 10 statute miles converted to metres</small></div>
+          <div class="chip"><code>A2979</code> <span class="ar">→</span> <b>1009&nbsp;hPa</b><small>pressure: 29.79 inHg converted to hectopascals</small></div>
+        </div>
+        <div class="legend">
+          <span><span class="dot" style="background:var(--accent)"></span> station / metadata</span>
+          <span><span class="dot" style="background:var(--good)"></span> read directly</span>
+          <span><span class="dot" style="background:var(--amber)"></span> needs a <strong>unit conversion</strong></span>
+        </div>
+      </div>
+
+      <h3>The three trickiest conversions — real decodes from the test set</h3>
+      <p>Each is a real report from the frozen eval, shown with its full reference decode. The highlighted field
+        is the one that needs a conversion — and the one the base 4B still gets wrong.</p>
+
+      <div class="pd">
+        <span class="ex-tag">Altimeter · inHg → hPa</span>
+        <div class="pd-raw">KEKM 160755Z 19005KT 10SM FEW100 SCT110 25/23 <span class="hot">A2993</span> RMK AO2 T02450228 $</div>
+        <pre class="json">{ "report_type":"METAR", "automated":false, "wind_dir":190, "wind_speed":5, "wind_gust":null,
+  "visibility_m":16100, "temperature_c":25, "dewpoint_c":23,
+  "altimeter_hpa":<span class="conv">1014</span>, "clouds":[["FEW",10000],["SCT",11000]], "cavok":false }</pre>
+        <div class="pd-note"><b>A2993</b> = 29.93&nbsp;inHg → <b>1014&nbsp;hPa</b> (×33.86). The base 4B answered <span class="wrongv">1003</span>.</div>
+      </div>
+
+      <div class="pd">
+        <span class="ex-tag">Wind · m·s⁻¹ → knots</span>
+        <div class="pd-raw">UUWW 181800Z <span class="hot">22002MPS</span> CAVOK 19/13 Q1015 R01/000062 NOSIG</div>
+        <pre class="json">{ "report_type":"METAR", "automated":false, "wind_dir":220, "wind_speed":<span class="conv">4</span>, "wind_gust":null,
+  "visibility_m":null, "temperature_c":19, "dewpoint_c":13,
+  "altimeter_hpa":1015, "clouds":[], "cavok":true }</pre>
+        <div class="pd-note"><b>22002MPS</b> = 2&nbsp;m·s⁻¹ → <b>4&nbsp;kt</b> (×1.94). The base 4B answered <span class="wrongv">29</span>, and filled visibility despite CAVOK.</div>
+      </div>
+
+      <div class="pd">
+        <span class="ex-tag">Visibility · statute miles → metres</span>
+        <div class="pd-raw">KSEA 101950Z AUTO 18016G23KT <span class="hot">1 1/2SM</span> -RA BR BKN007 OVC013 13/12 A2991 RMK P0005 …</div>
+        <pre class="json">{ "report_type":"METAR", "automated":true, "wind_dir":180, "wind_speed":16, "wind_gust":23,
+  "visibility_m":<span class="conv">2400</span>, "temperature_c":13, "dewpoint_c":12,
+  "altimeter_hpa":1013, "clouds":[["BKN",700],["OVC",1300]], "cavok":false }</pre>
+        <div class="pd-note"><b>1 1/2&nbsp;SM</b> = 1.5 statute miles → <b>2400&nbsp;m</b>. The base 4B read the compound fraction as <span class="wrongv">1200</span>.</div>
+      </div>
+
+      <div class="note">
+        <span class="tag">Why this task — the honest reason</span>
+        <p>Because there's a <strong>perfect answer key</strong>: the three-parser consensus + the official NOAA
+          decode. That lets us grade the model automatically on thousands of cases, so every claim is measured,
+          not asserted — an ideal sandbox for <em>learning finetuning</em>. (Whether you'd ship the model instead
+          of the parser is a separate question — §6.)</p>
+      </div>
+    </section>
+
+    <!-- ===================== WHAT IS FINETUNING ===================== -->
+    <section id="finetune">
+      <div class="sec-no">02 — The core idea</div>
+      <h2>What "finetuning" actually means</h2>
+      <p class="lede">An AI language model comes in two life stages, and the difference is the whole point of
+        this page.</p>
+
+      <div class="tbl"><table>
+        <thead><tr><th>Stage</th><th>How it's made</th><th>What it's like</th></tr></thead>
+        <tbody>
+          <tr><td class="rowlab">Base model</td><td>Trained once, by Google, on a huge slice of the internet</td>
+            <td>A brilliant generalist — knows a bit about everything, expert at nothing specific</td></tr>
+          <tr><td class="rowlab">Finetuned model</td><td>You take the base model and train it a little more, on examples of <em>your</em> task</td>
+            <td>An apprentice who has now practised <em>your</em> exact job thousands of times</td></tr>
+        </tbody>
+      </table></div>
+
+      <p>Finetuning is <em>not</em> building an AI from scratch — that costs millions and needs a data centre.
+        It's taking a finished, off-the-shelf model and giving it focused practice. We handed the base model
+        <strong>3,000 worked examples</strong> — raw METAR in, correct JSON out — and let it practise for one
+        pass, with every example emphasising the thing it was bad at: the conversions.</p>
+
+      <h3>The trick that makes it cheap: LoRA</h3>
+      <p>A base model has billions of numbers ("weights") — its brain. Retraining all of them is slow and
+        expensive. <strong>LoRA</strong> (Low-Rank Adaptation) <em>freezes</em> the entire original brain and
+        bolts on a tiny set of new numbers — an <strong>adapter</strong> — that nudge its behaviour. We trained
+        just <strong>0.49%</strong> of the model.</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 460 200" role="img" aria-label="A large frozen base model with a small trainable LoRA adapter attached">
+          <rect x="30" y="30" width="200" height="140" rx="12" fill="var(--inset)" stroke="var(--line)" stroke-width="1.5"/>
+          <text x="130" y="90" text-anchor="middle" font-family="var(--sans)" font-size="15" font-weight="700" fill="var(--ink)">Base model</text>
+          <text x="130" y="112" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--muted)">5,000,000,000 weights</text>
+          <text x="130" y="132" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--muted)">frozen · unchanged</text>
+          <rect x="300" y="66" width="130" height="68" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.8"/>
+          <text x="365" y="94" text-anchor="middle" font-family="var(--sans)" font-size="13" font-weight="700" fill="var(--accent)">LoRA adapter</text>
+          <text x="365" y="114" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--accent-2)">25M · trained</text>
+          <line x1="230" y1="100" x2="298" y2="100" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <polygon points="298,100 290,96 290,104" fill="var(--muted)"/>
+        </svg>
+        <p class="cap">The 5-billion-weight base model stays frozen; only the small adapter is trained — so the
+          whole thing fits on a single desktop GPU and finishes in under an hour, producing a 50&nbsp;MB file you
+          attach at run time.</p>
+      </div>
+
+      <p class="aside"><b>The shortcut:</b> instead of rewiring the AI's entire brain, LoRA clips on a small
+        "cheat sheet" the model consults — cheap to make, tiny to store, and the original model stays untouched
+        for other tasks.</p>
+    </section>
+
+    <!-- ===================== HOW YOU MEASURE ===================== -->
+    <section id="measure">
+      <div class="sec-no">03 — Measuring it honestly</div>
+      <h2>How do you know it worked?</h2>
+      <p class="lede">Anyone can claim their AI "got better." The hard, important part of this project is
+        <em>proving</em> it — with numbers you can trust. Three ideas make that possible.</p>
+
+      <h3>1 · A locked test set the model never sees</h3>
+      <p>We set aside <strong>620 weather reports</strong> — from airports and dates the model never trained on —
+        and froze them (a cryptographic fingerprint guarantees they never change). Every model is graded on this
+        exact same set. Testing on unseen data is how you tell real learning from mere memorisation.</p>
+
+      <h3>2 · Three numbers, because "accuracy" hides the danger</h3>
+      <p>In a safety domain, <em>how</em> a model is wrong matters as much as how often — so we track three
+        things separately:</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Metric</th><th>The question it answers</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td class="rowlab">Value accuracy</td><td>Of the facts that were really there, how many did it get right?</td><td>The headline "how good is it"</td></tr>
+          <tr><td class="rowlab" style="color:var(--bad)">Hallucination</td><td>How often did it <em>invent</em> a value that wasn't in the report?</td><td>The dangerous kind of wrong — a made-up wind gust could mislead a pilot</td></tr>
+          <tr><td class="rowlab">Whole-record accuracy</td><td>How often was the <em>entire</em> report perfect, every field at once?</td><td>The strictest bar — one slip fails the whole report</td></tr>
+        </tbody>
+      </table></div>
+
+      <p class="aside"><b>A model that says "I don't know" is making a safe mistake;</b> a model that confidently
+        makes up a number is making a dangerous one. We measure those two separately on purpose — folding them
+        into one "accuracy" score would hide exactly the thing that matters most in aviation.</p>
+
+      <h3>3 · The answer key, and proof the win is real</h3>
+      <p>How do we know the "right" answer for 620 reports × 11 fields without a human labelling all of them? A
+        <strong>panel of three independent parsers plus the official government decode</strong> — we only trust a
+        field when they agree (a "trust ladder"). And to be sure an improvement isn't luck, a
+        <strong>statistical test</strong> (McNemar's) looks only at where two models <em>disagree</em>, counting
+        fixes vs. new mistakes and returning a confidence number.</p>
+
+      <div class="note">
+        <span class="tag">What "p ≈ 10⁻³¹²" means</span>
+        <p>Our results came back with p-values like 0.000…(312 zeros)…1. In plain terms: the chance this
+          improvement is a fluke is essentially zero. When a finetune works, it <em>really</em> works — for the
+          2B model, 1,437 fields fixed against just 3 made worse.</p>
+      </div>
+    </section>
+
+    <!-- ===================== RESULTS ===================== -->
+    <section id="results">
+      <div class="sec-no">04 — The result</div>
+      <h2>Before and after</h2>
+      <p class="lede">We ran the experiment on two model sizes — a <strong>2B</strong> ("small") and a
+        <strong>4B</strong> ("medium") — to see not just <em>whether</em> finetuning works, but how it scales.
+        Same recipe both times.</p>
+
+      <div class="steps">
+        <div class="step"><div class="n">STEP 1</div><h4>Measure the base</h4><p>Grade the off-the-shelf model on the 620 reports.</p></div>
+        <div class="step"><div class="n">STEP 2</div><h4>Finetune</h4><p>~35–55 min practising 3,000 examples on one GPU.</p></div>
+        <div class="step"><div class="n">STEP 3</div><h4>Measure again</h4><p>Grade the new model on the <em>same</em> 620 reports.</p></div>
+        <div class="step"><div class="n">STEP 4</div><h4>Compare</h4><p>Statistical test: is the difference real?</p></div>
+      </div>
+
+      <h3>The 4B model, before → after</h3>
+      <p>Each block is one metric. Grey&nbsp;=&nbsp;base model, blue&nbsp;=&nbsp;after finetuning. The green
+        number is the change.</p>
+      <div class="chart">
+        <div class="metric">
+          <div class="mh"><span class="mname">Value accuracy</span><span class="mdir">↑ higher is better</span></div>
+          <div class="mbar"><span class="who">Base</span><div class="mtrack"><div class="mfill base" style="--w:81.4%"></div></div><span class="mend"><span class="mpct">81.4%</span></span></div>
+          <div class="mbar"><span class="who ft">Finetuned</span><div class="mtrack"><div class="mfill ft" style="--w:98.3%"></div></div><span class="mend"><span class="mpct">98.3%</span><span class="mdelta">+16.9</span></span></div>
+        </div>
+        <div class="metric">
+          <div class="mh"><span class="mname">Made-up values <span style="color:var(--muted);font-weight:400">(hallucination)</span></span><span class="mdir">↓ lower is safer</span></div>
+          <div class="mbar"><span class="who">Base</span><div class="mtrack"><div class="mfill base" style="--w:15.6%"></div></div><span class="mend"><span class="mpct">15.6%</span></span></div>
+          <div class="mbar"><span class="who ft">Finetuned</span><div class="mtrack"><div class="mfill ft" style="--w:0.4%"></div></div><span class="mend"><span class="mpct">0.4%</span><span class="mdelta">−15.2</span></span></div>
+        </div>
+        <div class="metric">
+          <div class="mh"><span class="mname">Perfect records <span style="color:var(--muted);font-weight:400">(all fields right)</span></span><span class="mdir">↑ higher is better</span></div>
+          <div class="mbar"><span class="who">Base</span><div class="mtrack"><div class="mfill base" style="--w:5.6%"></div></div><span class="mend"><span class="mpct">5.6%</span></span></div>
+          <div class="mbar"><span class="who ft">Finetuned</span><div class="mtrack"><div class="mfill ft" style="--w:83.7%"></div></div><span class="mend"><span class="mpct">83.7%</span><span class="mdelta">+78.1</span></span></div>
+        </div>
+      </div>
+
+      <h3>Both sizes, side by side</h3>
+      <div class="tbl"><table>
+        <thead><tr><th>Model</th><th class="n">Value acc.</th><th class="n">Made-up</th><th class="n">Perfect</th></tr></thead>
+        <tbody>
+          <tr><td class="rowlab">2B — base</td><td class="n">69.5%</td><td class="n">31.0%</td><td class="n">2.4%</td></tr>
+          <tr><td class="rowlab">2B — finetuned</td><td class="n g">92.9%</td><td class="n g">0.8%</td><td class="n g">38.2%</td></tr>
+          <tr><td class="rowlab">4B — base</td><td class="n">81.4%</td><td class="n">15.6%</td><td class="n">5.6%</td></tr>
+          <tr><td class="rowlab">4B — finetuned</td><td class="n g">98.3%</td><td class="n g">0.4%</td><td class="n g">83.7%</td></tr>
+          <tr><td class="rowlab" style="color:var(--muted)">hand-written parser</td><td class="n" style="color:var(--muted)">97.5%</td><td class="n" style="color:var(--muted)">0.0%</td><td class="n" style="color:var(--muted)">82%</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="keypoint">
+        <b>The scaling insight — the most interesting finding.</b> Finetuning taught <em>both</em> sizes the
+        conversion <em>habit</em> (both now attempt every conversion). But the <em>precision</em> to nail the
+        arithmetic exactly — and so get whole records perfect — scales with model size. The 2B stops at 38%
+        perfect records (it converts <em>approximately</em>: 29.79&nbsp;inHg → "about 1014" instead of 1009).
+        The 4B reaches <strong>84% perfect</strong> — it does the maths <em>exactly</em>, landing right next to
+        the hand-written parser.
+      </div>
+    </section>
+
+    <!-- ===================== GOTCHAS ===================== -->
+    <section id="gotchas">
+      <div class="sec-no">05 — The parts nobody warns you about</div>
+      <h2>Two gotchas that ate an afternoon</h2>
+      <p class="lede">Finetuning the model is maybe half the work. <em>Deploying</em> it — getting the trained
+        model to actually run and answer cleanly — is the other half, and where the sneaky bugs live.</p>
+
+      <h3>Gotcha 1 · The model wanted to "think out loud"</h3>
+      <p>Gemma 4 is a <em>reasoning</em> model — left alone it writes out its thought process before answering.
+        For a quick structured decode that's a waste; the bigger model would ramble for hundreds of words and run
+        out of room before giving the JSON. We had to explicitly tell it to <strong>answer directly</strong>.</p>
+
+      <h3>Gotcha 2 · A one-character mismatch broke everything</h3>
+      <p>The finetuned model was quietly failing a quarter of the time — spitting out gibberish instead of JSON.
+        The cause was subtle: it had memorised the <em>exact</em> format of its training prompts, but the serving
+        software rebuilt that prompt with a slightly different tool, producing a marginally different string. The
+        over-drilled model got confused. Feeding it the <em>byte-for-byte</em> training format fixed it instantly
+        — from 73% usable to 100%.</p>
+
+      <p class="aside"><b>A heavily-drilled apprentice can become brittle</b> — thrown off by a tiny change in how
+        the question is phrased, even when it means the same thing. Whatever exact wording you train with, you
+        must reproduce <em>exactly</em> when you deploy. "Close enough" isn't.</p>
+    </section>
+
+    <!-- ===================== IS IT WORTH IT ===================== -->
+    <section id="worth">
+      <div class="sec-no">06 — The honest verdict</div>
+      <h2>So… is it actually useful?</h2>
+      <p class="lede">Here's the twist, and it's the most important thing to take away from this whole demo.</p>
+
+      <div class="keypoint">
+        The finetune is a <b>runaway success</b> as a demonstration — huge, statistically bulletproof gains. And
+        yet, for <em>this task</em>, you would <b>not ship it</b>. A 200-line hand-written parser already decodes
+        METARs at ~100%, instantly, for free, and <em>never</em> makes anything up. The AI, even finetuned, only
+        <em>catches up</em> to the parser it was trained to imitate.
+      </div>
+
+      <p>That's not a failure — it's the correct, honest reading. Our test grades the AI against the parser's
+        answers, so by design <strong>the parser is the ceiling</strong>. This measures how well finetuning can
+        make a model <em>match</em> a known-good tool, not beat it.</p>
+
+      <h3>So when <em>does</em> finetuning a small model earn its keep?</h3>
+      <ul class="notes">
+        <li><strong>When there is no parser</strong> — messy, non-standard, or free-text input that rigid programs
+          choke on. That's where an AI's flexibility actually wins (and the natural next experiment).</li>
+        <li><strong>When you need one small, private, cheap model</strong> you own and run yourself — no per-call
+          API fees, no data leaving your machine.</li>
+        <li><strong>As the fastest way to learn the craft</strong> — this task has a perfect answer key, so every
+          step is measurable. It's a flight simulator for finetuning: the ideal place to make your mistakes.</li>
+      </ul>
+
+      <div class="keypoint">
+        <b>The one-sentence takeaway:</b> finetuning reliably teaches a small model a specific skill, cheaply and
+        measurably — but whether it's <em>worth it</em> depends entirely on whether a simpler tool already does
+        the job. Know which world you're in before you train.
+      </div>
+    </section>
+
+    <!-- ===================== GLOSSARY ===================== -->
+    <section id="glossary">
+      <div class="sec-no">07 — Glossary</div>
+      <h2>Every term, in one place</h2>
+      <dl class="gloss">
+        <div><dt>Base model</dt><dd>A ready-made AI (here, Google's Gemma 4) trained by someone else on general data. Your starting point.</dd></div>
+        <div><dt>Finetuning</dt><dd>Training a base model a little more on examples of your specific task, to specialise it.</dd></div>
+        <div><dt>LoRA / adapter</dt><dd>A cheap finetuning method: freeze the big model, train a tiny add-on (~0.5% of the size) that steers it.</dd></div>
+        <div><dt>Epoch</dt><dd>One full pass through all your training examples. We did just one — that was enough.</dd></div>
+        <div><dt>Eval set</dt><dd>A locked collection of held-out examples used to grade every model fairly and identically.</dd></div>
+        <div><dt>Hallucination</dt><dd>When a model invents a fact that wasn't in the input. The dangerous kind of error.</dd></div>
+        <div><dt>Whole-record accuracy</dt><dd>The strict score: the entire output is correct, every field at once.</dd></div>
+        <div><dt>McNemar's test</dt><dd>A statistics check that says whether "after" truly beats "before," or if it's chance.</dd></div>
+        <div><dt>Quantization / GGUF</dt><dd>Shrinking a model (rounding its numbers) so it runs fast on modest hardware. GGUF is the file format we served.</dd></div>
+        <div><dt>METAR</dt><dd>The coded hourly weather report every airport publishes. The thing we're decoding.</dd></div>
+      </dl>
+    </section>
+
+  </main>
+
+  <footer>
+    <p><b>The experiment.</b> Base model Google Gemma&nbsp;4 (2B &amp; 4B), finetuned with LoRA (rank 16, one
+      epoch, 3,000 examples) on a home AMD GPU, then graded on a frozen 620-report test set against a
+      three-parser + official-decode answer key. Every number is reproducible from the run records; improvements
+      confirmed by McNemar's test (p&nbsp;≪&nbsp;0.001).</p>
+    <p style="margin-top:8px">Part of <b>avtext</b> — a hands-on study of evaluation harnesses and small-model
+      finetuning, using aviation weather as a testbed with a perfect answer key.</p>
+  </footer>
+</div>
