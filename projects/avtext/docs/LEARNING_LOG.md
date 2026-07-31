@@ -750,3 +750,44 @@ python-metar vs the consensus): 97.5% / 82% EM. E4B-FT **edges a single parser**
 
 **Next** — (user-queued) the messy-tail / human-gold eval and the corpus scale-up past 51 stations. Optional
 wider curve: the dense 12B or the 26B-A4B MoE rungs (bigger/slower) if the scaling trend is worth extending.
+
+---
+
+## Session 19 — 2026-07-31 · v2: 500-station corpus, 10x eval, rank-64 ablation
+
+Rebuilt the study at scale: **490 geo-balanced stations** (US 74%→35% by volume, ~4% after per-station
+stratification), a fresh frozen **eval/v2 = 6,200 records** (10x v1; 78 held-out stations spanning every
+region; full 1,000 parse_fail), an 8,000-example v2 SFT, and the user's rank-64 test on E4B with a rank-16
+ablation — all on the frozen v2 set. Corpus/eval/harness committed *before* results (Phase 5, cb2b6f6).
+
+**Results (E4B, v2, 6,200 records):**
+
+| model | value | halluc | EM |
+|-------|------:|-------:|---:|
+| base | 88.8% | 21.4% | 24.8% |
+| rank-16 FT | 99.4% | 7.2% | 90.3% |
+| rank-64 FT | 99.6% | 7.0% | 92.1% |
+
+**Learned**
+
+- **Rank has hit diminishing returns.** rank-64 vs rank-16: **+0.2% value, +1.8% EM, −0.2% halluc** — McNemar
+  significant (p≈10⁻⁹) but tiny, and with real churn (193 fixes / 92 regressions on value). For **4x the
+  adapter** (147M vs 37M params, 281 vs 71 MB) and the same training time, rank-64 buys ~1.8 EM points.
+  **rank-16 is the deployment choice** — capacity is no longer the bottleneck for this task.
+- **v1's low base was partly a US-sampling artifact.** Geo-balancing cut the US-specific inHg conversions
+  (the base's main weakness), so v2 base = 88.8% vs v1's 81.4%. "Harder" is not one-dimensional: v2 is
+  *heavier on the messy tail but lighter on conversions*. Always ask which axis "harder" moved.
+- **Hallucination is now the residual, and it lives in the messy tail.** Even finetuned, v2 halluc = **7.0%**
+  (vs v1's 0.4%). The 500-station diversity surfaced regional/exotic formats where the model still fabricates
+  and the finetune can't fully suppress it. This is the honest cost of a representative eval — and the
+  clearest pointer to the next work (abstention on unfamiliar formats).
+- **Infra:** `--parallel > 1` corrupts E4B output on this llama.cpp/toolbox build (`<unused49>` garbage at
+  parallel 4 and 8; only parallel 1 is clean) → the 6,200-record evals ran **sequentially, ~5.5h each**
+  (~3.2s/record for the 8B). Geo-balanced selection via IEM per-country network geojson
+  (`ingest/select_stations.py`); freezer + SFT builder parameterized with v1 defaults preserved (`--v2`);
+  harness gained `--eval` / `--concurrency`.
+
+**Next** — the residual **7% tail-hallucination** is the open problem (teach abstention on exotic formats,
+maybe corruption augmentation). Product extension to TAF/SIGMET/NOTAM is scoped in
+`docs/research/aviation-data-sources.md` — TAF is the cheap next win (IEM pipeline reuse + free 4-voice
+answer key).
