@@ -107,3 +107,18 @@ def test_awc_voice_decodes_bundled_forecast():
     assert f.periods[0].wind.direction == 180 and f.periods[0].wind.speed_kt == 8
     assert f.periods[0].clouds[0].base_ft == 3500
     assert f.periods[0].visibility_plus is True  # '6+' = P6SM
+
+
+def test_classify_taf_labels_and_reference():
+    from avtext.harness.hardcases import CLEAN, PARSE_FAIL
+    from avtext.harness.hardcases_taf import classify_taf
+
+    c = classify_taf(KORD)  # both voices decode + agree
+    assert c.label == CLEAN
+    assert c.reference["header"]["station"] == "KORD"
+    assert len(c.reference["periods"]) >= 2
+    assert not c.failed
+
+    junk = classify_taf("GARBAGE NOT A TAF @@@")  # neither voice decodes
+    assert junk.label == PARSE_FAIL
+    assert junk.reference["periods"] == []
