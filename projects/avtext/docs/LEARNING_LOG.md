@@ -791,3 +791,55 @@ ablation — all on the frozen v2 set. Corpus/eval/harness committed *before* re
 maybe corruption augmentation). Product extension to TAF/SIGMET/NOTAM is scoped in
 `docs/research/aviation-data-sources.md` — TAF is the cheap next win (IEM pipeline reuse + free 4-voice
 answer key).
+
+## Session 20 — 2026-08-01 · Hallucination anatomy + the whole TAF stack (all non-GPU work)
+
+Two threads. (1) Dissected the v2 "7% hallucination." (2) Built the **entire TAF measurement
+apparatus** end-to-end — corpus → oracles → consensus → gold → frozen eval → harness → SFT — mirroring
+METAR's Phases 1–3 in one session. Standing decision from S19 now in force: **rank-16 only.**
+
+**Hallucination anatomy** (`docs/research/hallucination-anatomy-v2.md`). Reclassified all 625 flagged
+fabrications in the r16 v2 run (conservative test: only credit a "recovery" when the value is provably
+in the raw). Result: **≥70% are mislabelled parser-defeat WINS** — 616/625 are on the `parse_fail` split
+where gold is empty *because the parsers failed*, and the model read glued tokens (`15/14Q1016`) /
+doubled ids (`MGHT METAR MGPB`) correctly. **Real fabrication is ≤2.1%, not 7%**, dominated by one crisp,
+learnable mode: **slash-masked fields** (`///18G24KT`, `////`) the model fills in instead of nulling.
+The scorer literally can't tell the model's best behaviour from its worst on `parse_fail` — the strongest
+case yet for the human-gold messy-tail eval.
+
+**TAF extension (US-only deep history is the trap).** IEM `taf.py` is **US/NWS-only** (EGLL/EDDF/UUEE/RJAA
+all return 0) — the research doc's "global to 1996" was wrong for TAF. Chose US-only IEM for the stack;
+then, for the geo-balanced non-US corpus the METAR lesson demands, built a one-time global collector from
+the AWC bulk cache (`tafs.cache.xml.gz` — **XML, not CSV**) + a ~30-day backfill via the AWC Data API.
+Collected **61,443 non-US TAFs** (2,824 stations, 30-day span, all ICAO regions); committed to git because
+it is **not reproducible** (the API window slides).
+
+**Learned**
+
+- **Deep global TAF history does not exist for free.** IEM = US-only; AWC = global but current + **hard
+  ~30-day ceiling** (verified: 30d returns data, 31d empty — *not* 90); Ogimet is the only deep global
+  archive and is `robots: Disallow: /`. So global TAF = forward-collection + a 30-day catch-up. Always
+  verify a "global/deep" claim endpoint-by-endpoint — the same trap as S17's gemma-3/4 conflation.
+- **The voices disagree by CONVENTION, so align by sequence not timestamp.** avwx *resolves* change-group
+  timing (`BECMG 0107/0109` → `0109/0117`), mivek *states* it (`1:7→1:9`). Aligning periods positionally
+  (both list INITIAL→groups in raw order; 99% agree on count) and taking timing from the stated voice
+  (mivek) sidesteps it. 2-voice consensus = **98% clean, 0% structural dissent**.
+- **A "gold" voice can be worse than the consensus.** AWC's bundled decode is **SM-native**, so on the
+  metres corpus it injects visibility round-trip noise (as a co-voter it *lowered* clean 99%→97%). Used it
+  as the gold ANCHOR instead: consensus matches AWC **100%** on change_type/prob/wind/sky_clear/VV over
+  1,375 records; the lower vis_m (69%) / cavok (90%) are AWC's own limits, where the consensus is the more
+  accurate side. Measuring the "authority" before trusting it mattered.
+- **The nested taxonomy is free.** score_taf aligns periods by sequence and reuses `score_field`: an
+  OMITTED change group → every field ABSTAIN (safe), an INVENTED one → HALLUCINATE (dangerous). Whole-
+  forecast EM is strict on purpose — structure is the point of TAF. A reference→SFT-target→parse→score
+  round-trip scores **perfectly**, proving prompt/scorer/SFT-builder are mutually consistent.
+- **eval/taf/v1 frozen:** 5,294 records (5,000 clean / 215 dissent / 79 parse_fail; sha256 f103708d),
+  deterministic md5 15% station holdout (262/1,903), 5-day unseen_time window (corpus is only 30d deep).
+  Clean-heavy by design. Harness validated on the real eval via a parser-consensus predictor (100%/0%/100%).
+- **SFT:** `train_taf.jsonl`, 8,000 clean/dissent targets (== the exact reference), disjoint train split,
+  640 MPS-wind examples, full 1–5+ period-complexity spread. Gitignored (reproducible from the committed corpus).
+
+**Next (dashi only)** — serve base Gemma-4-E4B → TAF baseline (`runner_taf --completion`); train **rank-16**
+LoRA on `train_taf.jsonl`; serve finetuned → harness; compare. Caveat: `--parallel 1` + ~1024-token nested
+output makes the 5,294-record eval slow (~overnight) — consider `--limit` for a first read. Then the queued
+METAR work: the masked-field abstention augmentation (from the hallucination anatomy) + the human-gold eval.
