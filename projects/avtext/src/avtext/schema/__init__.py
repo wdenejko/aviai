@@ -22,17 +22,27 @@ from avtext.schema.metar import (
     WxDescriptor,
     WxIntensity,
 )
+from avtext.schema.taf import (
+    ChangeType,
+    ForecastPeriod,
+    TafForecast,
+    WindShear,
+)
 
 __all__ = [
     "AltimeterSource",
+    "ChangeType",
     "CloudCover",
     "CloudLayer",
     "CloudType",
+    "ForecastPeriod",
     "MetarObservation",
     "ReportType",
     "SkyClear",
+    "TafForecast",
     "WeatherGroup",
     "Wind",
+    "WindShear",
     "WxDescriptor",
     "WxIntensity",
 ]
