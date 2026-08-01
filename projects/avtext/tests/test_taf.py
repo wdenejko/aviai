@@ -85,3 +85,25 @@ def test_structural_dissent_on_period_count_mismatch():
     f2 = _fc([_p(ChangeType.INITIAL, 1, 12)])
     con = consensus_taf({"avwx": f1, "mivek": f2})
     assert con.structural_dissent  # voices disagree on how many change groups
+
+
+def test_awc_voice_decodes_bundled_forecast():
+    # The AWC voice reads NOAA's bundled <forecast> decode from the XML element, not the text.
+    import xml.etree.ElementTree as ET
+
+    from avtext.oracles.awc_taf_voice import decode_awc_taf
+
+    xml = (
+        "<TAF><raw_text>TAF KXXX 011130Z 0112/0218 18008KT 6SM BKN035</raw_text>"
+        "<forecast><fcst_time_from>2026-08-01T12:00:00Z</fcst_time_from>"
+        "<fcst_time_to>2026-08-02T18:00:00Z</fcst_time_to>"
+        "<wind_dir_degrees>180</wind_dir_degrees><wind_speed_kt>8</wind_speed_kt>"
+        "<visibility_statute_mi>6+</visibility_statute_mi>"
+        '<sky_condition sky_cover="BKN" cloud_base_ft_agl="3500"/></forecast></TAF>'
+    )
+    f = decode_awc_taf(ET.fromstring(xml))
+    assert f.station == "KXXX" and f.issue_hour == 11
+    assert f.periods[0].change_type is ChangeType.INITIAL
+    assert f.periods[0].wind.direction == 180 and f.periods[0].wind.speed_kt == 8
+    assert f.periods[0].clouds[0].base_ft == 3500
+    assert f.periods[0].visibility_plus is True  # '6+' = P6SM
