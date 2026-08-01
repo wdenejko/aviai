@@ -106,6 +106,9 @@ class ForecastPeriod(BaseModel):
     weather: list[WeatherGroup] = Field(default_factory=list)
     clouds: list[CloudLayer] = Field(default_factory=list)
     sky_clear: SkyClear | None = Field(default=None, description="SKC/NSC/CLR/NCD (no layers)")
+    vertical_visibility_ft: int | None = Field(
+        default=None, ge=0, description="VV — sky obscured (e.g. VV001 -> 100 ft)"
+    )
     wind_shear: WindShear | None = None
 
 
