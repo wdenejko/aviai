@@ -122,3 +122,41 @@ def test_classify_taf_labels_and_reference():
     junk = classify_taf("GARBAGE NOT A TAF @@@")  # neither voice decodes
     assert junk.label == PARSE_FAIL
     assert junk.reference["periods"] == []
+
+
+def test_taf_scoring_roundtrip_is_perfect():
+    # reference -> SFT target JSON -> parsed prediction -> score must be perfect (EM, no halluc).
+    # This is the load-bearing consistency check across prompt_taf / build_sft_taf / score_taf.
+    from avtext.finetune.build_sft_taf import _target_json
+    from avtext.harness.hardcases_taf import classify_taf
+    from avtext.harness.prompt_taf import parse_prediction_taf
+    from avtext.harness.score import Outcome
+    from avtext.harness.score_taf import period_count_match, score_taf_record
+
+    ref = classify_taf(KORD).reference
+    pred = parse_prediction_taf("JSON:\n" + _target_json(ref))  # model emits exactly the target
+    s = score_taf_record(ref, pred)
+    assert s.exact_match
+    assert period_count_match(ref, pred)
+    assert not any(o in (Outcome.WRONG, Outcome.HALLUCINATE) for o in s.outcomes.values())
+
+
+def test_taf_scoring_penalises_extra_and_missing_periods():
+    from avtext.harness.score import Outcome
+    from avtext.harness.score_taf import score_taf_record
+
+    ref = {"header": {"station": "KXXX"}, "periods": [{"change_type": "INITIAL", "wind_speed": 8}]}
+    invents = {
+        "header": {"station": "KXXX"},
+        "periods": [
+            {"change_type": "INITIAL", "wind_speed": 8},
+            {"change_type": "FM", "wind_speed": 10},  # a group that isn't in the reference
+        ],
+    }
+    s_extra = score_taf_record(ref, invents)
+    assert any(o is Outcome.HALLUCINATE for o in s_extra.outcomes.values())  # invented group
+    assert not s_extra.exact_match
+
+    drops = {"header": {"station": "KXXX"}, "periods": []}
+    s_missing = score_taf_record(ref, drops)
+    assert any(o is Outcome.ABSTAIN for o in s_missing.outcomes.values())  # dropped group = safe
