@@ -135,17 +135,30 @@ def latest_snapshot_stations(*, non_us_only: bool = True) -> list[str]:
     return [s for s in ids if s[0] not in "KPT"] if non_us_only else ids
 
 
-def _fetch_api(ids: list[str], date: str) -> bytes:
-    """One AWC Data API call: TAFs valid at `date` (YYYYMMDD) for a batch of stations, as XML."""
-    resp = httpx.get(
-        TAF_API_URL,
-        params={"ids": ",".join(ids), "date": date, "format": "xml"},
-        headers={"User-Agent": USER_AGENT},
-        timeout=90.0,
-        follow_redirects=True,
-    )
-    resp.raise_for_status()
-    return resp.content
+def _fetch_api(ids: list[str], date: str, *, retries: int = 4) -> bytes:
+    """One AWC Data API call: TAFs valid at `date` (YYYYMMDD) for a batch of stations, as XML.
+
+    The AWC API returns intermittent 502/504s under load, so retry 5xx and transport errors
+    (timeouts) with exponential backoff (2/4/8/16 s); 4xx and a final failure propagate."""
+    for attempt in range(retries + 1):
+        try:
+            resp = httpx.get(
+                TAF_API_URL,
+                params={"ids": ",".join(ids), "date": date, "format": "xml"},
+                headers={"User-Agent": USER_AGENT},
+                timeout=90.0,
+                follow_redirects=True,
+            )
+            resp.raise_for_status()
+            return resp.content
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code < 500 or attempt == retries:
+                raise
+        except httpx.TransportError:
+            if attempt == retries:
+                raise
+        time.sleep(2 ** (attempt + 1))  # 2, 4, 8, 16 s backoff before the next attempt
+    raise RuntimeError("unreachable")  # pragma: no cover — loop always returns or raises
 
 
 def backfill_api(
@@ -174,6 +187,10 @@ def backfill_api(
     done = 0
     for date in dates:
         for bi, ids in enumerate(batches):
+            out = AWC_TAF_API_RAW / f"date={date}" / f"batch{bi:02d}.xml.gz"
+            if save and out.exists() and out.stat().st_size > 0:
+                done += 1  # resume: this (date, batch) already fetched — skip (fills only gaps)
+                continue
             try:
                 raw = _fetch_api(ids, date)
             except Exception as e:  # noqa: BLE001 — one bad call must not abort a multi-hundred-call run
@@ -184,7 +201,6 @@ def backfill_api(
             n = len(parse_taf_cache(gz))
             seen_tafs += n
             if save:
-                out = AWC_TAF_API_RAW / f"date={date}" / f"batch{bi:02d}.xml.gz"
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_bytes(gz)
                 record_artifact(
