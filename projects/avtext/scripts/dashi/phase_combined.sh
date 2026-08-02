@@ -26,10 +26,27 @@ echo "=== PHASE_COMBINED START $(date) | limit=$LIMIT batch=$BATCH max_seq=$MAXS
 stop8080
 
 # 1. TRAIN one rank-16 adapter on the combined set + convert to GGUF
-echo "=== TRAIN combined r16 $(date +%H:%M) ==="
+# Packing packs the short METAR examples together instead of padding each to 2048, ~3-4x faster on
+# this mixed-length set — but it's untested on this ROCm build, so dry-run 5 steps first and fall
+# back to non-packing (correct, just slow) if it errors. Same data/experiment either way.
+echo "=== PACKING DRY-RUN $(date +%H:%M) ==="
+PACK=""
+HF_HUB_DISABLE_XET=1 ~/ft/bin/python ~/scripts/avtext/train_lora.py \
+  --model unsloth/gemma-4-E4B-it --out /tmp/pack_test --data "$DATA" \
+  --rank 16 --batch "$BATCH" --max-seq "$MAXSEQ" --packing --max-steps 5 \
+  > ~/logs/pack_test.log 2>&1
+if grep -q SAVED_ADAPTER ~/logs/pack_test.log; then
+  PACK="--packing"; echo "packing OK -> real run uses --packing (fast)"
+else
+  echo "packing dry-run FAILED (see ~/logs/pack_test.log) -> non-packing fallback (slow)"
+  tail -4 ~/logs/pack_test.log
+fi
+rm -rf /tmp/pack_test
+
+echo "=== TRAIN combined r16 $(date +%H:%M) | pack='${PACK:-none}' ==="
 HF_HUB_DISABLE_XET=1 ~/ft/bin/python ~/scripts/avtext/train_lora.py \
   --model unsloth/gemma-4-E4B-it --out "$ADAPTER_DIR" --data "$DATA" \
-  --rank 16 --epochs 1 --batch "$BATCH" --max-seq "$MAXSEQ" \
+  --rank 16 --epochs 1 --batch "$BATCH" --max-seq "$MAXSEQ" $PACK \
   2>&1 | grep -iE 'trainable param|train_loss|SAVED_ADAPTER|error|traceback|out of memory' | tail -6
 
 echo "=== CONVERT $(date +%H:%M) ==="
