@@ -66,3 +66,64 @@ def test_flat_vs_row_categories():
         "stand",
         "taxiway",
     }  # all nine categories present
+
+
+def _rw(**kw):
+    """A runway row with all schema fields (missing -> None)."""
+    return {f: kw.get(f) for f in NOTAM_FIELDS["runway"]}
+
+
+def test_score_notam_perfect_and_order_invariant():
+    from avtext.harness.score import Outcome
+    from avtext.harness.score_notam import row_count_match, score_notam_record
+
+    ref = {
+        "category": "runway",
+        "rows": [
+            _rw(airport="MMRX", runway="13", status_type="clsd"),
+            _rw(airport="MMRX", runway="31", status_type="clsd"),
+        ],
+    }
+    # prediction identical but ROWS SWAPPED -> greedy match should still score perfect
+    pred = {"rows": [ref["rows"][1], ref["rows"][0]]}
+    s = score_notam_record(ref, pred, id="MMRX_1/24")
+    assert s.exact_match
+    assert row_count_match(ref, pred)
+    assert not any(o in (Outcome.WRONG, Outcome.HALLUCINATE) for o in s.outcomes.values())
+
+
+def test_score_notam_extra_row_hallucinates_missing_abstains():
+    from avtext.harness.score import Outcome
+    from avtext.harness.score_notam import score_notam_record
+
+    ref = {"category": "runway", "rows": [_rw(airport="K", runway="9", status_type="clsd")]}
+    invents = {"rows": [ref["rows"][0], _rw(airport="K", runway="27", status_type="clsd")]}
+    assert any(o is Outcome.HALLUCINATE for o in score_notam_record(ref, invents).outcomes.values())
+    drops = {"rows": []}
+    assert any(o is Outcome.ABSTAIN for o in score_notam_record(ref, drops).outcomes.values())
+
+
+def test_notam_prompt_roundtrip_is_perfect():
+    # reference -> target JSON -> parse -> score must be perfect (prompt/parser/scorer consistency)
+    import json
+
+    from avtext.harness.prompt_notam import parse_prediction_notam
+    from avtext.harness.score import Outcome
+    from avtext.harness.score_notam import score_notam_record
+
+    ref = {
+        "category": "taxiway",
+        "rows": [
+            {
+                f: v
+                for f, v in zip(
+                    NOTAM_FIELDS["taxiway"], ["EDDF", "A", "clsd", None, "B"], strict=True
+                )
+            }
+        ],
+    }
+    target = json.dumps({"rows": ref["rows"]})
+    pred = parse_prediction_notam("JSON:\n" + target, "taxiway")
+    s = score_notam_record(ref, pred)
+    assert s.exact_match
+    assert not any(o in (Outcome.WRONG, Outcome.HALLUCINATE) for o in s.outcomes.values())
