@@ -20,17 +20,17 @@ def test_has_chinese_detects_anywhere():
     assert not has_chinese({"airport": "MMRX", "runway": "13", "tora": None})
 
 
-def test_normalize_row_drops_area_type_and_remaps_keys():
-    # area_type is 100%-Chinese and NOT in the schema -> dropped; other fields kept + stripped.
+def test_normalize_row_remaps_area_type_enum():
+    # area_type is a 6-value Chinese enum -> remapped to English + kept (recovers area, no Chinese).
     row = normalize_row(
-        "area", {"area_type": "限制区", "area_summary": " restricted ", "atc": "", "fpl": "Y"}
+        "area", {"area_type": "多边形", "area_summary": " restricted ", "atc": "", "fpl": "Y"}
     )
-    assert "area_type" not in row  # excluded from NOTAM_FIELDS["area"]
+    assert row["area_type"] == "polygon"  # 多边形 -> polygon (remapped, kept)
     assert row["area_summary"] == "restricted"  # stripped
     assert row["atc"] is None  # "" -> None
     assert row["fpl"] == "Y"
-    assert set(row) == set(NOTAM_FIELDS["area"])  # exactly the schema fields
-    assert not has_chinese(row)  # the Chinese field is gone
+    assert set(row) == set(NOTAM_FIELDS["area"])  # exactly the schema fields (incl. area_type)
+    assert not has_chinese(row)  # remapped -> no Chinese
 
 
 def test_normalize_row_remaps_capitalised_keys():
@@ -63,9 +63,11 @@ def test_flat_vs_row_categories():
         "navigation",
         "procedure",
         "runway",
+        "rvr",
+        "standard",
         "stand",
         "taxiway",
-    }  # all nine categories present
+    }  # all eleven categories present (OpenNOTAM adds rvr + standard)
 
 
 def _rw(**kw):

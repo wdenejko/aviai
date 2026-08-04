@@ -70,3 +70,27 @@ The datasets are also **2024-only, Asia-skewed, ADCC-annotated** — note the di
 
 **Tailwind:** today's combined METAR+TAF result showed multi-task training is free/synergistic here, so
 adding NOTAM to one adapter (the all-four goal) is well-motivated.
+
+---
+
+## UPDATE 2026-08-05 — new-sources sweep → OpenNOTAM switch + DEEL-AI
+
+A live research sweep (HF/Kaggle/academic/GitHub + raw feeds) found two real wins; corpus grew
+**4,718 → 11,340 clean English records** (0 Chinese), and a new classification task was added.
+
+- **OpenNOTAM** (github.com/Estrellajer/OpenNOTAM) now the extraction source, superseding raw Knots.
+  It is the Knots EXPERT gold reformatted as instruction/input/output SFT triples — **verified
+  label-identical** (runway 538/538 match), so no quality loss. Gains: (a) `area_type` is a 6-value
+  Chinese ENUM, remapped to English (AREA_TYPE_REMAP) → **area recovered (5,514 vs 797)** with its
+  type; (b) **+rvr, +standard** categories (11 total); (c) a ready **train/test split** we reuse.
+  `ingest/opennotam.py` replaces `ingest/knots.py`. License caveat unchanged (no LICENSE file, MIT
+  badge — same lab as Knots; confirm before publishing).
+- **DEEL-AI/NOTAM** (HF, **MIT**, independent French lab) — **8,478** records, 0 Chinese, a NEW task:
+  single-label **classification** into 13 classes (Airspaces, GPS, Obstacles, Runway, Taxiway, …).
+  Being added as a separate NOTAM classification capability + eval.
+- **FAA NOTAM API** (US-Gov, ~3.73M/yr, redistribute-safe with an attribution caveat) + a permissive
+  Q-line parser (`dbrgn/notam-parse`, MIT — replaces GPL PyNotam) = the durable path to scale raw
+  later. Two large raw sets (jcoupon ~98K, krooonal ~96K) are clean English but **unlicensed** →
+  internal bootstrap only, never redistribute.
+- **Rejected:** NOTAM-Evolve (Chinese labels), AirsideLabs (QA task, no license), Kaggle (nothing
+  usable), FAA DINS (403 bot-block), EUROCONTROL EAD (gated), ICAO API (paid).

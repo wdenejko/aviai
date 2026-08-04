@@ -12,11 +12,12 @@ Design decisions (each earned from inspecting the data 2026-08-04):
    as `rows: list[dict]` — a flat category is simply a one-row list — so the scorer aligns rows
    uniformly (the same idea as TAF change-group periods).
 
-2. ENGLISH ONLY — NO CHINESE DATAPOINTS (project requirement). Knots is ADCC/China-annotated, so a
-   little raw text and one whole field are Chinese. We enforce cleanliness two ways: (a) `area_type`
-   is a 100%-Chinese categorical field, so it is EXCLUDED from the schema entirely (area keeps its
-   English fields); (b) any record with a Chinese character in `raw_text` or in any kept field value
-   is dropped at ingest (`has_chinese`). The created dataset therefore contains no Chinese anywhere.
+2. ENGLISH ONLY — NO CHINESE DATAPOINTS (project requirement). The source is ADCC/China-annotated,
+   so some raw text and one field are Chinese. We enforce cleanliness two ways: (a) `area_type` is a
+   6-VALUE Chinese ENUM (not free text), so it is REMAPPED to English (AREA_TYPE_REMAP) and kept —
+   recovering the area category with its type; (b) any record still containing a Chinese character
+   in `raw_text` or any field value is dropped at ingest (`has_chinese`). The created dataset
+   therefore contains no Chinese anywhere.
 
 3. VALUES ARE CATEGORICAL STRINGS. Unlike METAR's numerics, NOTAM fields are short strings / small
    enums ("clsd", "international,domestic,regional", a runway id "13") or null. We keep them as
@@ -38,6 +39,8 @@ class NotamCategory(StrEnum):
     NAVIGATION = "navigation"
     PROCEDURE = "procedure"
     RUNWAY = "runway"
+    RVR = "rvr"  # runway visual range sensor status
+    STANDARD = "standard"  # approach-minima changes
     STAND = "stand"
     TAXIWAY = "taxiway"
 
@@ -50,7 +53,15 @@ NOTAM_FIELDS: dict[str, tuple[str, ...]] = {
         "ppr", "aip", "tora", "toda", "asda", "lda", "distance_chg",
     ),
     "taxiway": ("airport", "taxiway", "status_type", "section", "intersection_with"),
-    "area": ("area_summary", "height_detail", "atc", "fpl"),  # area_type EXCLUDED (100% Chinese)
+    "area": ("area_type", "area_summary", "height_detail", "atc", "fpl"),  # area_type remapped
+    "rvr": (
+        "airport", "runway",
+        "touchdown_zone_unavailable", "midpoint_unavailable", "stop_end_unavailable",
+    ),
+    "standard": (
+        "airport", "runway", "procedure_name", "approach_type",
+        "aircraft_category", "minima_type", "minima_value", "notam_type",
+    ),
     "airway": (
         "route", "start", "end", "directional", "height_detail", "atc", "fpl", "change_info",
     ),
@@ -79,6 +90,18 @@ _KNOTS_KEY_MAP = {
     "unavailable/downgrade": "unavailable_downgrade",
 }
 
+# area_type is a fixed 6-value Chinese enum -> English (the ONLY Chinese in the area category).
+# Remapping it recovers all of area with its type field, Chinese-free. Any value NOT here stays
+# Chinese and its record is dropped by has_chinese (a safety net for unexpected values).
+AREA_TYPE_REMAP = {
+    "区域激活": "activation",
+    "多边形": "polygon",
+    "圆": "circle",
+    "圆弧多边形": "arc",
+    "线段外扩": "line_buffer",
+    "扇形": "sector",
+}
+
 
 def has_chinese(x: object) -> bool:
     """True if any CJK character appears anywhere in x (str / list / dict, recursively).
@@ -101,11 +124,14 @@ def _norm_val(v: object) -> str | None:
 
 
 def normalize_row(category: str, raw_row: dict) -> dict[str, str | None]:
-    """Map one Knots manual_fields row to a canonical {field: value} dict for `category`,
-    keeping only that category's schema fields (so area_type and any stray key are dropped)."""
+    """Map one source row to a canonical {field: value} dict for `category`, keeping only that
+    category's schema fields (stray keys dropped) and remapping the area_type Chinese enum."""
     fields = NOTAM_FIELDS[category]
     remapped = {_KNOTS_KEY_MAP.get(k, k): v for k, v in raw_row.items()}
-    return {f: _norm_val(remapped.get(f)) for f in fields}
+    row = {f: _norm_val(remapped.get(f)) for f in fields}
+    if category == "area" and row.get("area_type") is not None:
+        row["area_type"] = AREA_TYPE_REMAP.get(row["area_type"], row["area_type"])
+    return row
 
 
 class NotamExtraction(BaseModel):
