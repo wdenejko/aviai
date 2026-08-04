@@ -1,0 +1,26 @@
+{
+  "model_id": "gemma-4-e4b-taf-base (smoke 1500)",
+  "prompt_id": "decode-taf-json-v1",
+  "eval_version": "taf-v1",
+  "eval_sha256": "f103708d438a686ff8f187fc483e486c0f92027fe413a7576dc1753e561f2b22",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 1024
+  },
+  "created_utc": "2026-08-03T03:57:22Z",
+  "n_invalid": 59,
+  "n_period_match": 1311,
+  "overall": {
+    "n_records": 1500,
+    "hits": 53716,
+    "wrong": 3670,
+    "abstain": 6831,
+    "hallucinate": 3613,
+    "true_abstain": 26874,
+    "precision": 0.8806046000754111,
+    "recall": 0.8364763224691281,
+    "f1": 0.8579734219269103,
+    "hallucination_rate": 0.1185095286515564,
+    "exact_match": 0.072
+  }
+}

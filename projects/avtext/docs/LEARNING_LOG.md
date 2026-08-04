@@ -843,3 +843,50 @@ it is **not reproducible** (the API window slides).
 LoRA on `train_taf.jsonl`; serve finetuned → harness; compare. Caveat: `--parallel 1` + ~1024-token nested
 output makes the 5,294-record eval slow (~overnight) — consider `--limit` for a first read. Then the queued
 METAR work: the masked-field abstention augmentation (from the hallucination anatomy) + the human-gold eval.
+
+## Session 21 — 2026-08-03/04 · TAF finetune + combined METAR+TAF multi-task (on dashi)
+
+Ran Phase 6's training half unattended on dashi: the single-task TAF finetune, then a combined
+METAR+TAF adapter. **rank-16 throughout** (the standing decision).
+
+**TAF single-task (E4B r16, eval/taf/v1, 1,500 records):**
+
+| model | value | halluc | EM | period-match |
+|-------|------:|-------:|---:|-------------:|
+| base  | 83.6% | 11.9% | 7.2% | 87.4% |
+| **r16 FT** | **93.1%** | **1.5%** | **89.1%** | 95.7% |
+
+**Combined multi-task (ONE r16 adapter on 16k mixed examples, eval on both):**
+
+| product | single-task r16 | combined r16 |
+|---------|-----------------|--------------|
+| TAF (same 1,500) | 93.1% / 89.1% EM | 93.2% / **90.1% EM** |
+| METAR | 99.4% / 90.3% EM* | 99.7% / **93.1% EM** |
+
+*single-task METAR on the full 6,200; combined on 1,500 — not strictly same-N.
+
+**Learned**
+
+- **A finetune's value on TAF is almost entirely STRUCTURE.** The base model reads individual TAF
+  fields fine (83.6% value) but almost never gets a whole nested forecast right (7.2% EM) — it drops
+  or garbles change groups. The finetune takes whole-forecast EM 7%→89% (+82 pts) and cuts
+  hallucination 12%→1.5%. The nested task makes the base far worse than METAR (24.8% EM) and the
+  finetune lift correspondingly larger.
+- **Multi-task combining is FREE here — arguably slightly synergistic.** One rank-16 adapter matches
+  both single-task adapters (TAF EM 89.1→90.1 on the airtight same-1,500 comparison; METAR no
+  regression). Flat-JSON METAR and nested-JSON TAF don't interfere — the model routes on the prompt,
+  and the shared aviation-decoding signal may help. Strong evidence that one adapter for all four
+  products is viable.
+- **This iGPU is slow for this workload; size the estimate empirically.** seq-2048 training ran
+  ~10.3h (TAF 8k) / 17.5h (combined 16k); `--parallel 1` long-output eval ~7h per 1,500 TAFs. I
+  repeatedly under-quoted ETAs.
+- **Packing didn't pack (caution).** `SFTConfig(packing=True)` was accepted (dry-run ran clean) but
+  the step count was unchanged (1,333 = full dataset) → no speedup. A 5-step "does it run" dry-run is
+  NOT a test that packing reduced sequences — verify the step/epoch ratio dropped, not just that it ran.
+- **Infra:** train + serve on dashi (`~/ft` unsloth env + serve.sh toolbox); harness runs there via a
+  `uv` venv in `~/avtext`; `scripts/dashi/{phase_taf,phase_combined,chain_combined,train_lora}.py/.sh`
+  orchestrate unattended (dashi-side chainer waits for one phase then launches the next — robust to
+  clock skew / session loss). 73 tests.
+
+**Next** — masked-field abstention augmentation (from S20's hallucination anatomy); the human-gold
+messy-tail eval; and, on this evidence, extend the one-adapter approach toward SIGMET/NOTAM (all-four).

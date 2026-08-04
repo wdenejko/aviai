@@ -1,0 +1,25 @@
+{
+  "model_id": "gemma-4-e4b-combined-r16-metar (smoke 1500)",
+  "prompt_id": "decode-json-v1",
+  "eval_version": "v2",
+  "eval_sha256": "6e19b0eb5d7a1dd674e2b105179efeb422f085fe15a3ddd57ddea600ffd9ee39",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 256
+  },
+  "created_utc": "2026-08-04T06:17:36Z",
+  "n_invalid": 0,
+  "overall": {
+    "n_records": 1500,
+    "hits": 14357,
+    "wrong": 46,
+    "abstain": 1,
+    "hallucinate": 125,
+    "true_abstain": 1971,
+    "precision": 0.9882296255506607,
+    "recall": 0.9967370174951402,
+    "f1": 0.9924650905571684,
+    "hallucination_rate": 0.059637404580152674,
+    "exact_match": 0.9306666666666666
+  }
+}
