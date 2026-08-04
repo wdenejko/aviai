@@ -134,6 +134,26 @@ def normalize_row(category: str, raw_row: dict) -> dict[str, str | None]:
     return row
 
 
+# ── NOTAM classification (a SECOND, independent task from DEEL-AI/NOTAM, MIT) ─────────────────────
+# A different task shape from extraction: assign one raw NOTAM to one of 13 top-level classes. Kept
+# here in the NOTAM domain but scored/prompted separately (classification, not field extraction).
+NOTAM_CLASSES = (
+    "Airspaces", "Communication_and_Radar", "GPS", "Landing_Navaids", "Obstacles", "Parking",
+    "Procedure", "Runway", "Services_and_Facilities", "Signs_and_Lights", "Taxiway",
+    "Terminal_or_Enroute_Navaids", "Wildlife",
+)  # fmt: skip
+
+
+class NotamClassification(BaseModel):
+    """A NOTAM labelled with one top-level class (DEEL-AI). The classification task's record."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    raw_text: str
+    label: str  # one of NOTAM_CLASSES
+
+
 class NotamExtraction(BaseModel):
     """A decoded NOTAM — the canonical record the model must produce and the scorer grades against.
     `rows` are category-specific field dicts (a flat category has exactly one row)."""

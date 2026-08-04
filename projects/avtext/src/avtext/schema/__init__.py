@@ -23,8 +23,10 @@ from avtext.schema.metar import (
     WxIntensity,
 )
 from avtext.schema.notam import (
+    NOTAM_CLASSES,
     NOTAM_FIELDS,
     NotamCategory,
+    NotamClassification,
     NotamExtraction,
     has_chinese,
     normalize_row,
@@ -43,9 +45,11 @@ __all__ = [
     "CloudLayer",
     "CloudType",
     "ForecastPeriod",
+    "NOTAM_CLASSES",
     "NOTAM_FIELDS",
     "MetarObservation",
     "NotamCategory",
+    "NotamClassification",
     "NotamExtraction",
     "ReportType",
     "SkyClear",

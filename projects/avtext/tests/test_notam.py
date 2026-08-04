@@ -4,12 +4,21 @@ import pytest
 from pydantic import ValidationError
 
 from avtext.schema.notam import (
+    NOTAM_CLASSES,
     NOTAM_FIELDS,
     ROW_CATEGORIES,
+    NotamClassification,
     NotamExtraction,
     has_chinese,
     normalize_row,
 )
+
+
+def test_notam_classification_schema():
+    # DEEL-AI classification: 13 top-level classes, one label per NOTAM.
+    assert len(NOTAM_CLASSES) == 13 and "Runway" in NOTAM_CLASSES and "Wildlife" in NOTAM_CLASSES
+    c = NotamClassification(id="cls-1", raw_text="ILS IJB RWY 15 U/S", label="Landing_Navaids")
+    assert c.label == "Landing_Navaids"
 
 
 def test_has_chinese_detects_anywhere():
