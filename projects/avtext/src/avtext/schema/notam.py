@@ -1,0 +1,133 @@
+"""Canonical NOTAM extraction schema (Phase 7).
+
+NOTAMs invert the METAR/TAF setup: parsers fail the free-text E-field, so there is no parser
+consensus. The **gold is given** — the expert annotations in the Knots dataset (github.com/
+Estrellajer/Knots) — and the task is *category-specific structured extraction* from the raw E-field.
+This module is the contract: which fields each category yields, and the shape they take.
+
+Design decisions (each earned from inspecting the data 2026-08-04):
+
+1. NINE CATEGORIES, TWO SHAPES, unified as ROWS. Six categories are row-based (one NOTAM can affect
+   several runways/taxiways → several rows); three are flat (a single extraction). We represent BOTH
+   as `rows: list[dict]` — a flat category is simply a one-row list — so the scorer aligns rows
+   uniformly (the same idea as TAF change-group periods).
+
+2. ENGLISH ONLY — NO CHINESE DATAPOINTS (project requirement). Knots is ADCC/China-annotated, so a
+   little raw text and one whole field are Chinese. We enforce cleanliness two ways: (a) `area_type`
+   is a 100%-Chinese categorical field, so it is EXCLUDED from the schema entirely (area keeps its
+   English fields); (b) any record with a Chinese character in `raw_text` or in any kept field value
+   is dropped at ingest (`has_chinese`). The created dataset therefore contains no Chinese anywhere.
+
+3. VALUES ARE CATEGORICAL STRINGS. Unlike METAR's numerics, NOTAM fields are short strings / small
+   enums ("clsd", "international,domestic,regional", a runway id "13") or null. We keep them as
+   strings (light-normalised: stripped, ""→None) rather than over-typing — faithful to the gold.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+class NotamCategory(StrEnum):
+    AIRPORT = "airport"
+    AIRWAY = "airway"
+    AREA = "area"
+    LIGHT = "light"
+    NAVIGATION = "navigation"
+    PROCEDURE = "procedure"
+    RUNWAY = "runway"
+    STAND = "stand"
+    TAXIWAY = "taxiway"
+
+
+# Canonical fields per category, in output order. Chinese-only fields are EXCLUDED (area_type).
+# Field names are normalised to snake_case (see _KNOTS_KEY_MAP for the source-key mapping).
+NOTAM_FIELDS: dict[str, tuple[str, ...]] = {
+    "runway": (
+        "airport", "runway", "status_type", "affect_region", "flight_type",
+        "ppr", "aip", "tora", "toda", "asda", "lda", "distance_chg",
+    ),
+    "taxiway": ("airport", "taxiway", "status_type", "section", "intersection_with"),
+    "area": ("area_summary", "height_detail", "atc", "fpl"),  # area_type EXCLUDED (100% Chinese)
+    "airway": (
+        "route", "start", "end", "directional", "height_detail", "atc", "fpl", "change_info",
+    ),
+    "stand": ("airport", "stand_split_info", "stand_status"),
+    "procedure": ("airport", "runway", "procedure_type", "procedure_name", "chart", "aip"),
+    "airport": (
+        "airport", "restriction_type", "flight_type", "affect_region", "diversion_restriction",
+        "aip", "ppr", "fuel", "industrialaction", "powersupply",
+    ),
+    "light": (
+        "airport", "runway", "lightcategory", "ilscategory",
+        "unavailable_downgrade", "als", "distance", "percentage",
+    ),
+    "navigation": ("airport", "runway", "navaid_id", "navaid_type"),
+}  # fmt: skip
+
+# Categories where a NOTAM yields MANY rows; the rest are flat (exactly one row).
+ROW_CATEGORIES = frozenset({"runway", "taxiway", "area", "airway", "stand", "procedure"})
+
+# Knots source field name -> our canonical name (fixes caps / slashes). area_type is intentionally
+# absent from every category's field tuple, so it is dropped even though Knots emits it.
+_KNOTS_KEY_MAP = {
+    "Chart": "chart",
+    "restriction_Type": "restriction_type",
+    "Diversion_Restriction": "diversion_restriction",
+    "unavailable/downgrade": "unavailable_downgrade",
+}
+
+
+def has_chinese(x: object) -> bool:
+    """True if any CJK character appears anywhere in x (str / list / dict, recursively).
+    The guard that keeps the created dataset Chinese-free (raw_text AND every kept field value)."""
+    if x is None:
+        return False
+    if isinstance(x, dict):
+        return any(has_chinese(v) for v in x.values())
+    if isinstance(x, (list, tuple)):
+        return any(has_chinese(v) for v in x)
+    return any("一" <= c <= "鿿" for c in str(x))
+
+
+def _norm_val(v: object) -> str | None:
+    """Light value normalisation: stringify, strip, empty -> None. Keeps case (ids matter)."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
+def normalize_row(category: str, raw_row: dict) -> dict[str, str | None]:
+    """Map one Knots manual_fields row to a canonical {field: value} dict for `category`,
+    keeping only that category's schema fields (so area_type and any stray key are dropped)."""
+    fields = NOTAM_FIELDS[category]
+    remapped = {_KNOTS_KEY_MAP.get(k, k): v for k, v in raw_row.items()}
+    return {f: _norm_val(remapped.get(f)) for f in fields}
+
+
+class NotamExtraction(BaseModel):
+    """A decoded NOTAM — the canonical record the model must produce and the scorer grades against.
+    `rows` are category-specific field dicts (a flat category has exactly one row)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    category: NotamCategory
+    raw_text: str
+    rows: list[dict[str, str | None]]
+
+    @field_validator("rows")
+    @classmethod
+    def _rows_match_category_fields(cls, rows, info):
+        cat = info.data.get("category")
+        if cat is None:
+            return rows
+        allowed = set(NOTAM_FIELDS[cat.value])
+        for row in rows:
+            extra = set(row) - allowed
+            if extra:
+                raise ValueError(f"{cat.value} row has non-schema fields: {sorted(extra)}")
+        return rows

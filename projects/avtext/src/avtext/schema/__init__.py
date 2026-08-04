@@ -22,6 +22,13 @@ from avtext.schema.metar import (
     WxDescriptor,
     WxIntensity,
 )
+from avtext.schema.notam import (
+    NOTAM_FIELDS,
+    NotamCategory,
+    NotamExtraction,
+    has_chinese,
+    normalize_row,
+)
 from avtext.schema.taf import (
     ChangeType,
     ForecastPeriod,
@@ -36,10 +43,15 @@ __all__ = [
     "CloudLayer",
     "CloudType",
     "ForecastPeriod",
+    "NOTAM_FIELDS",
     "MetarObservation",
+    "NotamCategory",
+    "NotamExtraction",
     "ReportType",
     "SkyClear",
     "TafForecast",
+    "has_chinese",
+    "normalize_row",
     "WeatherGroup",
     "Wind",
     "WindShear",
