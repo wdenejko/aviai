@@ -1,0 +1,9 @@
+{
+  "version": "notam-cls-v1",
+  "kind": "classification",
+  "created_utc": "2026-08-04T23:29:23Z",
+  "sha256": "a6c796a74974e8b6c0578dea5964b76b73b70fb3dc3d598107a120e0921441e3",
+  "n_records": 4047,
+  "corpus": "notam_class.jsonl",
+  "split": "test"
+}

@@ -1,0 +1,9 @@
+{
+  "version": "notam-v1",
+  "kind": "extraction",
+  "created_utc": "2026-08-04T23:29:23Z",
+  "sha256": "a8023b5bf7d1f0f1e842365eb5491a2041e1b1c0e96404a2a5de488b3463d1bb",
+  "n_records": 2257,
+  "corpus": "notam_clean.jsonl",
+  "split": "test"
+}

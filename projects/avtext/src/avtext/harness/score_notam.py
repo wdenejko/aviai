@@ -75,3 +75,40 @@ def row_count_match(reference: dict, prediction: dict | None) -> bool:
     ref_n = len(reference.get("rows") or [])
     pred_n = len((prediction or {}).get("rows") or [])
     return ref_n == pred_n
+
+
+# ── classification scoring (DEEL-AI task): accuracy + macro-F1 over 13 classes ────────────────────
+def classification_metrics(pairs: list[tuple[str, str | None]]) -> dict:
+    """Accuracy + macro-F1 (+ per-class P/R/F1) for NOTAM classification. `pairs` = (gold, pred);
+    a None prediction (unparseable output) counts as wrong AND invalid. Macro-F1 averages per-class
+    F1 unweighted, so it reflects the rare classes too (the set is class-imbalanced)."""
+    from collections import Counter
+
+    n = len(pairs)
+    correct = sum(1 for g, p in pairs if p == g)
+    invalid = sum(1 for _, p in pairs if p is None)
+    tp: Counter = Counter()
+    fp: Counter = Counter()
+    fn: Counter = Counter()
+    for g, p in pairs:
+        if p == g:
+            tp[g] += 1
+        else:
+            fn[g] += 1
+            if p is not None:
+                fp[p] += 1
+    per_class: dict[str, dict] = {}
+    f1s: list[float] = []
+    for c in sorted(set(tp) | set(fp) | set(fn)):
+        prec = tp[c] / (tp[c] + fp[c]) if (tp[c] + fp[c]) else 0.0
+        rec = tp[c] / (tp[c] + fn[c]) if (tp[c] + fn[c]) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        f1s.append(f1)
+        per_class[c] = {"precision": prec, "recall": rec, "f1": f1, "support": tp[c] + fn[c]}
+    return {
+        "n": n,
+        "accuracy": correct / n if n else 0.0,
+        "macro_f1": sum(f1s) / len(f1s) if f1s else 0.0,
+        "invalid": invalid,
+        "per_class": per_class,
+    }
