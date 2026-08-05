@@ -1,0 +1,381 @@
+{
+  "runs": [
+    {
+      "run_dir": "20260730T111552Z-gemma-4-e2b-it-q8",
+      "created_utc": "2026-07-30T11:15:52Z",
+      "model_id": "gemma-4-E2B-it-Q8",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v1",
+      "eval_sha256": "608707987dfc8f13",
+      "product": "metar_v1",
+      "product_label": "METAR (v1, legacy)",
+      "variant": "base",
+      "model_size": "E2B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.6945990180032733,
+        "exact_match": 0.024193548387096774,
+        "hallucination_rate": 0.30985915492957744,
+        "precision": 0.6819861802988912,
+        "f1": 0.6882348171572205,
+        "n_records": 620,
+        "counts": {
+          "hits": 4244,
+          "wrong": 1759,
+          "abstain": 107,
+          "hallucinate": 220,
+          "true_abstain": 490
+        }
+      }
+    },
+    {
+      "run_dir": "20260730T130553Z-gemma-4-e2b-it-q8-lora",
+      "created_utc": "2026-07-30T13:05:53Z",
+      "model_id": "gemma-4-E2B-it-Q8-lora",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v1",
+      "eval_sha256": "608707987dfc8f13",
+      "product": "metar_v1",
+      "product_label": "METAR (v1, legacy)",
+      "variant": "single",
+      "model_size": "E2B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9292962356792144,
+        "exact_match": 0.38225806451612904,
+        "hallucination_rate": 0.008450704225352112,
+        "precision": 0.9286882564605823,
+        "f1": 0.9289921465968587,
+        "n_records": 620,
+        "counts": {
+          "hits": 5678,
+          "wrong": 430,
+          "abstain": 2,
+          "hallucinate": 6,
+          "true_abstain": 704
+        }
+      }
+    },
+    {
+      "run_dir": "20260730T140350Z-gemma-4-e4b-it-q8",
+      "created_utc": "2026-07-30T14:03:50Z",
+      "model_id": "gemma-4-E4B-it-Q8",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v1",
+      "eval_sha256": "608707987dfc8f13",
+      "product": "metar_v1",
+      "product_label": "METAR (v1, legacy)",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.8137479541734861,
+        "exact_match": 0.056451612903225805,
+        "hallucination_rate": 0.1563380281690141,
+        "precision": 0.8118876551273677,
+        "f1": 0.8128167402321399,
+        "n_records": 620,
+        "counts": {
+          "hits": 4972,
+          "wrong": 1041,
+          "abstain": 97,
+          "hallucinate": 111,
+          "true_abstain": 599
+        }
+      }
+    },
+    {
+      "run_dir": "20260730T154209Z-gemma-4-e4b-it-q8-lora",
+      "created_utc": "2026-07-30T15:42:09Z",
+      "model_id": "gemma-4-E4B-it-Q8-lora",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v1",
+      "eval_sha256": "608707987dfc8f13",
+      "product": "metar_v1",
+      "product_label": "METAR (v1, legacy)",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9833060556464812,
+        "exact_match": 0.8370967741935483,
+        "hallucination_rate": 0.004225352112676056,
+        "precision": 0.9829842931937173,
+        "f1": 0.9831451480936019,
+        "n_records": 620,
+        "counts": {
+          "hits": 6008,
+          "wrong": 101,
+          "abstain": 1,
+          "hallucinate": 3,
+          "true_abstain": 707
+        }
+      }
+    },
+    {
+      "run_dir": "20260730T160208Z-gemma-4-e2b-it-q8-completion",
+      "created_utc": "2026-07-30T16:02:08Z",
+      "model_id": "gemma-4-E2B-it-Q8-completion",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v1",
+      "eval_sha256": "608707987dfc8f13",
+      "product": "metar_v1",
+      "product_label": "METAR (v1, legacy)",
+      "variant": "base",
+      "model_size": "E2B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.6998363338788871,
+        "exact_match": 0.025806451612903226,
+        "hallucination_rate": 0.30140845070422534,
+        "precision": 0.6926939899562612,
+        "f1": 0.6962468452332493,
+        "n_records": 620,
+        "counts": {
+          "hits": 4276,
+          "wrong": 1683,
+          "abstain": 151,
+          "hallucinate": 214,
+          "true_abstain": 496
+        }
+      }
+    },
+    {
+      "run_dir": "20260731T035840Z-gemma-4-e4b-it-q8-v2",
+      "created_utc": "2026-07-31T03:58:40Z",
+      "model_id": "gemma-4-E4B-it-Q8-v2",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.8879895210586418,
+        "exact_match": 0.24838709677419354,
+        "hallucination_rate": 0.21440129449838188,
+        "precision": 0.8849282056431369,
+        "f1": 0.8864562203483597,
+        "n_records": 6200,
+        "counts": {
+          "hits": 52878,
+          "wrong": 5021,
+          "abstain": 1649,
+          "hallucinate": 1855,
+          "true_abstain": 6797
+        }
+      }
+    },
+    {
+      "run_dir": "20260731T103133Z-gemma-4-e4b-it-q8-v2-r64",
+      "created_utc": "2026-07-31T10:31:33Z",
+      "model_id": "gemma-4-E4B-it-Q8-v2-r64",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 64,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.996070396990663,
+        "exact_match": 0.9211290322580645,
+        "hallucination_rate": 0.07004160887656033,
+        "precision": 0.9861342023009909,
+        "f1": 0.9910773960700442,
+        "n_records": 6200,
+        "counts": {
+          "hits": 59314,
+          "wrong": 228,
+          "abstain": 6,
+          "hallucinate": 606,
+          "true_abstain": 8046
+        }
+      }
+    },
+    {
+      "run_dir": "20260731T170322Z-gemma-4-e4b-it-q8-v2-r16",
+      "created_utc": "2026-07-31T17:03:22Z",
+      "model_id": "gemma-4-E4B-it-Q8-v2-r16",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9943742862900518,
+        "exact_match": 0.9033870967741936,
+        "hallucination_rate": 0.07223763291724457,
+        "precision": 0.9841932052390133,
+        "f1": 0.9892575514568298,
+        "n_records": 6200,
+        "counts": {
+          "hits": 59213,
+          "wrong": 326,
+          "abstain": 9,
+          "hallucinate": 625,
+          "true_abstain": 8027
+        }
+      }
+    },
+    {
+      "run_dir": "20260802T214808Z-gemma-4-e4b-taf-r16-smoke-1500",
+      "created_utc": "2026-08-02T21:48:08Z",
+      "model_id": "gemma-4-e4b-taf-r16 (smoke 1500)",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9309840073500787,
+        "exact_match": 0.8906666666666667,
+        "hallucination_rate": 0.015273168468757805,
+        "precision": 0.9914429279779772,
+        "f1": 0.9602627732536662,
+        "n_records": 1500,
+        "counts": {
+          "hits": 59785,
+          "wrong": 88,
+          "abstain": 4344,
+          "hallucinate": 428,
+          "true_abstain": 27595
+        }
+      }
+    },
+    {
+      "run_dir": "20260803T035722Z-gemma-4-e4b-taf-base-smoke-1500",
+      "created_utc": "2026-08-03T03:57:22Z",
+      "model_id": "gemma-4-e4b-taf-base (smoke 1500)",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.8364763224691281,
+        "exact_match": 0.072,
+        "hallucination_rate": 0.1185095286515564,
+        "precision": 0.8806046000754111,
+        "f1": 0.8579734219269103,
+        "n_records": 1500,
+        "counts": {
+          "hits": 53716,
+          "wrong": 3670,
+          "abstain": 6831,
+          "hallucinate": 3613,
+          "true_abstain": 26874
+        }
+      }
+    },
+    {
+      "run_dir": "20260804T044433Z-gemma-4-e4b-combined-r16-taf-smoke-1500",
+      "created_utc": "2026-08-04T04:44:33Z",
+      "model_id": "gemma-4-e4b-combined-r16-taf (smoke 1500)",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "combined",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.931731472974446,
+        "exact_match": 0.9006666666666666,
+        "hallucination_rate": 0.014639197343521263,
+        "precision": 0.9920086214042941,
+        "f1": 0.960925705842675,
+        "n_records": 1500,
+        "counts": {
+          "hits": 59833,
+          "wrong": 72,
+          "abstain": 4312,
+          "hallucinate": 410,
+          "true_abstain": 27597
+        }
+      }
+    },
+    {
+      "run_dir": "20260804T061736Z-gemma-4-e4b-combined-r16-metar-smoke-150",
+      "created_utc": "2026-08-04T06:17:36Z",
+      "model_id": "gemma-4-e4b-combined-r16-metar (smoke 1500)",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "combined",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9967370174951402,
+        "exact_match": 0.9306666666666666,
+        "hallucination_rate": 0.059637404580152674,
+        "precision": 0.9882296255506607,
+        "f1": 0.9924650905571684,
+        "n_records": 1500,
+        "counts": {
+          "hits": 14357,
+          "wrong": 46,
+          "abstain": 1,
+          "hallucinate": 125,
+          "true_abstain": 1971
+        }
+      }
+    },
+    {
+      "run_dir": "20260804T092003Z-gemma-4-e4b-v2-r16-metar1500-smoke-1500",
+      "created_utc": "2026-08-04T09:20:03Z",
+      "model_id": "gemma-4-e4b-v2-r16-metar1500 (smoke 1500)",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9945154123854485,
+        "exact_match": 0.9106666666666666,
+        "hallucination_rate": 0.061068702290076333,
+        "precision": 0.9859591162502581,
+        "f1": 0.9902187813223655,
+        "n_records": 1500,
+        "counts": {
+          "hits": 14325,
+          "wrong": 76,
+          "abstain": 3,
+          "hallucinate": 128,
+          "true_abstain": 1968
+        }
+      }
+    }
+  ]
+}

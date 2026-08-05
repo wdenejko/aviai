@@ -138,3 +138,54 @@ def test_notam_prompt_roundtrip_is_perfect():
     s = score_notam_record(ref, pred)
     assert s.exact_match
     assert not any(o in (Outcome.WRONG, Outcome.HALLUCINATE) for o in s.outcomes.values())
+
+
+def _replayer(outputs):
+    """A fake `complete` that returns the queued model outputs in call order (concurrency=1)."""
+    it = iter(outputs)
+
+    def complete(_prompt):
+        return next(it)
+
+    return complete
+
+
+def test_runner_extraction_perfect_model_scores_clean():
+    # A model that emits the gold rows verbatim must score EM=all, 0 invalid, full row-count match.
+    import json
+
+    from avtext.harness.runner_notam import run_extraction
+
+    records = [
+        {
+            "id": "rw-1",
+            "category": "runway",
+            "raw": "RWY 13/31 CLSD",
+            "reference": {
+                "category": "runway",
+                "rows": [_rw(airport="KJFK", runway="13", status_type="clsd")],
+            },
+        }
+    ]
+    golds = [json.dumps({"rows": r["reference"]["rows"]}) for r in records]
+    scores, preds, extra = run_extraction(records, _replayer(golds), 1)
+    assert extra["n_invalid"] == 0
+    assert extra["n_row_match"] == len(records)
+    assert all(s.exact_match for s in scores)
+
+
+def test_runner_classification_accuracy_and_invalid():
+    # Perfect classes -> 100% accuracy; empty output -> counted invalid, not a crash.
+    from avtext.harness.runner_notam import run_classification
+
+    records = [
+        {"id": "c1", "raw": "ILS RWY 15 U/S", "reference": "Landing_Navaids"},
+        {"id": "c2", "raw": "TWY A CLSD", "reference": "Taxiway"},
+    ]
+    good = _replayer([r["reference"] for r in records])
+    metrics, _ = run_classification(records, good, 1)
+    assert metrics["accuracy"] == 1.0 and metrics["invalid"] == 0
+
+    junk = _replayer(["", "not-a-class-xyz"])
+    m2, _ = run_classification(records, junk, 1)
+    assert m2["accuracy"] == 0.0 and m2["invalid"] >= 1
