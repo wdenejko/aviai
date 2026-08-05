@@ -244,7 +244,8 @@ def main() -> None:
     print(f"wrote dashboard ({len(data['runs'])} runs) -> {args.out}")
 
 
-_TEMPLATE = """<title>avtext — Gemma-4 finetuning benchmarks</title>
+_TEMPLATE = """<meta charset="utf-8">
+<title>avtext — Gemma-4 finetuning benchmarks</title>
 <style>
 :root {{
   --bg:#f4f6f9; --surface:#ffffff; --surface2:#eef1f6; --ink:#111821; --muted:#5b6673;
