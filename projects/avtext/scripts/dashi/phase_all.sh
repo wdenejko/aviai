@@ -72,15 +72,19 @@ echo "=== EVAL all on TAF $(date +%H:%M) ==="
     --max-tokens 1024 --out-dir reports/gemma-4/runs \
     --model gemma-4-e4b-all-r16-taf --model-id gemma-4-e4b-all-r16-taf ) || echo "TAF eval FAILED"
 
-echo "=== EVAL all on NOTAM-extraction $(date +%H:%M) ==="
+# NOTAM evals run on the FULL frozen sets (NO --limit): the eval is sorted by id, and id starts
+# with the category, so --limit N would cover only the first few categories (e.g. the first 1500 is
+# 73% "area", 0% runway/taxiway/nav/...). Full = all 11 categories / all classes. Improved runner
+# defaults max_tokens=1024 for extraction + captures raw output so invalids are diagnosable.
+echo "=== EVAL all on NOTAM-extraction (FULL) $(date +%H:%M) ==="
 ( cd "$REPO" && uv run python -m avtext.harness.runner_notam \
-    --base-url http://127.0.0.1:8080 --eval eval/notam/v1/eval.jsonl --limit "$LIMIT" \
+    --base-url http://127.0.0.1:8080 --eval eval/notam/v1/eval.jsonl \
     --out-dir reports/gemma-4/runs \
     --model gemma-4-e4b-all-r16-notam-ext --model-id gemma-4-e4b-all-r16-notam-ext ) || echo "NOTAM-ext eval FAILED"
 
-echo "=== EVAL all on NOTAM-classification $(date +%H:%M) ==="
+echo "=== EVAL all on NOTAM-classification (FULL) $(date +%H:%M) ==="
 ( cd "$REPO" && uv run python -m avtext.harness.runner_notam \
-    --base-url http://127.0.0.1:8080 --eval eval/notam_cls/v1/eval.jsonl --limit "$LIMIT" \
+    --base-url http://127.0.0.1:8080 --eval eval/notam_cls/v1/eval.jsonl \
     --out-dir reports/gemma-4/runs \
     --model gemma-4-e4b-all-r16-notam-cls --model-id gemma-4-e4b-all-r16-notam-cls ) || echo "NOTAM-cls eval FAILED"
 stop8080

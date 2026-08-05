@@ -168,10 +168,11 @@ def test_runner_extraction_perfect_model_scores_clean():
         }
     ]
     golds = [json.dumps({"rows": r["reference"]["rows"]}) for r in records]
-    scores, preds, extra = run_extraction(records, _replayer(golds), 1)
-    assert extra["n_invalid"] == 0
+    scores, preds, raws, invalid_ids, extra = run_extraction(records, _replayer(golds), 1)
+    assert extra["n_invalid"] == 0 and not invalid_ids
     assert extra["n_row_match"] == len(records)
     assert all(s.exact_match for s in scores)
+    assert raws  # raw output captured for diagnosis
 
 
 def test_runner_classification_accuracy_and_invalid():

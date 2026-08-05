@@ -58,17 +58,19 @@ def _slug(s: str) -> str:
 def run_extraction(records, complete, concurrency):
     prompts = [format_prompt_notam(r["raw"], r["category"]) for r in records]
     texts = _map(complete, prompts, concurrency)
-    scores, preds, n_invalid, n_rowmatch = [], {}, 0, 0
+    scores, preds, raws, invalid_ids, n_rowmatch = [], {}, {}, set(), 0
     for r, t in zip(records, texts, strict=True):
         pred = parse_prediction_notam(t, r["category"])
-        if pred is None:
-            n_invalid += 1
+        if pred is None:  # model output was not valid JSON we could read (mis-escape / truncation)
+            invalid_ids.add(r["id"])
         preds[r["id"]] = pred or {}
+        raws[r["id"]] = t[:2000]  # keep the head of the raw output so invalids are diagnosable
         n_rowmatch += row_count_match(r["reference"], pred)
         scores.append(
             score_notam_record(r["reference"], pred, id=r["id"], split=r["category"], label="test")
         )
-    return scores, preds, {"n_invalid": n_invalid, "n_row_match": n_rowmatch}
+    extra = {"n_invalid": len(invalid_ids), "n_row_match": n_rowmatch}
+    return scores, preds, raws, invalid_ids, extra
 
 
 def run_classification(records, complete, concurrency):
@@ -102,7 +104,7 @@ def main() -> None:
         records = records[: args.limit]
     kind = manifest.get("kind", "extraction")
     prompt_id = PROMPT_ID_NOTAM if kind == "extraction" else PROMPT_ID_NOTAM_CLS
-    max_tokens = args.max_tokens or (512 if kind == "extraction" else 24)
+    max_tokens = args.max_tokens or (1024 if kind == "extraction" else 24)
     complete = notam_completer(args.base_url, temperature=args.temperature, max_tokens=max_tokens)
     model_id = args.model_id or Path(args.model).name
     if args.limit:
@@ -125,7 +127,9 @@ def main() -> None:
     }  # fmt: skip
 
     if kind == "extraction":
-        scores, preds, extra = run_extraction(records, complete, args.concurrency)
+        scores, preds, raws, invalid_ids, extra = run_extraction(
+            records, complete, args.concurrency
+        )
         overall = aggregate(scores)
         by_cat = aggregate_by(scores, "split")
         lines = header + [
@@ -148,8 +152,10 @@ def main() -> None:
         (out / "scores.jsonl").write_text(
             "".join(
                 json.dumps({"id": s.id, "category": s.split, "exact_match": s.exact_match,
+                            "invalid": s.id in invalid_ids,
                             "outcomes": {k: v.value for k, v in s.outcomes.items()},
-                            "prediction": preds.get(s.id, {})}) + "\n"
+                            "prediction": preds.get(s.id, {}),
+                            "raw_output": raws.get(s.id, "")}) + "\n"
                 for s in scores
             ),
             encoding="utf-8",
