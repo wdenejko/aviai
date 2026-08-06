@@ -91,6 +91,8 @@ def main() -> None:
     ap.add_argument("--eval", required=True, help="path to eval.jsonl (extraction or classify)")
     ap.add_argument("--out-dir", default="reports/gemma-4/runs")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--offset", type=int, default=0, help="skip first N records (chunking)")
+    ap.add_argument("--out-name", default=None, help="fixed out-dir name (chunks)")
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int, default=None)
@@ -100,18 +102,21 @@ def main() -> None:
 
     eval_path = Path(args.eval)
     records, manifest, eval_sha = _load(eval_path)
-    if args.limit:
-        records = records[: args.limit]
+    start = args.offset or 0
+    records = records[start : start + args.limit if args.limit else None]  # offset then limit
     kind = manifest.get("kind", "extraction")
     prompt_id = PROMPT_ID_NOTAM if kind == "extraction" else PROMPT_ID_NOTAM_CLS
     max_tokens = args.max_tokens or (1024 if kind == "extraction" else 24)
     complete = notam_completer(args.base_url, temperature=args.temperature, max_tokens=max_tokens)
     model_id = args.model_id or Path(args.model).name
-    if args.limit:
+    if args.limit and not args.out_name:  # bare --limit = smoke test; a chunk (--out-name) is not
         model_id = f"{model_id} (smoke {args.limit})"
 
     created = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    out = Path(args.out_dir) / f"{created.replace(':', '').replace('-', '')}-{_slug(model_id)}"
+    if args.out_name:  # deterministic dir so a chunk orchestrator can find + merge the pieces
+        out = Path(args.out_dir) / args.out_name
+    else:
+        out = Path(args.out_dir) / f"{created.replace(':', '').replace('-', '')}-{_slug(model_id)}"
     out.mkdir(parents=True, exist_ok=True)
     header = [
         f"# NOTAM {kind} run — {model_id}",
@@ -123,7 +128,7 @@ def main() -> None:
     run_json = {
         "model_id": model_id, "prompt_id": prompt_id, "kind": kind,
         "eval_version": manifest["version"], "eval_sha256": eval_sha,
-        "created_utc": created, "n_records": len(records),
+        "created_utc": created, "n_records": len(records), "offset": start,
     }  # fmt: skip
 
     if kind == "extraction":
