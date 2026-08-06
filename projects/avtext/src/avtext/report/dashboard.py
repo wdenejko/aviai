@@ -45,6 +45,21 @@ FINDINGS = [
         "format, not new meteorology.",
     ),
     (
+        "NOTAM extends the pattern to a third product family",
+        "The same rank-16 recipe lifts NOTAM extraction 0.8%→76.0% EM and classification "
+        "78.2%→94.8% accuracy. Most categories reach 85–95% EM; free-text area_summary and giant "
+        "multi-segment airway NOTAMs are the honest hard tail (~13.5% of extractions are malformed "
+        "JSON on that free-text — invalid-but-trying, vs the base model's valid-but-useless 0.8% EM).",
+    ),
+    (
+        "Long extraction evals need a server restart between chunks",
+        "This ROCm llama-server build deterministically degrades into <unused49> reserved-token spam "
+        "after ~1000 heavy-generation records (unaffected by cache_prompt or flash-attn — only a "
+        "process restart clears it). NOTAM extraction is therefore run in 100-record chunks with a "
+        "restart between them; short-output classification and METAR/TAF evals are unaffected, and "
+        "the full 6,200-record METAR run confirms short generations never trip it.",
+    ),
+    (
         "One adapter for all products is free (slightly synergistic)",
         "A single combined adapter matches or beats each single-task adapter on its own eval "
         "(matched-N): METAR 91.1%→93.1% EM, TAF 89.1%→90.1% EM. Multi-task training does not cost "

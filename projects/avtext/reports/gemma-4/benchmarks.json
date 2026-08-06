@@ -376,6 +376,104 @@
           "true_abstain": 1968
         }
       }
+    },
+    {
+      "run_dir": "20260806T063817Z-gemma-4-e4b-notam-r16-ext-merged",
+      "created_utc": "2026-08-06T06:38:17Z",
+      "model_id": "gemma-4-e4b-notam-r16-ext",
+      "prompt_id": "extract-notam-json-v1",
+      "eval_version": "notam-v1",
+      "eval_sha256": "a8023b5bf7d1f0f1",
+      "product": "notam_ext",
+      "product_label": "NOTAM \u00b7 extraction",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.6022175041283322,
+        "exact_match": 0.7603012848914489,
+        "hallucination_rate": 0.04791666666666667,
+        "precision": 0.9593385945133408,
+        "f1": 0.7399420289855072,
+        "n_records": 2257,
+        "counts": {
+          "hits": 12764,
+          "wrong": 357,
+          "abstain": 8074,
+          "hallucinate": 184,
+          "true_abstain": 3656
+        }
+      }
+    },
+    {
+      "run_dir": "20260806T063819Z-gemma-4-e4b-notam-r16-cls",
+      "created_utc": "2026-08-06T06:38:19Z",
+      "model_id": "gemma-4-e4b-notam-r16-cls",
+      "prompt_id": "classify-notam-v1",
+      "eval_version": "notam-cls-v1",
+      "eval_sha256": "a6c796a74974e8b6",
+      "product": "notam_cls",
+      "product_label": "NOTAM \u00b7 classification",
+      "variant": "single",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "classification",
+        "accuracy": 0.9481097108969607,
+        "macro_f1": 0.9366471451912001,
+        "invalid": 0,
+        "n_records": 4047
+      }
+    },
+    {
+      "run_dir": "20260806T083055Z-gemma-4-e4b-notam-base-ext-merged",
+      "created_utc": "2026-08-06T08:30:55Z",
+      "model_id": "gemma-4-e4b-notam-base-ext",
+      "prompt_id": "extract-notam-json-v1",
+      "eval_version": "notam-v1",
+      "eval_sha256": "a8023b5bf7d1f0f1",
+      "product": "notam_ext",
+      "product_label": "NOTAM \u00b7 extraction",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.10950695918848785,
+        "exact_match": 0.008418254319893664,
+        "hallucination_rate": 0.14945586457073762,
+        "precision": 0.287110341415141,
+        "f1": 0.1585436661088152,
+        "n_records": 2257,
+        "counts": {
+          "hits": 2321,
+          "wrong": 5145,
+          "abstain": 13729,
+          "hallucinate": 618,
+          "true_abstain": 3517
+        }
+      }
+    },
+    {
+      "run_dir": "20260806T083058Z-gemma-4-e4b-notam-base-cls",
+      "created_utc": "2026-08-06T08:30:58Z",
+      "model_id": "gemma-4-e4b-notam-base-cls",
+      "prompt_id": "classify-notam-v1",
+      "eval_version": "notam-cls-v1",
+      "eval_sha256": "a6c796a74974e8b6",
+      "product": "notam_cls",
+      "product_label": "NOTAM \u00b7 classification",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "classification",
+        "accuracy": 0.7818136891524586,
+        "macro_f1": 0.7424761670161677,
+        "invalid": 9,
+        "n_records": 4047
+      }
     }
   ]
 }
