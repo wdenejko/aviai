@@ -13,7 +13,7 @@ LABEL="$1"; LORA_GGUF="${2:-}"
 BASE=~/models/gemma-4/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q8_0.gguf
 REPO=~/avtext/projects/avtext; TB=llama-rocm-7.2.4_2
 EXT=eval/notam/v1/eval.jsonl; CLS=eval/notam_cls/v1/eval.jsonl
-CHUNK="${CHUNK:-100}"; EXTTOK="${EXTTOK:-512}"; FLASH="${FLASH:-off}"
+CHUNK="${CHUNK:-100}"; EXTTOK="${EXTTOK:-512}"; FLASH="${FLASH:-on}"  # flash on/off proven irrelevant; restart is the fix
 CHUNKDIR=reports/gemma-4/runs/chunks/${LABEL}-ext
 
 stop8080 () {
@@ -31,6 +31,7 @@ serve () {
 
 cd "$REPO"
 NREC=$(wc -l < "$EXT")
+[ -n "${MAXREC:-}" ] && NREC="$MAXREC"  # smoke-test cap (validate the loop/restart/merge quickly)
 echo "=== CHUNKED $LABEL START $(date) | NREC=$NREC CHUNK=$CHUNK EXTTOK=$EXTTOK FLASH=$FLASH ==="
 rm -rf "$CHUNKDIR"
 off=0; ci=0
