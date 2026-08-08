@@ -890,3 +890,51 @@ METAR+TAF adapter. **rank-16 throughout** (the standing decision).
 
 **Next** — masked-field abstention augmentation (from S20's hallucination anatomy); the human-gold
 messy-tail eval; and, on this evidence, extend the one-adapter approach toward SIGMET/NOTAM (all-four).
+
+---
+
+## Session 22 — 2026-08-05/08 · NOTAM harness + the all-products adapter (+ a serving bug)
+
+**Done**
+
+- Built the NOTAM runner (`harness/{runner_notam,models_notam}`) handling BOTH tasks (extraction via
+  row-aligned scoring, classification via accuracy/macro-F1), the all-products SFT
+  (`finetune/build_sft_all` → 29,248 mixed examples), and a benchmark **web app**
+  (`report/{collect,dashboard}` → self-contained dashboard, published as an artifact).
+- Ran the full base / single-task / all-products matrix on dashi for all four evals.
+
+**Result — one adapter covers all three product families** (matches or beats every specialist):
+
+| task | base | single-task | all-products |
+|---|--:|--:|--:|
+| METAR (EM) | 24.8% | 91.1% | **93.3%** |
+| TAF (EM) | 7.2% | 89.1% | 89.9% |
+| NOTAM extraction (EM) | 0.8% | 76.0% | 76.1% |
+| NOTAM classification (acc) | 78.2% | 94.8% | **95.0%** |
+
+**Learned**
+
+- **Multi-task combining stays free at THREE product families / four tasks.** One rank-16 LoRA on
+  29k mixed examples matches-or-beats each single-task specialist — no interference between flat-JSON
+  METAR, nested-JSON TAF, category-keyed NOTAM extraction, and single-label NOTAM classification. The
+  model routes on the prompt; the "one deployable adapter for everything" thesis holds.
+- **NOTAM extraction's hard part is free-text, not structure.** Most categories hit 85–95% EM; the
+  overall (76%) is dragged by `area` (huge, free-text `area_summary` → 51% value) and a genuinely
+  hard tail (`airway`/`standard`/`procedure`). ~13.5% of outputs are malformed JSON on that free-text
+  — "invalid-but-trying" beats base's "valid-but-useless" 0.8% EM.
+- **⚠️ Serving degradation bug on the ROCm llama-server (the session's real lesson).** Long,
+  heavy-generation eval runs deterministically collapse into `<unused49>` reserved-token spam after
+  ~1000 records (first NOTAM ext run: 0% invalid in the first 200, rising to 100% by ~record 1000).
+  **cache_prompt=false and flash-attn=off made ZERO difference** (bit-for-bit identical collapse) —
+  only a **process restart** clears it. Fix: chunked eval (100 records/chunk + server restart between
+  chunks; `eval_notam_chunked.sh` + `report/merge_notam`). Short-output tasks (classification,
+  METAR/TAF) never trip it — the full 6,200-record METAR run confirms short gens are safe.
+- **`--limit N` is invalid on an id-sorted eval** where the id starts with the category — the first
+  1,500 NOTAM records were 73% `area` and 0% of 7 categories. Chunked runs use the FULL set.
+- **Packing WORKED this time** (contra S21): `max_steps` 2,438 vs 4,875 unpacked = ~2× speedup on the
+  29k mixed set, train_loss 0.078. S21's no-op packing was likely dataset/version-specific — always
+  check the step/epoch ratio, but don't assume packing is dead.
+
+**Next** — masked-field abstention augmentation (S20); human-gold messy-tail eval; Q4-quant survival
+of the all-products adapter; publish the adapter (user's action). Root-cause the llama-server
+`<unused49>` leak (newer build?) so long evals don't need chunking.
