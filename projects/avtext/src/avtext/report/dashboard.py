@@ -60,10 +60,11 @@ FINDINGS = [
         "the full 6,200-record METAR run confirms short generations never trip it.",
     ),
     (
-        "One adapter for all products is free (slightly synergistic)",
-        "A single combined adapter matches or beats each single-task adapter on its own eval "
-        "(matched-N): METAR 91.1%→93.1% EM, TAF 89.1%→90.1% EM. Multi-task training does not cost "
-        "accuracy here — so NOTAM folds into the same adapter rather than needing its own.",
+        "One adapter for ALL products is free (slightly synergistic)",
+        "A single rank-16 LoRA trained on all three product families matches or beats every "
+        "single-task specialist on its own eval: METAR 91.1%→93.3% EM, TAF 89.1%→89.9%, NOTAM "
+        "extraction 76.0%→76.1%, NOTAM classification 94.8%→95.0%. Multi-task training costs no "
+        "accuracy — one deployable adapter covers METAR, TAF, and NOTAM (4 tasks) at once.",
     ),
     (
         "The reported hallucination rate overstates real fabrication",
