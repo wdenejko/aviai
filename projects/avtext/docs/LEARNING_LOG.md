@@ -938,3 +938,36 @@ messy-tail eval; and, on this evidence, extend the one-adapter approach toward S
 **Next** — masked-field abstention augmentation (S20); human-gold messy-tail eval; Q4-quant survival
 of the all-products adapter; publish the adapter (user's action). Root-cause the llama-server
 `<unused49>` leak (newer build?) so long evals don't need chunking.
+
+## Session 23 — 2026-09-07 · Reconstructing the lost dashi training env (gfx1151 from scratch)
+
+**Done** — the finetune recipe was **gone** (dashi's `~/ft` tree wiped; the old unsloth
+`train_lora.py` with it), so retraining was blocked until the whole env was rebuilt. Rebuilt it
+end-to-end and **validated every link of the train→serve loop**:
+- `~/fttorch` venv (uv, py3.12) + **TheRock gfx1151 torch** `2.12.0a0+rocm7.13` from
+  `rocm.nightlies.amd.com/v2/gfx1151/` — the only torch with native Strix-Halo kernels.
+- New `scripts/dashi/train_lora_peft.py` — standard `transformers`+`peft`+`trl` SFT (no unsloth),
+  run inside toolbox `llama-rocm-7.2.4_2`. Smoke trained clean: 34.9M trainable (0.44%), loss fell,
+  backprop ran on the 8060S iGPU, `SAVED_ADAPTER`.
+- `convert_lora_to_gguf.py` turned that adapter into a valid **69.8M f16 GGUF** (516 tensors).
+- Full recovery recipe written to `docs/DASHI_TRAINING_ENV.md` so this never costs a session again.
+
+**Learned**
+- **gfx1151 has no stock kernels.** Every pytorch.org ROCm wheel dies at the first matmul with
+  `hipErrorNoBinaryForGpu` / "invalid device function". AMD's **TheRock per-arch nightly** is the
+  only fix — and it's *native* gfx1151, so **no `HSA_OVERRIDE_GFX_VERSION`** is needed.
+- **Run inside the toolbox, never the bare host.** The host lacks `libatomic.so.1` and doesn't wire
+  `/dev/kfd`+`/dev/dri` into a random process; the kyuz0 `llama-rocm-7.2.4_2` container supplies both.
+- **Two Gemma-4 multimodal traps.** (1) LoRA targets must be a **text-tower regex** — the vision/audio
+  projections are `Gemma4ClippableLinear` (not `nn.Linear`) and PEFT refuses them. (2) Pass
+  `processing_class=tok` so trl doesn't auto-load the PIL-requiring `Gemma4Processor`.
+- **The feared conversion blocker was a non-issue.** Adapter keys carry the multimodal nesting
+  (`...model.language_model.layers.N...`); `convert_lora_to_gguf` knows the `gemma4` arch and maps
+  them to `blk.N...` itself. No key-stripping.
+- **Host py3.14 is too new for torch** — the venv must be 3.12.
+
+**Next** — the reason the env was rebuilt: **grow the data + retrain**. scp the local SFT sets to
+dashi (its copies are gone), grow the METAR/TAF corpora reproducibly (IEM), retrain on the bigger
+set + re-eval all families under `--grammar` for comparability. Then the **benchmark harness** (an
+independent held-out set + a unified cross-family report card) and a new **SIGMET** family.
+NOTAM licensed structural rebuild stays parked (no FAA key; no keyless source with Q-lines).
