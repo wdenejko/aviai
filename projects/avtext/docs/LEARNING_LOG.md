@@ -1004,3 +1004,45 @@ because unsloth had fused flash-attn/varlen kernels this stack lacks.
 **Next** — when the capped run lands: convert→eval all four families (`chain_lg.sh`, NOTAM ext with
 grammar), fold grown-vs-Phase7 into the dashboard, decide whether the full 49k run is worth ~2 days.
 Then SIGMET (new family) and the independent held-out benchmark set.
+
+## Session 24 — 2026-09-08 · Squeezing gfx1151: the step was padding-, fusion- and launch-bound
+
+**Done** — asked "fastest possible LoRA training on this Strix Halo?"; answered with local
+measurement first, web research second (three parallel passes, ~50 dated sources; report in
+`docs/STRIX_HALO_TRAINING_SPEED.md`).
+- Local ground truth: SDPA backend × head_dim × mask matrix; torch.profiler decomposition of a real
+  step; sustained-clock/power under load; token-length + padding analysis; torch.compile A/B; Liger
+  A/B; a no-root C compiler for Triton (`ziglang` pip wheel + a `zigcc` wrapper).
+- Trainer levers shipped: `--group-by-length` (a `LengthGroupedSampler` subclass — trl 1.x dropped
+  the flag), `--compile`, `--no-grad-checkpointing`, `--grad-accum`.
+- Sweep 1 on real steps + a numerical-parity check; results committed into the report.
+
+**Learned**
+- **We were FLOP-starved by our own batches, not by the chip.** 49 % of linear compute was padding
+  (random batches mix ~460-tok METAR with ~1100+-tok TAF). Length grouping → 1 % padding, ~2x.
+  Profiler: ~35 % unfused elementwise + copies, ~12 % tiny rank-16 LoRA GEMMs (0.44 % of params),
+  ~15k launches/microbatch, CPU ≈ GPU time. Raw bf16 matmul 27.9 TFLOP/s — the GEMMs were fine.
+- **Composed on real steps: grouping 12.0 → +compile 11.8 → +no-checkpointing 7.0 s/step** (vs 40
+  random). compile's static-shape 1.42x mostly vanishes under dynamic shapes (next: bucketed padding
+  for static graphs); no-checkpointing is 1.7x on top and OOM-safe once batches are grouped.
+- **Compiled loss matches eager to ~1 %, zero NaNs** — the Gemma-on-RDNA NaN hazard (unsloth
+  disabled compiled fwd for Gemma-3) does not reproduce on Gemma-4 here. Always check; never assume.
+- **The GPU is power-capped, not thermal:** 2175 of 2900 MHz at 88 W = the EVO-X2's default
+  *Balanced* P-mode (85 W PL1). *Performance* (120 W PL1) sustains ~2787 MHz on this box model —
+  a button press, +28 % clock, owner's action; watch >88 °C (reboots reported at 90).
+- **head_dim 512 (Gemma-4's 7 global layers) has no fused attention on gfx11 by design**; and some
+  2026 wheels return *silently wrong* values for it instead of MATH fallback — re-validate after any
+  torch upgrade. Any padding mask also disables FLASH (no causal+bias kernel) — structural.
+- **Liger-Kernel is 8x slower here** (fused-CE 6044 vs 762 ms): compute-for-memory is the wrong
+  trade on a compute-bound, memory-rich box, and Triton codegen trails Tensile on RDNA 3.5.
+- **Folklore corrected:** unsloth now officially supports gfx1151, but its own claim is ≤ ~1.4x vs
+  TRL. Our "10–30x faster unsloth" memory compared against a mis-configured run (packing with no
+  varlen attention). The honest gap vs a tuned standard stack is ~1.3–1.5x — mostly closed now.
+- Measurement lessons: `LengthGroupedSampler`'s first megabatch is a *random* 300 sorted
+  longest→shortest, not the 300 longest; tqdm's first-step s/it includes warm-up (64 s → 12 s);
+  `toolbox run` swallows the rest of a piped script unless `</dev/null`; a function-local
+  `import torch._dynamo` shadows module-level `torch` (UnboundLocalError).
+
+**Next** — per-length cost curve → integrated epoch time (running); sweep 2 (`HIP_FORCE_DEV_KERNARG`,
+`expandable_segments`, batch 12/24 *with* grouping); bucketed-padding compile; then the real grown-set
+retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen packing, FlexAttention.
