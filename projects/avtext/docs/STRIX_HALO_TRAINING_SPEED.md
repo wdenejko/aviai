@@ -55,6 +55,9 @@ export PYTHONUNBUFFERED=1
   --model unsloth/gemma-4-E4B-it --data ~/fttrain/train_all_lg.jsonl --out ~/fttrain/adapter-all-lg \
   --rank 16 --epochs 1 --batch 6 --grad-accum 2 --max-seq 2048 \
   --group-by-length --compile --no-grad-checkpointing      # drop --no-grad-checkpointing if the TAF bucket OOMs
+# Production (overnight) form — same args through the retry loop, checkpointing every 200 steps so
+# an intermittent GPU page fault costs minutes: it re-launches with --resume from the latest checkpoint.
+~/scripts/avtext/run_resilient.sh <same args as above> --save-steps 200
 ```
 
 Trainer notes: `--group-by-length` is a `LengthGroupedSampler` injected via a `SFTTrainer` subclass
@@ -83,6 +86,14 @@ cannot raise above the OEM 120 W and its Strix Halo support is partial — the b
   NaN losses. Our Gemma-4 compiled step gave a sane loss, but **compare compiled vs eager loss over
   the first few hundred steps** of any real run and keep NaN guards. Triton 3.6/3.7 has known
   gfx1151 miscompiles (fixed in 3.8); `num_warps>4` can assert on RDNA.
+- **Intermittent GPU page faults kill the process.** Observed once in ~2 h of continuous load: an
+  amdgpu `Memory access fault … Page not present` (faulting client TCP = a compute kernel reading
+  out of bounds) in the *eager* config at a ~1,100-token batch — not thermal (56 °C, GPU recovered
+  instantly), not reproducible (sweep 1 and a 114-step run crossed the same lengths cleanly). Prime
+  suspect: the experimental, untuned AOTriton attention backward on gfx1151. Consequence: a long run
+  **must checkpoint and auto-resume** — `--save-steps 200` + `run_resilient.sh` (retry loop with
+  `--resume`) bounds the loss to minutes. If faults recur at a specific length, the safe-but-slow
+  fallback is HF `attn_implementation="eager"` (no AOTriton).
 - **Never** set `HSA_OVERRIDE_GFX_VERSION` (breaks native gfx1151 kernels) or
   `PYTORCH_HIP_ALLOC_CONF=backend:malloc` (crashes). Keep dataloader `num_workers=0` (Triton
   "invalid device ordinal" in forked workers on gfx1151).

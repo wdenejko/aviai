@@ -24,6 +24,7 @@ from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.trainer_pt_utils import LengthGroupedSampler
+from transformers.trainer_utils import get_last_checkpoint
 from trl import SFTConfig, SFTTrainer
 
 
@@ -84,6 +85,12 @@ def main() -> None:
     #    dynamo's automatic dynamic shapes + a raised recompile cap instead of recompiling per shape.
     ap.add_argument("--group-by-length", action="store_true")
     ap.add_argument("--compile", action="store_true")
+    # Resilience: gfx1151's experimental AOTriton attention can page-fault intermittently (S24: a
+    # GPU "Memory access fault" mid-run, not reproducible, not thermal). A fault kills the process,
+    # so long runs checkpoint every --save-steps and --resume picks up the latest checkpoint;
+    # run_resilient.sh loops the two so a fault costs minutes, not the night.
+    ap.add_argument("--save-steps", type=int, default=0, help="checkpoint every N steps (0=off)")
+    ap.add_argument("--resume", action="store_true", help="resume from latest checkpoint in --out")
     a = ap.parse_args()
     if a.compile:  # variable seq lens -> automatic dynamic shapes; allow a few recompiles
         torch._dynamo.config.cache_size_limit = 64
@@ -119,9 +126,15 @@ def main() -> None:
         lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
         dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing,
         torch_compile=a.compile,
+        save_strategy="steps" if a.save_steps else "no", save_steps=a.save_steps or 500,
+        save_total_limit=2,
     )
     trainer_cls = LengthGroupedSFTTrainer if a.group_by_length else SFTTrainer
-    trainer_cls(model=model, train_dataset=ds, args=cfg, processing_class=tok).train()
+    trainer = trainer_cls(model=model, train_dataset=ds, args=cfg, processing_class=tok)
+    last = get_last_checkpoint(a.out) if (a.resume and os.path.isdir(a.out)) else None
+    if last:
+        print("RESUMING_FROM", last, flush=True)
+    trainer.train(resume_from_checkpoint=last)
     model.save_pretrained(a.out)
     tok.save_pretrained(a.out)
     print("SAVED_ADAPTER", a.out)
