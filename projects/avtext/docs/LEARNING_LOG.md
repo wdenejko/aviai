@@ -971,3 +971,36 @@ dashi (its copies are gone), grow the METAR/TAF corpora reproducibly (IEM), retr
 set + re-eval all families under `--grammar` for comparability. Then the **benchmark harness** (an
 independent held-out set + a unified cross-family report card) and a new **SIGMET** family.
 NOTAM licensed structural rebuild stays parked (no FAA key; no keyless source with Q-lines).
+
+### S23 continued — data growth, a real leak, and the gfx1151 throughput wall
+
+**Done** — with the env rebuilt, executed the "more data + retrain" plan and hit two findings.
+- **Grew the per-family SFT sets** (METAR 8k→20k, TAF 8k→16k; `build_sft --v2 --max N` now respects
+  an explicit cap). Grown all-products set = 49,214 leak-clean examples.
+- **Leak audit found a real train/eval overlap.** Auditing the grown set against every frozen eval
+  surfaced **34 NOTAM extraction training rows that were exact duplicates of eval/notam/v1** (the
+  corpus `split` label missed them — dedup-before-split); the METAR builder also leaked **11 rows**
+  into the *legacy* eval/v1 (v1 vs v2 holdouts differ). METAR/TAF/NOTAM-classification were exact-
+  clean. Both builders now carry an exact-match eval blocklist, and a reusable gate
+  (`finetune/leakcheck`) asserts zero record-level overlap before any run. The old NOTAM-ext EM
+  (76.1) was mildly inflated by its 1.5% overlap; the leak-free adapter will be the honest number.
+- Rebuilt the base Q8 GGUF (the `~/models/...` copy was wiped) — needed patching the fork's
+  `convert_hf_to_gguf` to read gemma4's nested `text_config.global_head_dim`. Staged the full
+  grown-adapter eval chain (`chain_lg.sh`) on dashi.
+
+**Learned — the gfx1151 throughput wall (the session's hard lesson).** The reconstructed standard-
+PEFT trainer is correct but **~10–30x slower than the lost unsloth path**; Phase 7 was fast only
+because unsloth had fused flash-attn/varlen kernels this stack lacks.
+- **`--packing` is catastrophic here**: no flash-attn → SDPA math does O(flattened_len²) attention
+  → 310s/step. Non-packed + dynamic padding is the fix (keeps short rows short).
+- **Bigger batch does NOT help** — the iGPU is compute/bandwidth-bound: batch 6 ≈ 40s/step, batch 32
+  ≈ 136s/step (worse). Throughput ≈ 0.30 ex/s regardless. So a full 49k epoch ≈ **48 h** — a real
+  ~2-GPU-day cost, not the "retrain now" the unsloth era implied.
+- Practical overnight run = a **capped partial epoch** (`--max-steps 1200` ≈ 14k examples, ~13 h,
+  grad-checkpointing ON for memory safety). Proves the reconstructed train→convert→serve→eval loop
+  end-to-end on grown leak-clean data + gives preliminary numbers; a full-scale retrain is a
+  deliberate GPU-days decision.
+
+**Next** — when the capped run lands: convert→eval all four families (`chain_lg.sh`, NOTAM ext with
+grammar), fold grown-vs-Phase7 into the dashboard, decide whether the full 49k run is worth ~2 days.
+Then SIGMET (new family) and the independent held-out benchmark set.
