@@ -124,12 +124,36 @@ cannot raise above the OEM 120 W and its Strix Halo support is partial — the b
    METAR-length row on FLASH. Probably loses to the 12x launch penalty of sequential microbatches;
    an idea for a custom packed pipeline, not for now.
 
-## Measured composed results (filled in as sweeps land)
+## Measured composed results
 
-_Sweep 1 (25 steps each = the longest length bucket, so compare configs relatively):_
-A `--group-by-length` · B `+ --compile` · C `+ --no-grad-checkpointing` — **pending**.
+### Sweep 1 — real training steps, 25 per config (batch 6 × accum 2, max_seq 2048)
+
+`LengthGroupedSampler`'s first megabatch is a *random* 300 examples sorted longest→shortest (not the
+300 longest), so 25 steps = one descending pass over a representative sample; "steady" = steps
+15→25 (the shorter half, past compile/first-step warmup). Baseline for reference: random batching,
+same settings, **40 s/step**.
+
+| Config | steady s/step | vs A | total 25 steps |
+|---|---|---|---|
+| A `--group-by-length` (ckpt on) | 12.0 | — | 608 s |
+| B A + `--compile` | 11.8 | ~1.0x | 787 s (incl. ~3.5 min compile) |
+| **C B + `--no-grad-checkpointing`** | **7.0** | **1.7x** | 938 s (incl. compile + recompile) |
+
+Readings: (1) compile's static-shape 1.42x mostly evaporates once sequence lengths vary — dynamo's
+automatic dynamic-shape graph fuses less than the static graph did; a bucketed-padding strategy
+(`pad_to_multiple_of`, static shapes per bucket, cached compiles) is the obvious follow-up.
+(2) Dropping gradient checkpointing is worth 1.7x on top (no recompute *and* a simpler graph), and
+**it did not OOM on the 2,048-token bucket at batch 6** — length grouping made it safe.
+(3) Throughput on the short half in C ≈ 1,000 real tok/s, inside the community's fused-kernel
+ceiling range for this chip.
+
+**Numerical parity (the RDNA/Gemma NaN hazard) — passes.** Logged loss / grad_norm at steps 20 and
+25: A 0.830 / 2.285 / 1.70 · B 0.828 / 2.278 / 1.76 · C 0.820 / 2.272 / 1.78; zero NaN lines in any
+log. Compiled configs match eager to ~1 % (bf16 fusion-reordering noise). Config C is therefore a
+trustworthy production setting.
+
 _Per-length cost curve → expected full-epoch time per config (`perlen.py`)_ — **pending**.
-_Sweep 2: env knobs; batch 12/24 with grouping_ — **pending**.
+_Sweep 2: launch-overhead env knobs; batch 12/24 with grouping_ — **pending**.
 
 ## Key sources
 
