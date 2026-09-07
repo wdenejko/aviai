@@ -61,27 +61,58 @@ def _is_inhg(raw: str) -> bool:
     return any(t[0] == "A" and t[1:].isdigit() for t in raw.split())
 
 
+def _eval_raws() -> set[str]:
+    """Every raw in the frozen METAR evals — an exact-match holdout backstop.
+
+    The station+time split keeps train disjoint from the eval it was designed against, but the
+    v1 and v2 holdouts differ, so a v1 test station can resurface as a v2 training station (S23
+    leak audit: 11 such cross-version overlaps). Excluding any raw that appears verbatim in EITHER
+    eval makes the SFT set disjoint from both, whichever we report."""
+    blocked: set[str] = set()
+    for rel in ("eval/v1/eval.jsonl", "eval/v2/eval.jsonl"):
+        p = Path(rel)
+        if p.exists():
+            blocked |= {
+                json.loads(x)["raw"].strip() for x in p.read_text().splitlines() if x.strip()
+            }
+    return blocked
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Build the LoRA SFT set from the train split.")
     ap.add_argument("--per-station", type=int, default=600)
-    ap.add_argument("--max", type=int, default=3000)
+    ap.add_argument("--max", type=int, default=None, help="cap (default 3000; v2 default 8000)")
     ap.add_argument("--corpus", type=Path, default=_CORPUS)
-    ap.add_argument("--out", type=Path, default=_OUT)
-    ap.add_argument("--v2", action="store_true", help="v2 corpus + 78-station holdout, 8k examples")
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--v2", action="store_true", help="v2 corpus + 78-station holdout")
     args = ap.parse_args()
 
+    # --v2 swaps in the geo-balanced corpus + holdout, but no longer clobbers an explicit
+    # --max/--out: growing the METAR SFT set is just `--v2 --max N --out …` (S23 data growth).
     held = HELD_OUT_STATIONS
     if args.v2:  # 490-station geo-balanced corpus; disjoint from eval/v2's held-out + time split
-        args.corpus, held, args.out, args.max = (
-            V2_CORPUS, V2_HELD_OUT, Path("data/processed/sft/train_v2.jsonl"), 8000)
+        args.corpus, held = V2_CORPUS, V2_HELD_OUT
+        if args.out is None:
+            args.out = Path("data/processed/sft/train_v2.jsonl")
+        if args.max is None:
+            args.max = 8000
+    if args.out is None:
+        args.out = _OUT
+    if args.max is None:
+        args.max = 3000
     raws = sample_train(args.corpus, args.per_station, held)
+    blocked = _eval_raws()
     seen: set[str] = set()
     examples: list[dict] = []
+    n_blocked = 0
     mix = Counter()
     for raw in raws:
         if raw in seen:
             continue
         seen.add(raw)
+        if raw.strip() in blocked:  # verbatim frozen-eval record — never train on it
+            n_blocked += 1
+            continue
         v = classify(raw)
         if v.label not in (CLEAN, DISSENT):
             continue  # trustworthy targets only
@@ -106,6 +137,7 @@ def main() -> None:
             fh.write(json.dumps(e, ensure_ascii=False) + "\n")
     print(f"wrote {len(examples)} SFT examples -> {args.out}")
     print(f"conversion coverage: {dict(mix)}")
+    print(f"eval-holdout drops (verbatim frozen-eval raw): {n_blocked}")
 
 
 if __name__ == "__main__":

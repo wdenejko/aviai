@@ -24,15 +24,41 @@ EXTRACT_CORPUS = DATA_DIR / "processed" / "notam" / "notam_clean.jsonl"
 CLASS_CORPUS = DATA_DIR / "processed" / "notam" / "notam_class.jsonl"
 _OUT = DATA_DIR / "processed" / "sft" / "train_notam.jsonl"
 
+# Frozen NOTAM evals to hold out. Belt-and-braces: the corpus `split` field SHOULD keep train
+# disjoint from these, but it silently missed 34 extraction records that are exact duplicates of
+# eval/notam/v1 rows (S23 leak audit — dedup-before-split). We now exclude any train record whose
+# raw text exactly matches ANY frozen-eval raw, so disjointness is guaranteed against the actual
+# eval files rather than trusting a label. (Short common phrases like "RWY 14/32 CLSD" still recur
+# as *fragments* of longer, distinct NOTAMs — that's real-world distribution, not an eval-record
+# leak, and is intentionally kept.)
+_EVAL_FILES = (
+    DATA_DIR.parent / "eval" / "notam" / "v1" / "eval.jsonl",
+    DATA_DIR.parent / "eval" / "notam_cls" / "v1" / "eval.jsonl",
+)
+
 
 def _read(p: Path) -> list[dict]:
     return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
 
 
-def _extraction_examples() -> list[dict]:
-    out = []
+def _eval_raws() -> set[str]:
+    """Every raw string in the frozen NOTAM evals — the exact-match holdout blocklist."""
+    blocked: set[str] = set()
+    for f in _EVAL_FILES:
+        if f.exists():
+            blocked |= {
+                json.loads(x)["raw"].strip() for x in f.read_text().splitlines() if x.strip()
+            }
+    return blocked
+
+
+def _extraction_examples(blocked: set[str]) -> tuple[list[dict], int]:
+    out, dropped = [], 0
     for r in _read(EXTRACT_CORPUS):
         if r.get("split") != "train":
+            continue
+        if r["raw_text"].strip() in blocked:  # exact dup of a frozen-eval row -> skip
+            dropped += 1
             continue
         target = json.dumps({"rows": r["rows"]}, ensure_ascii=False)
         out.append(
@@ -43,13 +69,16 @@ def _extraction_examples() -> list[dict]:
                 ]
             }
         )
-    return out
+    return out, dropped
 
 
-def _classification_examples() -> list[dict]:
-    out = []
+def _classification_examples(blocked: set[str]) -> tuple[list[dict], int]:
+    out, dropped = [], 0
     for r in _read(CLASS_CORPUS):
         if r.get("split") != "train":
+            continue
+        if r["raw_text"].strip() in blocked:
+            dropped += 1
             continue
         out.append(
             {
@@ -59,7 +88,7 @@ def _classification_examples() -> list[dict]:
                 ]
             }
         )
-    return out
+    return out, dropped
 
 
 def main() -> None:
@@ -70,8 +99,9 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
-    extraction = _extraction_examples()
-    classification = _classification_examples()
+    blocked = _eval_raws()
+    extraction, ext_dropped = _extraction_examples(blocked)
+    classification, cls_dropped = _classification_examples(blocked)
     examples = extraction + classification
     random.Random(args.seed).shuffle(examples)  # interleave the two tasks
 
@@ -82,6 +112,8 @@ def main() -> None:
     mix = Counter({"extraction": len(extraction), "classification": len(classification)})
     print(f"wrote {len(examples)} NOTAM SFT examples -> {args.out}")
     print(f"mix: {dict(mix)}")
+    print(f"eval-holdout drops (exact dup of a frozen-eval raw): "
+          f"extraction={ext_dropped}, classification={cls_dropped}")
 
 
 if __name__ == "__main__":
