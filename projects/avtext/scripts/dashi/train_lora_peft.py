@@ -43,6 +43,15 @@ def main() -> None:
     ap.add_argument("--rank", type=int, default=16)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--batch", type=int, default=6)
+    ap.add_argument("--grad-accum", type=int, default=2)
+    # gfx1151 perf: with no working flash-attn, packing flattens the batch into one long sequence
+    # and SDPA's math backend does O(flattened_len^2) attention — catastrophically slow (S23:
+    # 310s/step). Non-packed + dynamic padding keeps short METAR/NOTAM rows short. And with ~100 GiB
+    # of unified RAM free, gradient checkpointing (a compute-for-memory trade) is usually a net loss
+    # here — --no-grad-checkpointing removes the recompute. Bigger --batch fills the under-used iGPU.
+    ap.add_argument(
+        "--grad-checkpointing", action=argparse.BooleanOptionalAction, default=True
+    )
     ap.add_argument("--packing", action="store_true")
     a = ap.parse_args()
 
@@ -51,8 +60,9 @@ def main() -> None:
         a.model, torch_dtype=torch.bfloat16, device_map={"": 0}
     )
     model.config.use_cache = False
-    model.gradient_checkpointing_enable()
-    model.enable_input_require_grads()  # required so grads flow with checkpointing on a frozen base
+    if a.grad_checkpointing:
+        model.gradient_checkpointing_enable()
+        model.enable_input_require_grads()  # so grads flow with checkpointing on a frozen base
     model = get_peft_model(
         model,
         LoraConfig(
@@ -70,11 +80,11 @@ def main() -> None:
 
     cfg = SFTConfig(
         dataset_text_field="text", packing=a.packing, max_length=a.max_seq,
-        per_device_train_batch_size=a.batch, gradient_accumulation_steps=2,
+        per_device_train_batch_size=a.batch, gradient_accumulation_steps=a.grad_accum,
         warmup_steps=10, num_train_epochs=a.epochs, max_steps=a.max_steps,
         learning_rate=a.lr, logging_steps=5, optim="adamw_torch", weight_decay=0.01,
         lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
-        dataset_num_proc=1, bf16=True, gradient_checkpointing=True,
+        dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing,
     )
     SFTTrainer(model=model, train_dataset=ds, args=cfg, processing_class=tok).train()
     model.save_pretrained(a.out)

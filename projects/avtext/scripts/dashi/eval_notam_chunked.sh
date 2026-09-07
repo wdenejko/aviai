@@ -10,8 +10,10 @@
 #           bash eval_notam_chunked.sh gemma-4-e4b-notam-base            # base = no LoRA
 set -uo pipefail
 LABEL="$1"; LORA_GGUF="${2:-}"
-BASE=~/models/gemma-4/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q8_0.gguf
-REPO=~/avtext/projects/avtext; TB=llama-rocm-7.2.4_2
+# BASE/REPO overridable via env — after the S23 dashi rebuild the base GGUF lives in ~/fttrain/
+# (the old ~/models/gemma-4/... path was wiped). Default to the rebuilt base.
+BASE="${BASE:-$HOME/fttrain/gemma-4-E4B-it-Q8_0.gguf}"
+REPO="${REPO:-$HOME/avtext/projects/avtext}"; TB=llama-rocm-7.2.4_2
 EXT=eval/notam/v1/eval.jsonl; CLS=eval/notam_cls/v1/eval.jsonl
 CHUNK="${CHUNK:-100}"; EXTTOK="${EXTTOK:-512}"; FLASH="${FLASH:-on}"  # flash on/off proven irrelevant; restart is the fix
 CHUNKDIR=reports/gemma-4/runs/chunks/${LABEL}-ext

@@ -52,6 +52,15 @@ FINDINGS = [
         "JSON on that free-text — invalid-but-trying, vs the base model's valid-but-useless 0.8% EM).",
     ),
     (
+        "A leak audit found — and fixed — a real train/eval overlap",
+        "Auditing the grown SFT set against every frozen eval surfaced 34 NOTAM extraction training "
+        "records (1.5% of that eval) that were exact duplicates of eval rows — the corpus split label "
+        "had missed them (classic dedup-before-split). METAR, TAF and NOTAM classification were "
+        "exact-clean. The builders now exclude any training row that appears verbatim in an eval, and "
+        "a reusable gate (finetune/leakcheck) asserts zero record-level overlap before any run. The "
+        "affected extraction EM was mildly inflated; the leak-free adapter is the honest number.",
+    ),
+    (
         "Long extraction evals need a server restart between chunks",
         "This ROCm llama-server build deterministically degrades into <unused49> reserved-token spam "
         "after ~1000 heavy-generation records (unaffected by cache_prompt or flash-attn — only a "
