@@ -19,10 +19,32 @@ import os
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 import torch
+import torch._dynamo  # noqa: F401  (module-level: importing inside main() would shadow `torch`)
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.trainer_pt_utils import LengthGroupedSampler
 from trl import SFTConfig, SFTTrainer
+
+
+class LengthGroupedSFTTrainer(SFTTrainer):
+    """SFTTrainer whose train sampler batches examples of similar token length together.
+
+    trl 1.x dropped TrainingArguments.group_by_length, so we inject the sampler directly. On gfx1151
+    this is the single biggest lever measured: random batches mixing METAR (~460 tok) with TAF
+    (~1100+ tok) pad every row to the longest, and 49% of linear compute was padding. Length-grouped
+    batches bring that to ~1% (≈2x less linear work, ≈3x less attention work)."""
+
+    def _get_train_sampler(self, train_dataset=None):
+        ds = train_dataset if train_dataset is not None else self.train_dataset
+        if ds is None or "input_ids" not in ds.column_names:
+            return super()._get_train_sampler(train_dataset)
+        lengths = [len(x) for x in ds["input_ids"]]
+        gen = torch.Generator()
+        gen.manual_seed(self.args.seed)
+        return LengthGroupedSampler(
+            self.args.per_device_train_batch_size, lengths=lengths, generator=gen
+        )
 
 # E4B is multimodal; its vision/audio towers use Gemma4ClippableLinear (a non-nn.Linear wrapper
 # PEFT cannot LoRA) and we only decode TEXT. This regex matches only the 258 text-tower proj layers
@@ -53,7 +75,18 @@ def main() -> None:
         "--grad-checkpointing", action=argparse.BooleanOptionalAction, default=True
     )
     ap.add_argument("--packing", action="store_true")
+    # S24 gfx1151 speed levers (measured on dashi):
+    #  --group-by-length: random batches of mixed METAR(~460 tok)/TAF(~1100+) pad every row to the
+    #    longest -> 49% of linear compute was padding. Length-grouped batches cut that to ~1%
+    #    (~2x linear, ~3x attention work).
+    #  --compile: torch.compile via the Trainer (inductor) fused the ~35% unfused elementwise ops
+    #    for a measured 1.42x on a real step. Sequence length varies per batch, so we rely on
+    #    dynamo's automatic dynamic shapes + a raised recompile cap instead of recompiling per shape.
+    ap.add_argument("--group-by-length", action="store_true")
+    ap.add_argument("--compile", action="store_true")
     a = ap.parse_args()
+    if a.compile:  # variable seq lens -> automatic dynamic shapes; allow a few recompiles
+        torch._dynamo.config.cache_size_limit = 64
 
     tok = AutoTokenizer.from_pretrained(a.model)
     model = AutoModelForCausalLM.from_pretrained(
@@ -85,8 +118,10 @@ def main() -> None:
         learning_rate=a.lr, logging_steps=5, optim="adamw_torch", weight_decay=0.01,
         lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
         dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing,
+        torch_compile=a.compile,
     )
-    SFTTrainer(model=model, train_dataset=ds, args=cfg, processing_class=tok).train()
+    trainer_cls = LengthGroupedSFTTrainer if a.group_by_length else SFTTrainer
+    trainer_cls(model=model, train_dataset=ds, args=cfg, processing_class=tok).train()
     model.save_pretrained(a.out)
     tok.save_pretrained(a.out)
     print("SAVED_ADAPTER", a.out)
