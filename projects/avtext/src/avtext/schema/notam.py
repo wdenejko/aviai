@@ -78,7 +78,31 @@ NOTAM_FIELDS: dict[str, tuple[str, ...]] = {
     "navigation": ("airport", "runway", "navaid_id", "navaid_type"),
 }  # fmt: skip
 
+
 # Categories where a NOTAM yields MANY rows; the rest are flat (exactly one row).
+def notam_json_schema(category: str) -> dict:
+    """JSON schema for one category's extraction output (for grammar-constrained decoding).
+
+    llama.cpp's `/completion` compiles a `json_schema` into GBNF and constrains sampling to it,
+    so the model cannot emit malformed JSON — the ~13.5% invalid-JSON tail on the free-text
+    categories (`area`, `airway`) goes to zero. Shape mirrors what `parse_prediction_notam`
+    expects: {"rows": [{field: string|null, ...}]} with exactly this category's fields.
+    """
+    fields = NOTAM_FIELDS[category]
+    row = {
+        "type": "object",
+        "properties": {f: {"type": ["string", "null"]} for f in fields},
+        "required": list(fields),
+        "additionalProperties": False,
+    }
+    return {
+        "type": "object",
+        "properties": {"rows": {"type": "array", "items": row}},
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+
+
 ROW_CATEGORIES = frozenset({"runway", "taxiway", "area", "airway", "stand", "procedure"})
 
 # Knots source field name -> our canonical name (fixes caps / slashes). area_type is intentionally

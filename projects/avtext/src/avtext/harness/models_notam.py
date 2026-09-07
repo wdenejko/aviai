@@ -17,7 +17,7 @@ from avtext.harness.models import GEMMA4_TURN_WRAP
 def notam_completer(
     base_url: str, *, wrapper: str = GEMMA4_TURN_WRAP, temperature: float = 0.0,
     max_tokens: int = 512, timeout: float = 300.0, cache_prompt: bool = False,
-) -> Callable[[str], str]:  # fmt: skip
+) -> Callable[..., str]:  # fmt: skip
     """Return `complete(prompt_body) -> text`: wraps the body in the byte-for-byte training turn
     wrapper and POSTs to the raw /completion endpoint (sidesteps minja drift for hard finetunes).
 
@@ -27,16 +27,16 @@ def notam_completer(
     False makes every request reprocess its prompt fresh (a little slower, but stable)."""
     client = httpx.Client(base_url=base_url, timeout=timeout)
 
-    def complete(prompt_body: str) -> str:
-        resp = client.post(
-            "/completion",
-            json={
-                "prompt": wrapper.format(prompt_body),
-                "n_predict": max_tokens,
-                "temperature": temperature,
-                "cache_prompt": cache_prompt,
-            },
-        )
+    def complete(prompt_body: str, json_schema: dict | None = None) -> str:
+        payload = {
+            "prompt": wrapper.format(prompt_body),
+            "n_predict": max_tokens,
+            "temperature": temperature,
+            "cache_prompt": cache_prompt,
+        }
+        if json_schema is not None:  # grammar-constrained decoding -> valid JSON guaranteed
+            payload["json_schema"] = json_schema
+        resp = client.post("/completion", json=payload)
         resp.raise_for_status()
         return resp.json().get("content", "")
 

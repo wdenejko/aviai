@@ -30,6 +30,7 @@ from avtext.schema.notam import (
     NotamExtraction,
     has_chinese,
     normalize_row,
+    notam_json_schema,
 )
 from avtext.schema.taf import (
     ChangeType,
@@ -47,6 +48,7 @@ __all__ = [
     "ForecastPeriod",
     "NOTAM_CLASSES",
     "NOTAM_FIELDS",
+    "notam_json_schema",
     "MetarObservation",
     "NotamCategory",
     "NotamClassification",

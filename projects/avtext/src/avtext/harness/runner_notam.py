@@ -26,6 +26,7 @@ from avtext.harness.prompt_notam import (
 )
 from avtext.harness.score import aggregate, aggregate_by
 from avtext.harness.score_notam import classification_metrics, row_count_match, score_notam_record
+from avtext.schema.notam import notam_json_schema
 
 
 def _load(eval_path: Path):
@@ -36,10 +37,14 @@ def _load(eval_path: Path):
     return records, manifest, eval_sha
 
 
-def _map(complete, prompts, concurrency):
-    def _safe(p):
+def _map(complete, specs, concurrency):
+    """Map `complete` over specs. A spec is a prompt str, or a (prompt, json_schema) tuple for
+    grammar-constrained extraction. Failures return "" so one bad record never sinks the run."""
+
+    def _safe(spec):
+        prompt, schema = spec if isinstance(spec, tuple) else (spec, None)
         try:
-            return complete(p)
+            return complete(prompt, schema)
         except Exception:
             return ""
 
@@ -47,17 +52,23 @@ def _map(complete, prompts, concurrency):
         from concurrent.futures import ThreadPoolExecutor
 
         with ThreadPoolExecutor(max_workers=concurrency) as ex:
-            return list(ex.map(_safe, prompts))
-    return [_safe(p) for p in prompts]
+            return list(ex.map(_safe, specs))
+    return [_safe(s) for s in specs]
 
 
 def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:40]
 
 
-def run_extraction(records, complete, concurrency):
-    prompts = [format_prompt_notam(r["raw"], r["category"]) for r in records]
-    texts = _map(complete, prompts, concurrency)
+def run_extraction(records, complete, concurrency, use_grammar=True):
+    specs = [
+        (
+            format_prompt_notam(r["raw"], r["category"]),
+            notam_json_schema(r["category"]) if use_grammar else None,
+        )
+        for r in records
+    ]
+    texts = _map(complete, specs, concurrency)
     scores, preds, raws, invalid_ids, n_rowmatch = [], {}, {}, set(), 0
     for r, t in zip(records, texts, strict=True):
         pred = parse_prediction_notam(t, r["category"])
@@ -96,6 +107,12 @@ def main() -> None:
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--max-tokens", type=int, default=None)
+    ap.add_argument(
+        "--grammar",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="grammar-constrain extraction output to valid category JSON (default on)",
+    )
     args = ap.parse_args()
 
     from avtext.harness.models_notam import notam_completer
@@ -133,7 +150,7 @@ def main() -> None:
 
     if kind == "extraction":
         scores, preds, raws, invalid_ids, extra = run_extraction(
-            records, complete, args.concurrency
+            records, complete, args.concurrency, use_grammar=args.grammar
         )
         overall = aggregate(scores)
         by_cat = aggregate_by(scores, "split")
@@ -152,6 +169,7 @@ def main() -> None:
                 f" | {m.hallucination_rate or 0:.1%} | {m.exact_match:.1%} |"
             )
         run_json.update(extra)
+        run_json["grammar"] = bool(args.grammar)
         run_json["overall"] = overall.as_dict()
         run_json["by_category"] = {k: v.as_dict() for k, v in by_cat.items()}
         (out / "scores.jsonl").write_text(

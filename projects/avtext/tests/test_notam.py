@@ -144,7 +144,7 @@ def _replayer(outputs):
     """A fake `complete` that returns the queued model outputs in call order (concurrency=1)."""
     it = iter(outputs)
 
-    def complete(_prompt):
+    def complete(_prompt, _schema=None):
         return next(it)
 
     return complete
@@ -190,3 +190,46 @@ def test_runner_classification_accuracy_and_invalid():
     junk = _replayer(["", "not-a-class-xyz"])
     m2, _ = run_classification(records, junk, 1)
     assert m2["accuracy"] == 0.0 and m2["invalid"] >= 1
+
+
+def test_notam_json_schema_shape_matches_fields():
+    from avtext.schema.notam import NOTAM_FIELDS, notam_json_schema
+
+    s = notam_json_schema("area")
+    item = s["properties"]["rows"]["items"]
+    assert set(item["properties"]) == set(NOTAM_FIELDS["area"])
+    assert item["additionalProperties"] is False
+    assert item["properties"]["area_summary"]["type"] == ["string", "null"]
+    assert s["required"] == ["rows"]
+
+
+def test_runner_extraction_grammar_schema_flows_to_completer():
+    # use_grammar=True must hand the completer the category's JSON schema; False must hand None.
+    import json
+
+    from avtext.harness.runner_notam import run_extraction
+    from avtext.schema.notam import notam_json_schema
+
+    seen = {}
+
+    def complete(_prompt, json_schema=None):
+        seen["schema"] = json_schema
+        return json.dumps({"rows": [_rw(airport="KJFK", runway="13", status_type="clsd")]})
+
+    records = [
+        {
+            "id": "rw-1",
+            "category": "runway",
+            "raw": "RWY 13/31 CLSD",
+            "reference": {
+                "category": "runway",
+                "rows": [_rw(airport="KJFK", runway="13", status_type="clsd")],
+            },
+        }
+    ]
+    scores, _, _, _, extra = run_extraction(records, complete, 1, use_grammar=True)
+    assert seen["schema"] == notam_json_schema("runway")
+    assert extra["n_invalid"] == 0 and all(s.exact_match for s in scores)
+
+    run_extraction(records, complete, 1, use_grammar=False)
+    assert seen["schema"] is None
