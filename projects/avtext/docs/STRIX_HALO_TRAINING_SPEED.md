@@ -16,7 +16,7 @@ owner can flip.
 | # | Lever | Gain | Confidence | Who |
 |---|---|---|---|---|
 | 1 | **Length-grouped batching** (`--group-by-length`) | **~2x** (49 % of linear compute was padding → 1 %) | measured on our data | done in trainer |
-| 2 | **Performance power mode** (P-mode button: PL1 85 W → 120 W; GPU 2175 → ~2787 MHz) | up to ~1.28x on GEMM/attention share; ~1.1–1.2x on the step | strong external evidence (same box model) | **owner** |
+| 2 | **Performance power mode** (P-mode button: PL1 85 W → 120 W; GPU 2175 → ~2787 MHz) | up to ~1.28x on GEMM/attention share; ~1.1–1.2x on the step — **but see hazards: at Balanced the APU already sits at Tctl 98–99 °C after 30 min of sustained training (firmware-throttled, stable); Performance mode needs better cooling first** | strong external evidence (same box model) | **owner** |
 | 3 | **torch.compile** (`--compile`, inductor default mode) | **1.42x** on a real step | measured | done in trainer |
 | 4 | **Length-adaptive checkpointing** (`--ckpt-above N`: recompute only the long tail) | 1.7x on the short half (no-ckpt speed) without the long-bucket OOM/thrash that plain `--no-grad-checkpointing` has | measured (sweeps 1–2) | done in trainer |
 | 5 | Launch-overhead env knobs (`HIP_FORCE_DEV_KERNARG=1`, `PYTORCH_ALLOC_CONF=expandable_segments:True`, `TORCH_BLAS_PREFER_HIPBLASLT=1`) | **1.13x** (and `expandable_segments` cures the long-bucket swap storm) | measured (sweep 2 D) | in recipe |
@@ -103,6 +103,13 @@ cannot raise above the OEM 120 W and its Strix Halo support is partial — the b
   `run_resilient.sh` and the sweep scripts); (3) `--save-steps 200` + `run_resilient.sh` remain cheap
   insurance against power/driver events; (4) any standalone probe: `model.train()`, and a sysfs GTT
   watchdog thread that `os._exit`s above ~90 GiB (`faultmap2.py`) beats a swap storm.
+- **Thermal ceiling at Balanced already.** Sustained training (30+ min, GPU 99 % busy, 85 W) settles at
+  Tctl 98–99 °C / GPU edge 93–98 °C with clocks modulating 2.07–2.34 GHz — the firmware holding its
+  ~99 °C target, stable, no kernel thermal events, no fan sensor exposed to Linux. Short sweeps read
+  83 °C because they never heat-soaked. Consequence: **do not press Performance mode (120 W) without
+  improving cooling** — the reboots reported above 90 °C on this model were in that mode. The
+  progress pulse logs the max sensor temperature every 30 min; a run that must be cooler goes to Quiet
+  mode (54 W, slower), which is the owner's button, not a software setting.
 - **Never** set `HSA_OVERRIDE_GFX_VERSION` (breaks native gfx1151 kernels) or
   `PYTORCH_HIP_ALLOC_CONF=backend:malloc` (crashes). Keep dataloader `num_workers=0` (Triton
   "invalid device ordinal" in forked workers on gfx1151).

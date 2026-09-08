@@ -1086,7 +1086,11 @@ retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen 
   hence per-length adaptive checkpointing, which nothing off the shelf offers.
 - Batch-size comparisons need quantile-matched windows (megabatch = 50×batch, sorted longest→shortest).
 
-**Next** — owner: Performance P-mode (+~20 %). Engineering frontier, in order of expected value:
+- **The box is at its thermal ceiling at Balanced:** 30 min of sustained training settles at Tctl 98–99 °C
+  (firmware-throttled, stable, clocks 2.07–2.34 GHz). Short sweeps read 83 °C — they never heat-soaked.
+  So Performance P-mode is off the table until cooling improves; the pulse logs temperature.
+
+**Next** — owner: cooling/airflow before any P-mode change. Engineering frontier, in order of expected value:
 bucketed static-shape compile (1.42x measured on a static step), flash-attn varlen packing,
 FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the post-retrain dashboard.
 
