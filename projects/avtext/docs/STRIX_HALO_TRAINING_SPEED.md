@@ -107,9 +107,12 @@ cannot raise above the OEM 120 W and its Strix Halo support is partial — the b
   Tctl 98–99 °C / GPU edge 93–98 °C with clocks modulating 2.07–2.34 GHz — the firmware holding its
   ~99 °C target, stable, no kernel thermal events, no fan sensor exposed to Linux. Short sweeps read
   83 °C because they never heat-soaked. Consequence: **do not press Performance mode (120 W) without
-  improving cooling** — the reboots reported above 90 °C on this model were in that mode. The
-  progress pulse logs the max sensor temperature every 30 min; a run that must be cooler goes to Quiet
-  mode (54 W, slower), which is the owner's button, not a software setting.
+  improving cooling** — the reboots reported above 90 °C on this model were in that mode. Two
+  hours in, Tctl overshot to 102 °C and the pace slid from 347 to 412 s per megabatch, so the production
+  run carries a userspace governor (`~/fttrain/thermostat.sh`: SIGSTOP the trainer at ≥ 101 °C, SIGCONT
+  at ≤ 97 °C — the GPU idles and the chip drops 4 °C in ~6 s; nothing else on the box is touched). The
+  30-min pulse logs temperature, clock and pause count. A run that must be cooler goes to Quiet mode
+  (54 W, slower), which is the owner's button, not a software setting.
 - **Never** set `HSA_OVERRIDE_GFX_VERSION` (breaks native gfx1151 kernels) or
   `PYTORCH_HIP_ALLOC_CONF=backend:malloc` (crashes). Keep dataloader `num_workers=0` (Triton
   "invalid device ordinal" in forked workers on gfx1151).
