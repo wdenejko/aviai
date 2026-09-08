@@ -22,8 +22,8 @@ owner can flip.
 | 5 | Launch-overhead env knobs (`HIP_FORCE_DEV_KERNARG=1`, `PYTORCH_ALLOC_CONF=expandable_segments:True`, `TORCH_BLAS_PREFER_HIPBLASLT=1`) | **1.13x** (and `expandable_segments` cures the long-bucket swap storm) | measured (sweep 2 D) | in recipe |
 | 6 | Bigger batch **with** grouping | **none** — batch 12 = 992 vs 983 ms/example; GPU saturated at batch 6 | measured (sweep 2 E) | stay at 6 |
 
-Measured composed (1+3+4+5): **~48 h → ~17 h per 49k epoch at Balanced; ~14 h with Performance
-P-mode** (lever 2, owner). See *Measured composed results* for the sweep numbers and the epoch arithmetic.
+Measured composed (1+3+4+5), production run: **~48 h → 15.8 h per 49k epoch at Balanced (3.0x); ~13 h
+with Performance P-mode** (lever 2, owner). See *Measured composed results* for the sweep numbers and the epoch arithmetic.
 
 ## Where the 40 s/step actually went (torch.profiler, one real microbatch, batch 6, ~500 tok)
 
@@ -206,8 +206,14 @@ over 288 examples is an unbiased (slightly optimistic — it drops the 12 longes
 | D grouping + compile + knobs, no-ckpt | 361 s | 1.25 | **~17 h** at Balanced; ~14 h at Performance P-mode |
 | H D with adaptive ckpt (N=1100) | 454 s | 1.58 | ~22 h on this arithmetic — inflated by the second graph variant's recompiles inside the one megabatch; at N=1800 expect ≈ D. The production run's own rate is the number that counts (first megabatches, below) |
 
-Random-batch baseline was ~48 h. The remaining structural lever is bucketed static-shape compile
-(1.42x measured on a static step; frontier section).
+**Production run (config H, `--ckpt-above 1800`, seed 42 → same first megabatch as the sweeps):**
+megabatch 1 incl. compile 827 s · megabatch 2 (recompiles for the second graph variant) 432 s ·
+**megabatch 3 = 347 s for 300 examples = 1.16 s/example → 15.8 h per 49,214-example epoch** at
+Balanced — steady state, the number to plan with (~13 h with Performance P-mode). No-ckpt peaks on the
+fitted line (66–68 GiB at 1,520–1,566 tokens); the 1,854–2,048 head checkpoints at 22 GiB.
+
+Random-batch baseline was ~48 h → **3.0x measured end to end**. The remaining structural lever is
+bucketed static-shape compile (1.42x measured on a static step; frontier section).
 ## Key sources
 
 ROCm #6035 (EVO-X2 at 2787 MHz/119 W under training) · Notebookcheck EVO-X2 review (P-modes) ·

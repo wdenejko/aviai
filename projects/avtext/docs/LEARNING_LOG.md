@@ -1064,8 +1064,9 @@ retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen 
   times showed config C had only "survived" the 2048 bucket by thrashing (110–200 s steps).
 - Built **length-adaptive gradient checkpointing** (`--ckpt-above N`, flipped per microbatch inside
   `training_step`) + `--log-mem`; sweep 3 config H: 6.4 s/step = 533 ms/example on the short half (D: 6.2), the 2048-token head checkpointed at 23.7 GiB, and the compiled no-ckpt peak only **51 GiB at 1,059 tokens** (eager: >107 GiB).
-- Epoch arithmetic from one megabatch minus the compile step: A ~25 h, D ~17 h, **H ≈ D, ~17 h** at
-  Balanced (~14 h with Performance P-mode) with the threshold at 1,800 (97 % of rows no-ckpt); random-batch baseline was ~48 h.
+- Epoch arithmetic from one megabatch minus the compile step: A ~25 h, D ~17 h, **H measured in production: 347 s per
+  300-example megabatch = 15.8 h** at Balanced (~13 h with Performance P-mode), threshold 1,800 (97 % of
+  rows no-ckpt) — 3.0x end to end; random-batch baseline was ~48 h.
 - Launched the grown-set (49,214) production retrain on config H through `run_resilient.sh`
   (200-step checkpoints, eval chain `chain_lg.sh` chained after `SAVED_ADAPTER`).
 
