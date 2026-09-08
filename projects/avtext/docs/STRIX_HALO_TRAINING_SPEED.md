@@ -18,12 +18,12 @@ owner can flip.
 | 1 | **Length-grouped batching** (`--group-by-length`) | **~2x** (49 % of linear compute was padding → 1 %) | measured on our data | done in trainer |
 | 2 | **Performance power mode** (P-mode button: PL1 85 W → 120 W; GPU 2175 → ~2787 MHz) | up to ~1.28x on GEMM/attention share; ~1.1–1.2x on the step | strong external evidence (same box model) | **owner** |
 | 3 | **torch.compile** (`--compile`, inductor default mode) | **1.42x** on a real step | measured | done in trainer |
-| 4 | **No gradient checkpointing** (`--no-grad-checkpointing`) | ~1.3x; memory-safe once batches are length-grouped (except the TAF bucket) | measured | flag exists; validate memory |
-| 5 | Launch-overhead env knobs (`HIP_FORCE_DEV_KERNARG=1`, `expandable_segments`) | 0–30 % | external (launch-heavy diffusion workload) | A/B pending |
-| 6 | Bigger batch **with** grouping | unknown — earlier "worse" result was confounded by padding | to measure | A/B pending |
+| 4 | **Length-adaptive checkpointing** (`--ckpt-above N`: recompute only the long tail) | 1.7x on the short half (no-ckpt speed) without the long-bucket OOM/thrash that plain `--no-grad-checkpointing` has | measured (sweeps 1–2) | done in trainer |
+| 5 | Launch-overhead env knobs (`HIP_FORCE_DEV_KERNARG=1`, `PYTORCH_ALLOC_CONF=expandable_segments:True`, `TORCH_BLAS_PREFER_HIPBLASLT=1`) | **1.13x** (and `expandable_segments` cures the long-bucket swap storm) | measured (sweep 2 D) | in recipe |
+| 6 | Bigger batch **with** grouping | **none** — batch 12 = 992 vs 983 ms/example; GPU saturated at batch 6 | measured (sweep 2 E) | stay at 6 |
 
-Composed estimate for 1+3+4 (+2): **~3.5–4.5x → the 49k epoch from ~48 h to ~10–14 h**, i.e. an
-overnight run. See *Measured composed results* at the end for the sweep numbers as they land.
+Measured composed (1+3+4+5): **~48 h → ~17 h per 49k epoch at Balanced; ~14 h with Performance
+P-mode** (lever 2, owner). See *Measured composed results* for the sweep numbers and the epoch arithmetic.
 
 ## Where the 40 s/step actually went (torch.profiler, one real microbatch, batch 6, ~500 tok)
 
@@ -50,13 +50,13 @@ NOTAM-cls p50 143. Random batches: computed/real tokens = **1.96x**; length-grou
 export TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1   # required on this AOTriton 0.11.2b wheel (before 1st SDPA call)
 export CC=$HOME/fttrain/bin/zigcc CXX=$HOME/fttrain/bin/zigcxx   # no-root C compiler for Triton/inductor
 export PYTHONUNBUFFERED=1
-# A/B candidates (pending): HIP_FORCE_DEV_KERNARG=1  PYTORCH_ALLOC_CONF=expandable_segments:True  TORCH_BLAS_PREFER_HIPBLASLT=1
+export HIP_FORCE_DEV_KERNARG=1 PYTORCH_ALLOC_CONF=expandable_segments:True TORCH_BLAS_PREFER_HIPBLASLT=1  # sweep 2: 1.13x
 ~/fttorch/bin/python ~/scripts/avtext/train_lora_peft.py \
   --model unsloth/gemma-4-E4B-it --data ~/fttrain/train_all_lg.jsonl --out ~/fttrain/adapter-all-lg \
   --rank 16 --epochs 1 --batch 6 --grad-accum 2 --max-seq 2048 \
-  --group-by-length --compile --no-grad-checkpointing      # drop --no-grad-checkpointing if the TAF bucket OOMs
+  --group-by-length --compile --ckpt-above 1800 --log-mem   # adaptive checkpointing: only the 1800–2048 head recomputes
 # Production (overnight) form — same args through the retry loop, checkpointing every 200 steps so
-# an intermittent GPU page fault costs minutes: it re-launches with --resume from the latest checkpoint.
+# a crash costs minutes: it waits for GPU memory to drain, then re-launches with --resume.
 ~/scripts/avtext/run_resilient.sh <same args as above> --save-steps 200
 ```
 
@@ -86,14 +86,23 @@ cannot raise above the OEM 120 W and its Strix Halo support is partial — the b
   NaN losses. Our Gemma-4 compiled step gave a sane loss, but **compare compiled vs eager loss over
   the first few hundred steps** of any real run and keep NaN guards. Triton 3.6/3.7 has known
   gfx1151 miscompiles (fixed in 3.8); `num_warps>4` can assert on RDNA.
-- **Intermittent GPU page faults kill the process.** Observed once in ~2 h of continuous load: an
-  amdgpu `Memory access fault … Page not present` (faulting client TCP = a compute kernel reading
-  out of bounds) in the *eager* config at a ~1,100-token batch — not thermal (56 °C, GPU recovered
-  instantly), not reproducible (sweep 1 and a 114-step run crossed the same lengths cleanly). Prime
-  suspect: the experimental, untuned AOTriton attention backward on gfx1151. Consequence: a long run
-  **must checkpoint and auto-resume** — `--save-steps 200` + `run_resilient.sh` (retry loop with
-  `--resume`) bounds the loss to minutes. If faults recur at a specific length, the safe-but-slow
-  fallback is HF `attn_implementation="eager"` (no AOTriton).
+- **"GPU page faults" here are memory blow-ups in disguise — the APU has no clean OOM.** On a
+  discrete GPU an over-allocation fails fast; on Strix Halo the "GPU" pool *is* host RAM (amdgpu GTT),
+  so a process that outgrows it drags the whole box into a swap storm (signature: `mem_info_gtt_used`
+  → 119 of 124 GiB, host free ~1 GiB, GPU 1 % busy, the process at 100 % CPU with a tens-of-MB RSS
+  because it has been swapped out) and finally an amdgpu `Memory access fault … Page not present`.
+  The S24 fault reproduced *deterministically* at a ~1,130-token batch — and the root cause was ours:
+  the probe scripts never called `model.train()`. `from_pretrained` returns eval mode and HF applies
+  gradient checkpointing only when `self.training`, so every probe was silently a no-checkpointing
+  run holding **85 GiB live in the forward** at 1,130 tokens × batch 6; the same rows with `.train()`
+  peak at 30 GiB allocated / 52 reserved. The Trainer calls `.train()`, which is why sweep 1 crossed
+  the same lengths cleanly. Guards that stay: (1) `--mem-fraction` (default 0.85) caps the pool so a
+  future over-allocation is a fast, retryable OOM instead of a hung box; (2) **wait for GTT to drain
+  between GPU processes** — a just-exited (or faulted) process still holds 80–95 GiB for tens of
+  seconds, so an immediate relaunch OOMs on its first big allocation (`gttwait` in
+  `run_resilient.sh` and the sweep scripts); (3) `--save-steps 200` + `run_resilient.sh` remain cheap
+  insurance against power/driver events; (4) any standalone probe: `model.train()`, and a sysfs GTT
+  watchdog thread that `os._exit`s above ~90 GiB (`faultmap2.py`) beats a swap storm.
 - **Never** set `HSA_OVERRIDE_GFX_VERSION` (breaks native gfx1151 kernels) or
   `PYTORCH_HIP_ALLOC_CONF=backend:malloc` (crashes). Keep dataloader `num_workers=0` (Triton
   "invalid device ordinal" in forked workers on gfx1151).
@@ -163,9 +172,42 @@ ceiling range for this chip.
 log. Compiled configs match eager to ~1 % (bf16 fusion-reordering noise). Config C is therefore a
 trustworthy production setting.
 
-_Per-length cost curve → expected full-epoch time per config (`perlen.py`)_ — **pending**.
-_Sweep 2: launch-overhead env knobs; batch 12/24 with grouping_ — **pending**.
+### Sweep 2 — the decisions (same data; ms/example over quantile-matched windows)
 
+`steady2.py` keys on the training bar's total and reports ms/example over a window that is the same
+*quantile* of a megabatch for every batch size (batch-6 steps 15→25 ≡ batch-12 steps 30→50 = the
+shortest 40 % of a random 300/600-example megabatch); raw s/step is not comparable across batch sizes.
+
+| Config | window | vs reference |
+|---|---|---|
+| G eager, no-ckpt (is compile earning its warmup?) | **OOM at step 0** — the 2048-token bucket does not fit at batch 6 without compile's fusion | — |
+| D C + env knobs (`HIP_FORCE_DEV_KERNARG=1`, `PYTORCH_ALLOC_CONF=expandable_segments:True`, `TORCH_BLAS_PREFER_HIPBLASLT=1`) | **6.2 s/step = 517 ms/ex** | **1.13x vs C** (583); long-bucket steps healthy — `expandable_segments` removed the swap storm C had there |
+| E batch 12 × accum 1, ckpt + compile | 11.9 s/step = 992 ms/ex | 1.0x vs B (983): **bigger batch buys nothing** — the GPU is saturated at batch 6 once batches are grouped |
+| H D + `--ckpt-above 1100` (length-adaptive checkpointing, `--log-mem`) | **6.4 s/step = 533 ms/ex** | 1.0x vs D on the short half (no-ckpt speed); the 2048 head runs checkpointed at **23.7 GiB**; compiled no-ckpt peaks at **51 GiB at 1,059 tokens** (eager: >107 GiB) → production threshold **1,800** (est. ~76 GiB, 97 % of rows no-ckpt) |
+
+Readings: (1) **No-checkpointing does not fit the long tail.** Re-reading sweep 1's per-step times:
+C's steps 2–6 took 110–200 s (A: 48–65 s) — it "survived" the 2048 bucket by thrashing the unified
+pool; eager G OOMs outright (an eager no-ckpt forward needs >107 GiB already at 1,130 tokens — compile's
+fusion is what makes no-ckpt fit at all); D fits by a few GiB thanks to `expandable_segments`. Too
+fragile for an unattended night. (2) Since HF checkpointing is a runtime flag checked per forward, the
+trainer now flips it per microbatch on padded length (`--ckpt-above N`): the short/medium majority runs
+at no-ckpt speed, only the TAF tail recomputes; `--log-mem` prints the per-microbatch peak so the
+threshold is set from the compiled curve, not a probe. (3) The env knobs are a real 13 % and cost
+nothing. (4) Batch stays at 6.
+
+### Epoch arithmetic (what the night actually costs)
+
+The 25-step sweeps are one megabatch = a random 300 examples, so *total time minus the compile step*
+over 288 examples is an unbiased (slightly optimistic — it drops the 12 longest) per-example cost:
+
+| Config | steps 2–25 | s/example | 49,214-example epoch |
+|---|---|---|---|
+| A grouping, eager, ckpt | 529 s | 1.84 | ~25 h (the old `perlen.py` 23.7 h agrees — it was, by accident, the eager no-ckpt curve, see hazards) |
+| D grouping + compile + knobs, no-ckpt | 361 s | 1.25 | **~17 h** at Balanced; ~14 h at Performance P-mode |
+| H D with adaptive ckpt (N=1100) | 454 s | 1.58 | ~22 h on this arithmetic — inflated by the second graph variant's recompiles inside the one megabatch; at N=1800 expect ≈ D. The production run's own rate is the number that counts (first megabatches, below) |
+
+Random-batch baseline was ~48 h. The remaining structural lever is bucketed static-shape compile
+(1.42x measured on a static step; frontier section).
 ## Key sources
 
 ROCm #6035 (EVO-X2 at 2787 MHz/119 W under training) · Notebookcheck EVO-X2 review (P-modes) ·

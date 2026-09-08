@@ -8,9 +8,10 @@ Face PEFT — no unsloth, so the recipe reproduces anywhere (the resume-grade pa
 stay comparable to the Phase 6/7 results. Output is a PEFT adapter that convert_lora_to_gguf turns
 into the GGUF our llama.cpp harness serves.
 
-Run inside the reconstructed ROCm venv:  HSA_OVERRIDE_GFX_VERSION=11.0.0 ~/fttorch/bin/python \
-    train_lora_peft.py --model unsloth/gemma-4-E4B-it --out ~/ft/gemma-4/<name> --data <sft.jsonl> \
-    --rank 16 --epochs 1 --batch 6 --max-seq 2048 [--packing]
+Run inside the reconstructed ROCm venv/toolbox (never set HSA_OVERRIDE_GFX_VERSION on gfx1151):
+    ~/fttorch/bin/python train_lora_peft.py --model unsloth/gemma-4-E4B-it --out ~/ft/gemma-4/<name> \
+    --data <sft.jsonl> --rank 16 --epochs 1 --batch 6 --grad-accum 2 --max-seq 2048 \
+    --group-by-length --compile --ckpt-above <N>   # see docs/STRIX_HALO_TRAINING_SPEED.md
 """
 
 import argparse
@@ -28,17 +29,30 @@ from transformers.trainer_utils import get_last_checkpoint
 from trl import SFTConfig, SFTTrainer
 
 
-class LengthGroupedSFTTrainer(SFTTrainer):
-    """SFTTrainer whose train sampler batches examples of similar token length together.
+class AvtextSFTTrainer(SFTTrainer):
+    """SFTTrainer with the two gfx1151 levers that need trainer internals.
 
-    trl 1.x dropped TrainingArguments.group_by_length, so we inject the sampler directly. On gfx1151
-    this is the single biggest lever measured: random batches mixing METAR (~460 tok) with TAF
-    (~1100+ tok) pad every row to the longest, and 49% of linear compute was padding. Length-grouped
-    batches bring that to ~1% (≈2x less linear work, ≈3x less attention work)."""
+    1. Length-grouped batches (`group_by_length`): trl 1.x dropped TrainingArguments.group_by_length,
+       so we inject the sampler directly. On gfx1151 this is the single biggest lever measured: random
+       batches mixing METAR (~460 tok) with TAF (~1100+ tok) pad every row to the longest, and 49% of
+       linear compute was padding. Length-grouped batches bring that to ~1% (≈2x less linear work,
+       ≈3x less attention work).
+    2. Length-adaptive gradient checkpointing (`ckpt_above` tokens): recompute is a compute-for-memory
+       trade, and on this 123 GiB unified-memory box it is only *needed* for the long tail. Measured
+       (S24): no-checkpointing is 1.7x faster on the short half of the data but does NOT fit the
+       ~2048-token TAF bucket at batch 6 (OOM, or worse: a swap storm that ends in a GPU page fault).
+       HF checkpointing is a runtime flag checked per forward, so we flip it per microbatch on the
+       padded length. With grouped batches lengths descend inside each megabatch, so the flag changes
+       ~twice per megabatch (two cached compiled graphs under torch.compile)."""
+
+    group_by_length = True
+    ckpt_above = 0
+    log_mem = False
+    _ckpt_on = None
 
     def _get_train_sampler(self, train_dataset=None):
         ds = train_dataset if train_dataset is not None else self.train_dataset
-        if ds is None or "input_ids" not in ds.column_names:
+        if not self.group_by_length or ds is None or "input_ids" not in ds.column_names:
             return super()._get_train_sampler(train_dataset)
         lengths = [len(x) for x in ds["input_ids"]]
         gen = torch.Generator()
@@ -46,6 +60,24 @@ class LengthGroupedSFTTrainer(SFTTrainer):
         return LengthGroupedSampler(
             self.args.per_device_train_batch_size, lengths=lengths, generator=gen
         )
+
+    def training_step(self, model, inputs, *args, **kwargs):
+        if self.ckpt_above:
+            want = inputs["input_ids"].shape[1] > self.ckpt_above
+            if want != self._ckpt_on:
+                m = model
+                while hasattr(m, "_orig_mod"):  # torch.compile wrapper -> the PeftModel underneath
+                    m = m._orig_mod
+                (m.gradient_checkpointing_enable if want else m.gradient_checkpointing_disable)()
+                self._ckpt_on = want
+        out = super().training_step(model, inputs, *args, **kwargs)
+        if self.log_mem:  # per-microbatch memory curve: how the compiled no-ckpt peak scales with length
+            print(f"MEMLOG len={inputs['input_ids'].shape[1]} ckpt={self._ckpt_on} "
+                  f"peak={torch.cuda.max_memory_allocated() / 2**30:.1f}GiB "
+                  f"reserved={torch.cuda.memory_reserved() / 2**30:.1f}GiB", flush=True)
+            torch.cuda.reset_peak_memory_stats()
+        return out
+
 
 # E4B is multimodal; its vision/audio towers use Gemma4ClippableLinear (a non-nn.Linear wrapper
 # PEFT cannot LoRA) and we only decode TEXT. This regex matches only the 258 text-tower proj layers
@@ -85,13 +117,22 @@ def main() -> None:
     #    dynamo's automatic dynamic shapes + a raised recompile cap instead of recompiling per shape.
     ap.add_argument("--group-by-length", action="store_true")
     ap.add_argument("--compile", action="store_true")
-    # Resilience: gfx1151's experimental AOTriton attention can page-fault intermittently (S24: a
-    # GPU "Memory access fault" mid-run, not reproducible, not thermal). A fault kills the process,
-    # so long runs checkpoint every --save-steps and --resume picks up the latest checkpoint;
-    # run_resilient.sh loops the two so a fault costs minutes, not the night.
+    # Resilience: a crash mid-run (S24's "GPU page fault" turned out to be a memory blow-up that
+    # thrashed the unified pool; power events and driver hiccups remain) kills the process, so long
+    # runs checkpoint every --save-steps and --resume picks up the latest checkpoint;
+    # run_resilient.sh loops the two so a crash costs minutes, not the night.
     ap.add_argument("--save-steps", type=int, default=0, help="checkpoint every N steps (0=off)")
     ap.add_argument("--resume", action="store_true", help="resume from latest checkpoint in --out")
+    # S24 memory levers. --ckpt-above N: checkpoint only microbatches longer than N tokens (see
+    # AvtextSFTTrainer); implies checkpointing machinery on. --mem-fraction: on an APU the "GPU" pool
+    # is host RAM, so an over-allocation is not a clean OOM but a swap storm that ends in an amdgpu
+    # page fault and a hung box — a cap turns it back into a fast, retryable OOM (0 = off).
+    ap.add_argument("--ckpt-above", type=int, default=0, help="adaptive checkpointing threshold (tokens)")
+    ap.add_argument("--mem-fraction", type=float, default=0.85, help="cap on the GPU pool (0=off)")
+    ap.add_argument("--log-mem", action="store_true", help="print peak GiB per microbatch (MEMLOG lines)")
     a = ap.parse_args()
+    if a.mem_fraction:
+        torch.cuda.set_per_process_memory_fraction(a.mem_fraction)
     if a.compile:  # variable seq lens -> automatic dynamic shapes; allow a few recompiles
         torch._dynamo.config.cache_size_limit = 64
 
@@ -100,7 +141,7 @@ def main() -> None:
         a.model, torch_dtype=torch.bfloat16, device_map={"": 0}
     )
     model.config.use_cache = False
-    if a.grad_checkpointing:
+    if a.grad_checkpointing or a.ckpt_above:
         model.gradient_checkpointing_enable()
         model.enable_input_require_grads()  # so grads flow with checkpointing on a frozen base
     model = get_peft_model(
@@ -124,13 +165,15 @@ def main() -> None:
         warmup_steps=10, num_train_epochs=a.epochs, max_steps=a.max_steps,
         learning_rate=a.lr, logging_steps=5, optim="adamw_torch", weight_decay=0.01,
         lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
-        dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing,
+        dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing and not a.ckpt_above,
         torch_compile=a.compile,
         save_strategy="steps" if a.save_steps else "no", save_steps=a.save_steps or 500,
         save_total_limit=2,
     )
-    trainer_cls = LengthGroupedSFTTrainer if a.group_by_length else SFTTrainer
-    trainer = trainer_cls(model=model, train_dataset=ds, args=cfg, processing_class=tok)
+    trainer = AvtextSFTTrainer(model=model, train_dataset=ds, args=cfg, processing_class=tok)
+    trainer.group_by_length = a.group_by_length
+    trainer.ckpt_above = a.ckpt_above
+    trainer.log_mem = a.log_mem
     last = get_last_checkpoint(a.out) if (a.resume and os.path.isdir(a.out)) else None
     if last:
         print("RESUMING_FROM", last, flush=True)

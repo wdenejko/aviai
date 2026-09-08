@@ -1046,3 +1046,46 @@ measurement first, web research second (three parallel passes, ~50 dated sources
 **Next** — per-length cost curve → integrated epoch time (running); sweep 2 (`HIP_FORCE_DEV_KERNARG`,
 `expandable_segments`, batch 12/24 *with* grouping); bucketed-padding compile; then the real grown-set
 retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen packing, FlexAttention.
+
+### S24 continued — the "page fault" was a memory blow-up in disguise; sweep 2; adaptive checkpointing
+
+**Done**
+- Root-caused the deterministic GPU fault at the ~1,130-token batch. It was ours, twice over: the
+  probe scripts never called `model.train()` (`from_pretrained` returns eval mode; HF applies gradient
+  checkpointing only when `self.training`), so every probe was silently a no-checkpointing run — and
+  on an APU an over-allocation is not an OOM but a swap storm (GTT 119/124 GiB, host free ~1 GiB, GPU
+  1 % busy, the process swapped to a 41 MB RSS) that ends in amdgpu `Page not present`. Same rows with
+  `.train()`: 30 GiB allocated, three clean steps. The Trainer calls `.train()`; never affected.
+- Guards: `--mem-fraction` (default 0.85 → a fast, retryable OOM instead of a hung box), a GTT-drain
+  gate between GPU processes (a just-exited process still holds 80–95 GiB for tens of seconds;
+  `gttwait` in `run_resilient.sh` and the sweeps), a sysfs GTT watchdog thread for probes.
+- Sweep 2 (`steady2.py`, quantile-matched windows): eager no-ckpt **OOMs at step 0**; env knobs
+  **1.13x** (6.2 s/step); batch 12 **nothing** (992 vs 983 ms/example). Re-reading sweep 1's per-step
+  times showed config C had only "survived" the 2048 bucket by thrashing (110–200 s steps).
+- Built **length-adaptive gradient checkpointing** (`--ckpt-above N`, flipped per microbatch inside
+  `training_step`) + `--log-mem`; sweep 3 config H: 6.4 s/step = 533 ms/example on the short half (D: 6.2), the 2048-token head checkpointed at 23.7 GiB, and the compiled no-ckpt peak only **51 GiB at 1,059 tokens** (eager: >107 GiB).
+- Epoch arithmetic from one megabatch minus the compile step: A ~25 h, D ~17 h, **H ≈ D, ~17 h** at
+  Balanced (~14 h with Performance P-mode) with the threshold at 1,800 (97 % of rows no-ckpt); random-batch baseline was ~48 h.
+- Launched the grown-set (49,214) production retrain on config H through `run_resilient.sh`
+  (200-step checkpoints, eval chain `chain_lg.sh` chained after `SAVED_ADAPTER`).
+
+**Learned**
+- **There is no clean OOM on an APU.** The "GPU" pool is host RAM; the failure mode of too much
+  memory is a swap storm and then a GPU page fault that looks like a driver/kernel bug. Cap the pool,
+  gate launches on GTT drain, and read `mem_info_gtt_used` before believing any "hardware" fault.
+- **Every standalone probe must call `model.train()`.** Three measurement artifacts in a row each
+  looked like a hardware problem first: eval-mode checkpointing (the fault), lingering GTT after exit
+  (the "fresh process OOMs"), and a progress-bar regex matching the dataset-map bar (negative s/step).
+  The old per-length curve (23.7 h) was, by accident, the eager no-ckpt curve.
+- **Compiled memory ≠ eager memory.** An eager no-ckpt forward needs >107 GiB at 1,130 tokens; the
+  compiled graph fits 2,048 tokens (with `expandable_segments`) — inductor fusion removes the
+  materialized intermediates. Memory thresholds must be measured under the production graph.
+- **Bigger batch is not a lever on a saturated GPU** (E), and compile's fusion is what makes
+  no-checkpointing fit at all (G vs D). The recompute trade is only worth paying on the long tail —
+  hence per-length adaptive checkpointing, which nothing off the shelf offers.
+- Batch-size comparisons need quantile-matched windows (megabatch = 50×batch, sorted longest→shortest).
+
+**Next** — owner: Performance P-mode (+~20 %). Engineering frontier, in order of expected value:
+bucketed static-shape compile (1.42x measured on a static step), flash-attn varlen packing,
+FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the post-retrain dashboard.
+
