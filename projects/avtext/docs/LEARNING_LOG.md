@@ -1067,8 +1067,13 @@ retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen 
 - Epoch arithmetic from one megabatch minus the compile step: A ~25 h, D ~17 h, **H measured in production: 347 s per
   300-example megabatch = 15.8 h** at Balanced (~13 h with Performance P-mode), threshold 1,800 (97 % of
   rows no-ckpt) — 3.0x end to end; random-batch baseline was ~48 h.
-- Launched the grown-set (49,214) production retrain on config H through `run_resilient.sh`
-  (200-step checkpoints, eval chain `chain_lg.sh` chained after `SAVED_ADAPTER`).
+- Ran the grown-set (49,214) production retrain on config H through `run_resilient.sh` (200-step
+  checkpoints): **16 h 58 min, attempt 1, no retries, no NaN, loss 0.62 → 0.13, accuracy 0.96**
+  (2.8x the 48 h baseline end to end). Adapter → GGUF → `chain_lg.sh` evals (results below).
+- Thermal: two hours in, Tctl overshot to 102 °C and throughput slid 347 → 412 s/megabatch, so the
+  job ran under a userspace governor (`thermostat.sh`: SIGSTOP ≥ 101 °C, SIGCONT ≤ 97 °C) — 31 short
+  pauses in the first hour, and the run was *faster* under it (377 s) because the cooled chip clocked
+  higher between pauses; after ~08:00 the box settled at 76–80 °C and the governor never fired again.
 
 **Learned**
 - **There is no clean OOM on an APU.** The "GPU" pool is host RAM; the failure mode of too much
@@ -1085,6 +1090,9 @@ retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen 
   no-checkpointing fit at all (G vs D). The recompute trade is only worth paying on the long tail —
   hence per-length adaptive checkpointing, which nothing off the shelf offers.
 - Batch-size comparisons need quantile-matched windows (megabatch = 50×batch, sorted longest→shortest).
+- Two operational traps: `chain_lg.sh` wraps `toolbox run`, so it must start on the host (inside a
+  toolbox it dies with `flatpak-spawn not found` — the auto hand-off failed and was relaunched by
+  hand); and `pkill -f <name>` from a one-line ssh command matches the ssh shell itself (exit 255).
 
 - **The box is at its thermal ceiling at Balanced:** 30 min of sustained training settles at Tctl 98–99 °C
   (firmware-throttled, stable, clocks 2.07–2.34 GHz). Short sweeps read 83 °C — they never heat-soaked.

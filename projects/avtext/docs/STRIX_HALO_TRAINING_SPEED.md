@@ -222,7 +222,12 @@ megabatch 1 incl. compile 827 s · megabatch 2 (recompiles for the second graph 
 Balanced — steady state, the number to plan with (~13 h with Performance P-mode). No-ckpt peaks on the
 fitted line (66–68 GiB at 1,520–1,566 tokens); the 1,854–2,048 head checkpoints at 22 GiB.
 
-Random-batch baseline was ~48 h → **3.0x measured end to end**. The remaining structural lever is
+**Outcome:** the full epoch (4,102 steps) finished in **16 h 58 min** on attempt 1 — no retries, no
+NaN, loss 0.62 → 0.13 (mean of the first/last 100 steps), token accuracy 0.96 — i.e. 1.24 s/example
+end to end including compile warm-up, checkpoint writes and the thermal governor's 31 pauses in the
+first hot hour (none after cooling improved around 08:00; 76–80 °C for the rest of the day).
+
+Random-batch baseline was ~48 h → **2.8x measured end to end, 3.0x at steady state**. The remaining structural lever is
 bucketed static-shape compile (1.42x measured on a static step; frontier section).
 ## Key sources
 
