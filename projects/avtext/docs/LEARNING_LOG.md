@@ -1102,3 +1102,26 @@ retrain overnight on config C (+ Performance mode). Frontier: flash-attn varlen 
 bucketed static-shape compile (1.42x measured on a static step), flash-attn varlen packing,
 FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the post-retrain dashboard.
 
+### S24 epilogue — the eval chain, a hard reset, and a crash-safe harness (2026-09-09)
+
+**Done**
+- Grown-set adapter, METAR eval/v2 (n=6,200): **recall 99.9 %, hallucination 7.0 %, exact match
+  94.4 %, 0 invalid** — above the previous rank-16 (90.3 %) and even the rank-64 METAR-only adapter
+  (92.1 %), from one adapter covering all three products.
+- **dashi hard-reset at 18:47** after ~45 h of continuous GPU load (17 h training + 21 h of eval),
+  15 h into the TAF eval. The previous boot's journal ends with routine lines — the kernel never saw
+  it (firmware-level protective shutdown or a power event; no pstore). The OCR service came back via
+  systemd; the METAR run record survived; the TAF predictions (3,427 of 5,294) died with the process
+  because the runners wrote only at the end.
+- Harness fix: `PartialStore` + `predict_all` (`avtext.harness.partial`) — every prediction is
+  appended as it lands under `<out-dir>/partial/<model>.jsonl`, keyed by (model_id, eval sha);
+  a rerun resumes only the missing records, failures are retried rather than frozen, eval order is
+  preserved under concurrency. Wired into the METAR and TAF runners (NOTAM extraction was already
+  chunked with server restarts). `chain_lg_resume.sh` on dashi relaunches TAF + NOTAM in one command.
+
+**Learned**
+- A long eval is a long training run: it needs the same resilience (checkpoints, resume) — the
+  harness was designed for 620 records, then scaled 10x without revisiting that.
+- A box that resets under sustained load is the owner's call, not the agent's: exposure time is the
+  risk, so shorter chains (parallel-slot serving, `-np 4`) are now a safety argument, not only speed.
+
