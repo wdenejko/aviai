@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from avtext.harness.partial import PartialStore, predict_all
 from avtext.harness.prompt_taf import PROMPT_ID_TAF
 from avtext.harness.score import Metrics, RecordScore, aggregate
 from avtext.harness.score_taf import period_count_match, score_taf_record
@@ -45,6 +46,7 @@ class RunResult:
 def run_eval_taf(
     predict: Predictor, *, model_id: str, eval_path: Path = _EVAL, prompt_id: str = PROMPT_ID_TAF,
     decode_params: dict | None = None, limit: int | None = None, concurrency: int = 1,
+    partial_dir: Path | None = None,
 ) -> RunResult:  # fmt: skip
     """Run `predict` over every TAF eval record and score it. Deterministic given a deterministic
     predictor (fixed eval order, no sampling here)."""
@@ -61,13 +63,16 @@ def run_eval_taf(
         except Exception:  # a backend crash on one report must not sink the run
             return None
 
-    if concurrency > 1:
-        from concurrent.futures import ThreadPoolExecutor
-
-        with ThreadPoolExecutor(max_workers=concurrency) as ex:
-            preds = list(ex.map(_safe, (r["raw"] for r in records)))
-    else:
-        preds = [_safe(r["raw"]) for r in records]
+    # S24: predictions checkpoint under partial_dir as they land (a 15 h TAF eval died with a box
+    # reset on 2026-09-09); eval order is preserved whatever the completion order.
+    store = None
+    if partial_dir is not None:
+        store = PartialStore(
+            partial_dir / f"{_slug(model_id)}.jsonl", model_id=model_id, eval_sha=eval_sha
+        )
+    preds = predict_all(
+        [(r["id"], r["raw"]) for r in records], _safe, store=store, concurrency=concurrency
+    )
 
     scores: list[RecordScore] = []
     predictions: dict[str, dict] = {}
@@ -233,6 +238,7 @@ def main() -> None:
         predict, model_id=model_id, eval_path=Path(args.eval),
         decode_params={"temperature": args.temperature, "max_tokens": args.max_tokens},
         limit=args.limit, concurrency=args.concurrency,
+        partial_dir=Path(args.out_dir) / "partial",  # S24: crash-safe, resumable predictions
     )  # fmt: skip
     out = write_report(result, base=Path(args.out_dir))
     print(f"report -> {out}")

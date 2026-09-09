@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from avtext.consensus.vote import flatten
+from avtext.harness.partial import PartialStore, predict_all
 from avtext.harness.prompt import PROMPT_ID
 from avtext.harness.score import Metrics, RecordScore, aggregate, score_record
 from avtext.harness.stats import bootstrap_ci, fmt_ci
@@ -67,6 +68,7 @@ def run_eval(
     decode_params: dict | None = None,
     limit: int | None = None,
     concurrency: int = 1,
+    partial_dir: Path | None = None,
 ) -> RunResult:
     """Run `predict` over every eval record and score it. Deterministic given a deterministic
     predictor — the eval order is fixed and we never sample here. `limit` truncates to the
@@ -85,15 +87,16 @@ def run_eval(
             return None
 
     # Predict concurrently — the v2 eval is 6,200 records (10x v1); a threadpool over a
-    # --parallel llama.cpp server cuts wall-clock ~Nx. Order is preserved (ex.map), so
-    # scoring and the saved predictions stay deterministic regardless of concurrency.
-    if concurrency > 1:
-        from concurrent.futures import ThreadPoolExecutor
-
-        with ThreadPoolExecutor(max_workers=concurrency) as ex:
-            preds = list(ex.map(_safe, (r["raw"] for r in records)))
-    else:
-        preds = [_safe(r["raw"]) for r in records]
+    # --parallel llama.cpp server cuts wall-clock ~Nx. predict_all keeps eval order whatever the
+    # completion order, and (S24) checkpoints every prediction under partial_dir so a crash or a
+    # box reset mid-run costs minutes: a rerun of the same model_id on the same eval resumes.
+    store = None
+    if partial_dir is not None:
+        slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model_id)
+        store = PartialStore(partial_dir / f"{slug}.jsonl", model_id=model_id, eval_sha=eval_sha)
+    preds = predict_all(
+        [(r["id"], r["raw"]) for r in records], _safe, store=store, concurrency=concurrency
+    )
 
     scores: list[RecordScore] = []
     predictions: dict[str, dict] = {}
@@ -146,8 +149,7 @@ def _render_report(r: RunResult) -> str:
         f"- **Model:** `{r.model_id}`  ·  **Prompt:** `{r.prompt_id}`",
         f"- **Eval:** {r.eval_version} · `sha256:{r.eval_sha256[:16]}…`",
         f"- **Decode:** `{json.dumps(r.decode_params) if r.decode_params else 'n/a'}`",
-        f"- **Records:** {n}  ·  **JSON-valid:** {valid_frac:.1%}"
-        f" ({r.n_invalid} unusable)",
+        f"- **Records:** {n}  ·  **JSON-valid:** {valid_frac:.1%} ({r.n_invalid} unusable)",
         "",
         "Columns: **value acc** = recall (hits / values that existed), with 95% bootstrap CI;"
         " **halluc** = fabricated / truly-absent (the safety metric); **EM** = whole-record.",
@@ -275,6 +277,7 @@ def main() -> None:
         decode_params={"temperature": args.temperature, "max_tokens": args.max_tokens},
         limit=args.limit,
         concurrency=args.concurrency,
+        partial_dir=Path(args.out_dir) / "partial",  # S24: crash-safe, resumable predictions
     )
     out = write_report(result, base=Path(args.out_dir))
     print(f"report -> {out}")
