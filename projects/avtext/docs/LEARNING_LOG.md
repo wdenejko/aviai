@@ -1122,6 +1122,18 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
   periods vs 3, reference JSON median 2,820 chars vs 1,195, max 5,315) whose JSON cannot fit the
   runner's `--max-tokens 1024` → truncated → invalid. A decode ceiling, not a model failure; fix =
   resume the run at 2048 tokens (greedy decoding: only the truncated 152 change).
+- NOTAM classification (n=4,047): **acc 95.3 %, macro-F1 94.3 %, 0 invalid** — best so far (old
+  all-products r16 95.0/94.0, NOTAM-only r16 94.8/93.7, base 78.2/74.2).
+- NOTAM extraction (chunked, 100 records per server restart): EM 63.8 %, recall 52.4 %, **611
+  invalid** vs the old adapter's 76.1 % / 307 — but not a model regression. From the per-record
+  scores: the invalids sit in the same seven chunks in both runs (the long "area" NOTAMs, n=1,092)
+  and within a chunk ramp from ~16 % in the first ten records to ~70 % after the thirtieth = the
+  llama.cpp session-degradation bug the 100-record chunking was tuned to dodge for the *old*
+  adapter (which still lost 275 records to it as `<unused49>` spam); this run loses them as failed
+  requests (empty). Precision is identical (0.961 vs 0.962); airport/navigation/taxiway improved.
+  Remedy queued: extraction at **20 records per restart** (113 restarts). The old adapter's GGUF was
+  lost in the wipe, so its 76.1 % is a lower bound of its true score; the comparison is decided only
+  if the clean re-run lands clearly above it.
 - Harness fix: `PartialStore` + `predict_all` (`avtext.harness.partial`) — every prediction is
   appended as it lands under `<out-dir>/partial/<model>.jsonl`, keyed by (model_id, eval sha);
   a rerun resumes only the missing records, failures are retried rather than frozen, eval order is
