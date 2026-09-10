@@ -1121,7 +1121,10 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
   ~2.9 % of records — anatomy from the checkpoint file: they are the long multi-period TAFs (median 8
   periods vs 3, reference JSON median 2,820 chars vs 1,195, max 5,315) whose JSON cannot fit the
   runner's `--max-tokens 1024` → truncated → invalid. A decode ceiling, not a model failure; fix =
-  resume the run at 2048 tokens (greedy decoding: only the truncated 152 change).
+  resume the run at 2048 tokens (greedy decoding: only the truncated 152 change). **Done: at 2048 the
+  same adapter scores recall 99.6 %, halluc 1.7 %, EM 93.3 %, 3 invalid** — the 1024 cap was hiding
+  6 recall points and 2.3 EM points on TAF for every adapter ever scored; the harness default
+  should move to 2048 for TAF.
 - NOTAM classification (n=4,047): **acc 95.3 %, macro-F1 94.3 %, 0 invalid** — best so far (old
   all-products r16 95.0/94.0, NOTAM-only r16 94.8/93.7, base 78.2/74.2).
 - NOTAM extraction (chunked, 100 records per server restart): EM 63.8 %, recall 52.4 %, **611
