@@ -1118,7 +1118,10 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
   offline from the checkpoint file on the same first-1,500 subset: **EM 90.1 % / recall 93.1 % /
   halluc 1.4 % / 44 invalid** = identical to the best earlier adapter (combined-r16 90.1 %), above
   TAF-only r16 (89.1 %) and the previous all-products r16 (89.9 %). Every adapter fails the same
-  ~2.9 % of records → a structural ceiling worth an anatomy pass (max-tokens? schema?), not more data.
+  ~2.9 % of records — anatomy from the checkpoint file: they are the long multi-period TAFs (median 8
+  periods vs 3, reference JSON median 2,820 chars vs 1,195, max 5,315) whose JSON cannot fit the
+  runner's `--max-tokens 1024` → truncated → invalid. A decode ceiling, not a model failure; fix =
+  resume the run at 2048 tokens (greedy decoding: only the truncated 152 change).
 - Harness fix: `PartialStore` + `predict_all` (`avtext.harness.partial`) — every prediction is
   appended as it lands under `<out-dir>/partial/<model>.jsonl`, keyed by (model_id, eval sha);
   a rerun resumes only the missing records, failures are retried rather than frozen, eval order is
