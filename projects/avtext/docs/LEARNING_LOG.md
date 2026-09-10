@@ -1113,6 +1113,12 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
   it (firmware-level protective shutdown or a power event; no pstore). The OCR service came back via
   systemd; the METAR run record survived; the TAF predictions (3,427 of 5,294) died with the process
   because the runners wrote only at the end.
+- TAF eval/taf/v1, full 5,294 (first full-set TAF run ever; all earlier ones were 1,500-record smokes):
+  **recall 93.3 %, hallucination 1.6 %, EM 91.0 %, 152 invalid (2.9 %)**. Like-for-like, scored
+  offline from the checkpoint file on the same first-1,500 subset: **EM 90.1 % / recall 93.1 % /
+  halluc 1.4 % / 44 invalid** = identical to the best earlier adapter (combined-r16 90.1 %), above
+  TAF-only r16 (89.1 %) and the previous all-products r16 (89.9 %). Every adapter fails the same
+  ~2.9 % of records → a structural ceiling worth an anatomy pass (max-tokens? schema?), not more data.
 - Harness fix: `PartialStore` + `predict_all` (`avtext.harness.partial`) — every prediction is
   appended as it lands under `<out-dir>/partial/<model>.jsonl`, keyed by (model_id, eval sha);
   a rerun resumes only the missing records, failures are retried rather than frozen, eval order is
