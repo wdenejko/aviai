@@ -1,0 +1,14 @@
+gemma-4-e4b-avtext-lora-r16 — a LoRA adapter for Gemma 4 E4B (aviation weather/NOTAM decoding)
+Copyright (c) 2026 Wojciech Denejko. Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This adapter modifies weights of Gemma 4 E4B by Google DeepMind (google/gemma-4-E4B-it, obtained via
+the unsloth/gemma-4-E4B-it mirror), released under the Apache License 2.0. Use of Gemma and of this
+adapter is subject to the Gemma Prohibited Use Policy: https://ai.google.dev/gemma/prohibited_use_policy
+Gemma is a trademark of Google LLC; this project is not affiliated with or endorsed by Google.
+
+Training data attribution:
+- METAR/TAF observations and forecasts: Iowa Environmental Mesonet ASOS/AFOS archive and NOAA Aviation
+  Weather Center (US Government works, public domain). Decode targets are parser-consensus decodes
+  calibrated against NOAA's official decodes.
+- NOTAM classification: DEEL-AI/NOTAM (MIT License).
+- NOTAM extraction: Estrellajer/OpenNOTAM, used with permission of the author (see README, "Data").

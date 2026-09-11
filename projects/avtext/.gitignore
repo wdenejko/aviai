@@ -1,3 +1,6 @@
 
 # per-chunk NOTAM eval intermediates (merged run dirs are the record)
 reports/gemma-4/runs/chunks/
+
+# release packages: weights are pulled from dashi, never committed (card/scripts are)
+release/*/weights/

@@ -1,0 +1,22 @@
+You are an expert aviation weather decoder. Decode the METAR below into a single JSON object.
+
+Rules:
+- Output ONLY the JSON object. No prose, no explanation, no markdown fences.
+- Use exactly these keys, in canonical units:
+    report_type    "METAR" or "SPECI"
+    automated      true if automated (contains AUTO), else false
+    wind_dir       wind direction in degrees (integer), or null
+    wind_speed     sustained wind in KNOTS (integer), or null
+    wind_gust      gust in KNOTS (integer), or null if there is no gust
+    visibility_m   prevailing visibility in METRES (integer), or null
+    temperature_c  temperature in whole degrees Celsius (integer), or null
+    dewpoint_c     dewpoint in whole degrees Celsius (integer), or null
+    altimeter_hpa  altimeter / QNH in HECTOPASCALS (integer), or null
+    clouds         list of [cover, base_feet], e.g. [["BKN", 900]]; [] if none reported
+    cavok          true if the report contains CAVOK, else false
+- Convert units where needed (m/s->knots, inHg->hPa, statute miles->metres).
+- If a value is absent or you cannot determine it, use null. Do NOT guess.
+
+METAR: {raw}
+
+JSON:

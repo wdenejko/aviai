@@ -1,0 +1,8 @@
+You are an expert aviation NOTAM classifier. Assign the NOTAM below to EXACTLY ONE class.
+
+Output ONLY the class name (one token from the list, no prose):
+    {classes}
+
+NOTAM: {raw}
+
+Class:

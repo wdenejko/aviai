@@ -1,0 +1,111 @@
+{
+  "fields_by_category": {
+    "runway": [
+      "airport",
+      "runway",
+      "status_type",
+      "affect_region",
+      "flight_type",
+      "ppr",
+      "aip",
+      "tora",
+      "toda",
+      "asda",
+      "lda",
+      "distance_chg"
+    ],
+    "taxiway": [
+      "airport",
+      "taxiway",
+      "status_type",
+      "section",
+      "intersection_with"
+    ],
+    "area": [
+      "area_type",
+      "area_summary",
+      "height_detail",
+      "atc",
+      "fpl"
+    ],
+    "rvr": [
+      "airport",
+      "runway",
+      "touchdown_zone_unavailable",
+      "midpoint_unavailable",
+      "stop_end_unavailable"
+    ],
+    "standard": [
+      "airport",
+      "runway",
+      "procedure_name",
+      "approach_type",
+      "aircraft_category",
+      "minima_type",
+      "minima_value",
+      "notam_type"
+    ],
+    "airway": [
+      "route",
+      "start",
+      "end",
+      "directional",
+      "height_detail",
+      "atc",
+      "fpl",
+      "change_info"
+    ],
+    "stand": [
+      "airport",
+      "stand_split_info",
+      "stand_status"
+    ],
+    "procedure": [
+      "airport",
+      "runway",
+      "procedure_type",
+      "procedure_name",
+      "chart",
+      "aip"
+    ],
+    "airport": [
+      "airport",
+      "restriction_type",
+      "flight_type",
+      "affect_region",
+      "diversion_restriction",
+      "aip",
+      "ppr",
+      "fuel",
+      "industrialaction",
+      "powersupply"
+    ],
+    "light": [
+      "airport",
+      "runway",
+      "lightcategory",
+      "ilscategory",
+      "unavailable_downgrade",
+      "als",
+      "distance",
+      "percentage"
+    ],
+    "navigation": [
+      "airport",
+      "runway",
+      "navaid_id",
+      "navaid_type"
+    ]
+  },
+  "row_hint_by_category": {
+    "runway": "each affected runway",
+    "taxiway": "each affected taxiway",
+    "area": "each affected area / airspace restriction",
+    "airway": "each affected route segment",
+    "stand": "each affected stand",
+    "procedure": "each affected instrument procedure",
+    "airport": "the airport-level restriction (one row)",
+    "light": "each affected lighting system",
+    "navigation": "each affected navaid"
+  }
+}

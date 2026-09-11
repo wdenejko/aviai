@@ -1,0 +1,16 @@
+You are an expert aviation NOTAM decoder. Extract the {category} information from the NOTAM below.
+
+Output ONLY a JSON object of this shape (no prose, no markdown fences):
+{{"rows": [ {{...}}, ... ]}}
+
+Emit one row for {hint}. Each row has EXACTLY these keys:
+    {fields}
+
+Rules:
+- Use exactly those keys; put null for any field the NOTAM does not state. Do NOT guess.
+- Values are short strings copied/normalised from the NOTAM (ids, statuses, flight types), or null.
+- A NOTAM affecting several subjects -> several rows; one subject -> one row.
+
+NOTAM: {raw}
+
+JSON:

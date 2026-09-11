@@ -27,7 +27,7 @@ Legend for **Redistribute?**: ✅ yes · ⚠️ derived/with-attribution only ·
 |---|---|---|---|---|
 | HF `AirsideLabs/pre-flight-06` | held-out eval | MIT | ✅ | |
 | `Estrellajer/Knots` (GitHub) | NOTAM extraction gold | **NONE** — no LICENSE file (verified via GitHub API 2026-09-07; the README's Apache-2.0 badge 404s) | ⛔ | All rights reserved by default. Label-identical to OpenNOTAM below. Open a license request upstream. |
-| `Estrellajer/OpenNOTAM` (GitHub) | NOTAM extraction train + eval (11,340 clean) | **NONE** — no LICENSE file (verified 2026-09-07) | ⛔ | ⚠️ **9,083 records were used in Phase 7 TRAINING** (`train_notam.jsonl`, `train_all.jsonl`) → the all-products adapter is **not publishable**. See *Model release audit*. |
+| `Estrellajer/OpenNOTAM` (GitHub) | NOTAM extraction train + eval (11,340 clean) | No LICENSE file upstream (re-verified 2026-09-11, GitHub license API 404). **Cleared by the project owner on 2026-09-11: use and model publication permitted under a permission held by the project** — record the grant reference (issue/email/text) here and in the model card. | ⚠️ | 9,049 records in the S24 training mix (`train_notam.jsonl`, `train_all_lg.jsonl`). Redistribute models trained on it, not the records themselves, unless the grant says otherwise. |
 | ERAU GA-Wx display interpretation | held-out eval | academic collection | ⛔ | Eval-only; never redistributed. |
 
 ## The quarantine rule (`data/third_party/`)
@@ -48,9 +48,10 @@ Verified before any Hugging Face publication of an avtext adapter. Sources check
 | Base `google/gemma-4-E4B-it` (via `unsloth/gemma-4-E4B-it`) | **Apache-2.0** + Gemma Prohibited Use Policy / Intended Use Statement | ✅ | Gemma 4 has its **own** license — the Gemma 1–3 "Terms of Use" explicitly exclude it. Ship the Apache-2.0 notice + attribution to Google DeepMind and link the PUP. The PUP has no aviation/safety-critical clause (only "automated decisions affecting rights/welfare"); a research-use disclaimer covers it. |
 | METAR / TAF gold (IEM ASOS, AWC) | US Gov public domain | ✅ | Attribute IEM + AWC. |
 | NOTAM classification `DEEL-AI/NOTAM` | **MIT** (verified) | ✅ | Attribute DEEL-AI. |
-| NOTAM extraction `Estrellajer/OpenNOTAM` (= Knots) | **NONE** | ⛔ | **Blocker.** A model trained on it cannot carry a clean license. |
+| NOTAM extraction `Estrellajer/OpenNOTAM` (= Knots) | No public license; **owner-held permission (2026-09-11)** | ✅ (with the grant cited) | Was the blocker for the Phase-7 adapter; cleared for the S24 grown adapter. |
 
-**Consequence.** The Phase-7 all-products adapter includes OpenNOTAM and is **study-only**. The
-publishable artifact is an adapter retrained on the **licensed-only mix** — METAR + TAF + DEEL-AI
-classification (`finetune/build_sft_licensed.py` → `train_licensed.jsonl`). NOTAM *extraction* is
-dropped from the published model unless/until upstream grants a license (request opened separately).
+**Consequence (updated 2026-09-11).** With the OpenNOTAM permission in hand, the S24 grown all-products
+adapter (`adapter-all-lg`, 49,214 examples) is publishable as is: Apache-2.0 for the adapter, the Gemma
+PUP linked, attribution to Google DeepMind, IEM/AWC, DEEL-AI (MIT) and OpenNOTAM (permission). Release
+package: `release/gemma-4-e4b-avtext-lora-r16/` (weights pulled from dashi, never committed). The
+licensed-only mix (`build_sft_licensed.py`) remains the fallback if the permission is ever withdrawn.

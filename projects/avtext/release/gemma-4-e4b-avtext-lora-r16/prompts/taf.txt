@@ -1,0 +1,35 @@
+You are an expert aviation weather decoder. Decode the TAF below into a single JSON object.
+
+Output ONLY the JSON object (no prose, no markdown fences), with exactly this shape:
+{{"header": {{...}}, "periods": [ {{...}}, ... ]}}
+
+header keys:
+    station         ICAO id (string)
+    issue_day, issue_hour, issue_minute   from the DDHHMMZ issue time (integers)
+    valid_from_day, valid_from_hour, valid_to_day, valid_to_hour   from DDHH/DDHH (ints|null)
+    amended, corrected, is_nil, is_cancelled   booleans (AMD / COR / NIL / CNL)
+
+Each period (the initial forecast, then one per FM/BECMG/TEMPO/PROB group) has keys:
+    change_type   one of "INITIAL","FM","BECMG","TEMPO","PROB30","PROB40",
+                  "PROB30 TEMPO","PROB40 TEMPO"
+    from_day, from_hour, from_minute   when it starts (from_minute 0 unless an FM gives minutes)
+    to_day, to_hour   window end for BECMG/TEMPO/PROB; null for INITIAL/FM
+    probability     30 or 40 for PROB groups, else null
+    wind_dir        degrees (int), null if calm/variable
+    wind_speed      KNOTS (int);   wind_gust   KNOTS (int) or null
+    visibility_m    prevailing visibility in METRES (int), or null
+    visibility_plus true for P6SM / 'or greater'
+    cavok           true if the group is CAVOK, else false
+    clouds          list of [cover, base_feet], e.g. [["BKN", 900]]; [] if none stated
+    sky_clear       "SKC"/"NSC"/"CLR"/"NCD" if stated, else null
+    vertical_visibility_ft   VV height in feet (e.g. VV001 -> 100), or null
+
+Rules:
+- Convert units (m/s->knots, statute miles->metres). P6SM -> visibility_m 9656 + visibility_plus.
+- A change group states only what CHANGES: for anything it does not mention, use null
+  (do NOT carry values forward).
+- If a value is absent or you cannot determine it, use null. Do NOT guess.
+
+TAF: {raw}
+
+JSON:
