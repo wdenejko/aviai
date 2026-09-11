@@ -34,9 +34,9 @@ its output for operational or flight-safety decisions without independent verifi
 
 | file(s) | format | size | use |
 |---|---|---|---|
-| `model-*.safetensors` + `config.json`, tokenizer and processor files | Transformers checkpoint, bf16, sharded | ~16 GB | `AutoModelForCausalLM.from_pretrained(<repo>)` |
-| `aviai-e4b-Q8_0.gguf` | llama.cpp, 8-bit | ~8.5 GB | `llama-server -m …` (the quantization the study's numbers were measured with) |
-| `aviai-e4b-f16.gguf` | llama.cpp, 16-bit | ~16 GB | for re-quantizing to other formats |
+| `model-*.safetensors` + `config.json`, tokenizer and processor files | Transformers checkpoint, bf16, 4 shards | 15.9 GB | `AutoModelForCausalLM.from_pretrained(<repo>)` |
+| `aviai-e4b-Q8_0.gguf` | llama.cpp, 8-bit | 7.9 GB | `llama-server -m …` (the quantization the study's numbers were measured with) |
+| `aviai-e4b-f16.gguf` | llama.cpp, 16-bit | 14.9 GB | for re-quantizing to other formats |
 | `adapter/` | PEFT LoRA (rank 16) + GGUF LoRA | 140 MB + 70 MB | apply to `unsloth/gemma-4-E4B-it` instead of downloading merged weights |
 | `prompts/` | text | — | the exact prompt templates the model was trained on (required, see *How to use*) |
 

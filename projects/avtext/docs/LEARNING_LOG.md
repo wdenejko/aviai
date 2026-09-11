@@ -1153,3 +1153,21 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
 - A box that resets under sustained load is the owner's call, not the agent's: exposure time is the
   risk, so shorter chains (parallel-slot serving, `-np 4`) are now a safety argument, not only speed.
 
+### S24 release — aviai-e4b as a full fine-tune (2026-09-11)
+
+**Done** — LoRA merged into Gemma 4 E4B (`merge_and_unload`, 23 s), saved as a 4-shard bf16
+Transformers checkpoint (15.9 GB) + GGUF Q8_0 (7.9 GB) and f16 (14.9 GB); reload + decode verified
+(US and ICAO METARs). Release package `release/aviai-e4b/` (card, NOTICE, LICENSE, prompt templates,
+`push_to_hub.py` run on dashi where the weights live). Base model being re-scored on the full TAF eval
+under the adapter's protocol for the card's before/after table.
+
+**Learned**
+- **Transformers 5 saves only non-default config fields**: the merged `config.json` lost
+  `global_head_dim` (re-expressed as `per_layer_config`), and the GGUF converter's Gemma-4 path
+  crashed on it (`NoneType * float`) — the same trap as the S23 conversion. Fix: ship the base
+  snapshot's `config.json` with merged weights (architecture-only, identical).
+- A base-model eval is as slow as the adapter's: ~530 generated tokens per TAF at 37 tok/s single-slot
+  (memory-bandwidth-bound on the iGPU) = 14.5 s/record, 21 h for 5,294. The cap is not the cost.
+- Build scripts must not print their done-marker unconditionally (a failed conversion still printed
+  `BUILD_DONE`; downstream waiters keyed on it).
+
