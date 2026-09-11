@@ -1,7 +1,8 @@
 ---
 license: apache-2.0
 base_model: unsloth/gemma-4-E4B-it
-library_name: peft
+base_model_relation: finetune
+library_name: transformers
 pipeline_tag: text-generation
 language:
 - en
@@ -11,20 +12,37 @@ tags:
 - taf
 - notam
 - weather
-- lora
 - gemma-4
 - structured-output
+- fine-tuned
 ---
 
-# gemma-4-e4b-avtext-lora-r16
+# gemma-4-e4b-avtext
 
-A rank-16 LoRA adapter that turns **Gemma 4 E4B (instruction-tuned)** into a structured decoder for
-aviation text: **METAR** and **TAF** reports into canonical JSON, and **NOTAMs** into category-specific
-extraction rows or one of 13 operational classes. One adapter covers all four tasks.
+A full fine-tune of **Gemma 4 E4B (instruction-tuned)** for structured decoding of aviation text:
+**METAR** and **TAF** reports into canonical JSON, and **NOTAMs** into category-specific extraction
+rows or one of 13 operational classes. One model covers all four tasks. The fine-tune was trained as a
+rank-16 LoRA and merged into the base weights, so this repo is a plain Transformers checkpoint (plus
+GGUF conversions for llama.cpp); the original adapter is included under `adapter/` for anyone who
+prefers to apply it to the base themselves.
 
 It is a research artifact from the *avtext* study (dataset engineering + evaluation harness +
 fine-tuning on a single AMD Strix Halo box). It is **not** a certified aeronautical product: do not use
 its output for operational or flight-safety decisions without independent verification.
+
+## What's in the repo
+
+| file(s) | format | size | use |
+|---|---|---|---|
+| `model-*.safetensors` + `config.json`, tokenizer and processor files | Transformers checkpoint, bf16, sharded | ~16 GB | `AutoModelForCausalLM.from_pretrained(<repo>)` |
+| `gemma-4-e4b-avtext-Q8_0.gguf` | llama.cpp, 8-bit | ~8.5 GB | `llama-server -m …` (the quantization the study's numbers were measured with) |
+| `gemma-4-e4b-avtext-f16.gguf` | llama.cpp, 16-bit | ~16 GB | for re-quantizing to other formats |
+| `adapter/` | PEFT LoRA (rank 16) + GGUF LoRA | 140 MB + 70 MB | apply to `unsloth/gemma-4-E4B-it` instead of downloading merged weights |
+| `prompts/` | text | — | the exact prompt templates the model was trained on (required, see *How to use*) |
+
+The vision and audio towers of Gemma 4 E4B are carried over unchanged (the fine-tune touched only the
+text tower); the model still loads with the multimodal classes but was trained and evaluated as a
+text model.
 
 ## Results: before and after the adapter
 
@@ -57,20 +75,18 @@ to template drift, the base is not).
 
 ## How to use
 
-The adapter is a hard fine-tune on **exact prompt templates**. Send the templates in `prompts/`
-verbatim (the `{raw}` placeholder takes the report text); outputs drift off-distribution otherwise.
+The fine-tune is hard-tuned on **exact prompt templates**. Send the templates in `prompts/` verbatim
+(the `{raw}` placeholder takes the report text); outputs drift off-distribution otherwise.
 
-### Transformers + PEFT
+### Transformers
 
 ```python
 import json, torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
 
-base = "unsloth/gemma-4-E4B-it"          # mirror of google/gemma-4-E4B-it
-tok = AutoTokenizer.from_pretrained(base)
-model = AutoModelForCausalLM.from_pretrained(base, dtype=torch.bfloat16, device_map="auto")
-model = PeftModel.from_pretrained(model, "<this repo id>")
+repo = "<this repo id>"
+tok = AutoTokenizer.from_pretrained(repo)
+model = AutoModelForCausalLM.from_pretrained(repo, dtype=torch.bfloat16, device_map="auto")
 
 template = open("prompts/metar.txt", encoding="utf-8").read()
 raw = "METAR EPGD 111200Z 27012KT 9999 FEW030 SCT045 18/09 Q1015 NOSIG"
@@ -85,14 +101,10 @@ print(json.loads(text[text.index("{"): text.rindex("}") + 1]))
 
 Use `max_new_tokens` ≥ 2048 for TAFs (long multi-period forecasts) and ≥ 512 for NOTAM extraction.
 
-### llama.cpp (GGUF LoRA)
-
-`gemma-4-e4b-avtext-lora-r16-f16.gguf` applies on top of any GGUF conversion of the same base
-(the study used a Q8_0 conversion of `unsloth/gemma-4-E4B-it`):
+### llama.cpp
 
 ```bash
-llama-server -m gemma-4-E4B-it-Q8_0.gguf --lora gemma-4-e4b-avtext-lora-r16-f16.gguf \
-  --flash-attn on --reasoning-budget 0 -c 8192 --port 8080
+llama-server -m gemma-4-e4b-avtext-Q8_0.gguf --flash-attn on --reasoning-budget 0 -c 8192 --port 8080
 ```
 
 Send the **raw** `/completion` endpoint the turn wrapper in `prompts/turn_wrapper.txt` around the
@@ -100,16 +112,24 @@ filled template (`<|turn>user\n{prompt}<turn|>\n<|turn>model\n`; the server prep
 `temperature 0`. The chat endpoint's template engine renders Gemma 4's chat template slightly
 differently from HF Transformers, and this fine-tune is sensitive to that drift.
 
-For NOTAM extraction the harness additionally constrains decoding with a JSON grammar derived from
-`prompts/notam_fields.json` (the row schema per category); without a grammar expect a few more invalid
-outputs on long NOTAMs.
+For NOTAM extraction the study's harness additionally constrains decoding with a JSON grammar derived
+from `prompts/notam_fields.json` (the row schema per category); without a grammar expect a few more
+invalid outputs on long NOTAMs.
+
+### Adapter instead of merged weights
+
+```python
+from peft import PeftModel
+base = AutoModelForCausalLM.from_pretrained("unsloth/gemma-4-E4B-it", dtype=torch.bfloat16, device_map="auto")
+model = PeftModel.from_pretrained(base, repo, subfolder="adapter")
+```
 
 ## Training
 
 | | |
 |---|---|
 | base | `unsloth/gemma-4-E4B-it` (weights mirror of `google/gemma-4-E4B-it`), bf16 |
-| adapter | LoRA rank 16, alpha 32, dropout 0, on `q/k/v/o/gate/up/down_proj` of the **text tower only** (vision/audio towers untouched); 34.9 M trainable parameters |
+| method | LoRA rank 16, alpha 32, dropout 0, on `q/k/v/o/gate/up/down_proj` of the **text tower only** (vision/audio towers untouched); 34.9 M trainable parameters, merged into the base weights after training (`merge_and_unload`) |
 | data | 49,214 chat examples: 20,000 METAR, 16,000 TAF, 9,049 NOTAM extraction, 4,165 NOTAM classification |
 | schedule | 1 epoch, AdamW (lr 2e-4, weight decay 0.01, linear decay, 10 warm-up steps), batch 6 × grad-accum 2, max sequence 2,048 tokens |
 | tricks | length-grouped batching, `torch.compile`, length-adaptive gradient checkpointing (recompute only above 1,800 tokens) |
@@ -136,7 +156,7 @@ outputs on long NOTAMs.
 
 ## License and notices
 
-The adapter weights are released under the **Apache License 2.0** (see `LICENSE`). Gemma 4 E4B is
+These weights are released under the **Apache License 2.0** (see `LICENSE`). Gemma 4 E4B is
 released by Google DeepMind under the Apache License 2.0 and subject to the
 [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy), which also applies to
 this derivative. See `NOTICE` for attributions. Gemma is a trademark of Google LLC; this project is not
