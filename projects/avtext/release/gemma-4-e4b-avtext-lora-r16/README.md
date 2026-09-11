@@ -66,9 +66,11 @@ model = PeftModel.from_pretrained(model, "<this repo id>")
 template = open("prompts/metar.txt", encoding="utf-8").read()
 raw = "METAR EPGD 111200Z 27012KT 9999 FEW030 SCT045 18/09 Q1015 NOSIG"
 msgs = [{"role": "user", "content": template.format(raw=raw)}]
-ids = tok.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt").to(model.device)
-out = model.generate(ids, max_new_tokens=400, do_sample=False)
-text = tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True)
+enc = tok.apply_chat_template(
+    msgs, add_generation_prompt=True, return_dict=True, return_tensors="pt"
+).to(model.device)
+out = model.generate(**enc, max_new_tokens=400, do_sample=False)
+text = tok.decode(out[0][enc["input_ids"].shape[1]:], skip_special_tokens=True)
 print(json.loads(text[text.index("{"): text.rindex("}") + 1]))
 ```
 

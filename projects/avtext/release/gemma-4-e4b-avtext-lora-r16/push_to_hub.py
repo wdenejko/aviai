@@ -1,6 +1,7 @@
 """Upload this release package to the Hugging Face Hub — run by the maintainer with their own token.
 
-    uv run python release/gemma-4-e4b-avtext-lora-r16/push_to_hub.py --repo-id <namespace>/gemma-4-e4b-avtext-lora-r16 [--private]
+    uv run python release/gemma-4-e4b-avtext-lora-r16/push_to_hub.py \
+        --repo-id <namespace>/gemma-4-e4b-avtext-lora-r16 [--private] [--dry-run]
 
 Authenticate first with `hf auth login` (or set HF_TOKEN in the environment). Nothing here reads or
 stores the token; huggingface_hub picks it up from its own cache/env. Adapter files go to the repo
@@ -17,7 +18,12 @@ from huggingface_hub import HfApi
 
 HERE = Path(__file__).resolve().parent
 WEIGHTS = HERE / "weights"
-REQUIRED = ["adapter_config.json", "adapter_model.safetensors", "tokenizer.json", "tokenizer_config.json"]
+REQUIRED = [
+    "adapter_config.json",
+    "adapter_model.safetensors",
+    "tokenizer.json",
+    "tokenizer_config.json",
+]
 
 
 def main() -> None:
@@ -28,21 +34,38 @@ def main() -> None:
     a = ap.parse_args()
     missing = [f for f in REQUIRED if not (WEIGHTS / f).is_file()]
     if missing:
-        raise SystemExit(f"missing adapter files in {WEIGHTS}: {missing} (pull them from dashi ~/fttrain/adapter-all-lg)")
-    if "GRANT REFERENCE: _to be filled" in (HERE / "README.md").read_text(encoding="utf-8"):
-        raise SystemExit("README.md still has the OpenNOTAM grant placeholder — fill it in before publishing")
+        raise SystemExit(
+            f"missing adapter files in {WEIGHTS}: {missing} "
+            "(pull them from dashi ~/fttrain/adapter-all-lg)"
+        )
     files = sorted(p for p in WEIGHTS.iterdir() if p.is_file() and p.name != "README.md")
     files += [HERE / "README.md", HERE / "NOTICE", HERE / "LICENSE"]
     files += sorted((HERE / "prompts").iterdir())
+
+    def dest(p: Path) -> str:
+        return ("prompts/" + p.name) if p.parent == HERE / "prompts" else p.name
+
     for p in files:
-        print(f"  {p.relative_to(HERE)}  ->  {p.name if p.parent != HERE / 'prompts' else 'prompts/' + p.name}")
+        print(f"  {p.relative_to(HERE)}  ->  {dest(p)}")
+    placeholder = "GRANT REFERENCE: _to be filled" in (HERE / "README.md").read_text(
+        encoding="utf-8"
+    )
     if a.dry_run:
+        print(
+            "(dry run)"
+            + (" — README still has the OpenNOTAM grant placeholder" if placeholder else "")
+        )
         return
+    if placeholder:
+        raise SystemExit(
+            "README.md still has the OpenNOTAM grant placeholder — fill it in before publishing"
+        )
     api = HfApi()
     api.create_repo(a.repo_id, repo_type="model", private=a.private, exist_ok=True)
     for p in files:
-        dest = ("prompts/" + p.name) if p.parent == HERE / "prompts" else p.name
-        api.upload_file(path_or_fileobj=str(p), path_in_repo=dest, repo_id=a.repo_id, repo_type="model")
+        api.upload_file(
+            path_or_fileobj=str(p), path_in_repo=dest(p), repo_id=a.repo_id, repo_type="model"
+        )
     print(f"uploaded -> https://huggingface.co/{a.repo_id}")
 
 
