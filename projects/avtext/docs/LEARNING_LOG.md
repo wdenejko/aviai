@@ -1134,9 +1134,13 @@ FlexAttention. Study: SIGMET family; an independent held-out benchmark set; the 
   llama.cpp session-degradation bug the 100-record chunking was tuned to dodge for the *old*
   adapter (which still lost 275 records to it as `<unused49>` spam); this run loses them as failed
   requests (empty). Precision is identical (0.961 vs 0.962); airport/navigation/taxiway improved.
-  Remedy queued: extraction at **20 records per restart** (113 restarts). The old adapter's GGUF was
-  lost in the wipe, so its 76.1 % is a lower bound of its true score; the comparison is decided only
-  if the clean re-run lands clearly above it.
+  Remedy run: extraction at **20 records per restart** (113 restarts, 2.2 h): **EM 82.3 %, recall
+  64.7 %, halluc 4.4 %, 154 invalid (6.8 %)**; area 71.0 → 82.1 %, light 88.4 → 93.5 %. The 154 left
+  are the shared hard core (146 also failed by the old adapter; very long area NOTAMs, p90 2,699
+  chars; 106 still empty). The old adapter's GGUF was lost in the wipe; correcting its run for the
+  275 degraded records at its own valid-record rate gives ~82.4 % → **parity on extraction**, gains
+  everywhere else. Protocol now encoded: TAF cap 2048 (`chain_lg.sh`), NOTAM 20/restart
+  (`eval_notam_chunked.sh`); dashboard has a `grown` variant and newest-run tie-break (5c36541).
 - Harness fix: `PartialStore` + `predict_all` (`avtext.harness.partial`) — every prediction is
   appended as it lands under `<out-dir>/partial/<model>.jsonl`, keyed by (model_id, eval sha);
   a rerun resumes only the missing records, failures are retried rather than frozen, eval order is
