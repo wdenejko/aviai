@@ -1,0 +1,26 @@
+{
+  "model_id": "gemma-4-e4b-all-lg-r16-taf",
+  "prompt_id": "decode-taf-json-v1",
+  "eval_version": "taf-v1",
+  "eval_sha256": "f103708d438a686ff8f187fc483e486c0f92027fe413a7576dc1753e561f2b22",
+  "decode_params": {
+    "temperature": 0.0,
+    "max_tokens": 1024
+  },
+  "created_utc": "2026-09-10T16:39:45Z",
+  "n_invalid": 152,
+  "n_period_match": 5085,
+  "overall": {
+    "n_records": 5294,
+    "hits": 211113,
+    "wrong": 222,
+    "abstain": 14839,
+    "hallucinate": 1543,
+    "true_abstain": 97299,
+    "precision": 0.9917088661111059,
+    "recall": 0.93340967573638,
+    "f1": 0.9616765212321092,
+    "hallucination_rate": 0.015610772748426783,
+    "exact_match": 0.9104646769928221
+  }
+}

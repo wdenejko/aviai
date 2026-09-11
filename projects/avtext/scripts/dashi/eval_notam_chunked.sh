@@ -3,7 +3,8 @@
 #
 # Fallback for the serving-degradation bug (llama-server rots into <unused49> spam after ~100
 # heavy-generation records on this ROCm build). Extraction is run in small chunks with a FULL
-# SERVER RESTART between chunks, so cumulative KV/memory state never builds up; merge_notam then
+# SERVER RESTART between chunks (20 records: at 100 the S24 grown-adapter run lost 27 % of the long
+# "area" records to in-session degradation), so cumulative state never builds up; merge_notam then
 # stitches the chunks into one normal run.json. Classification (1-token outputs, stable) runs full
 # in a single serve. Env: CHUNK (default 100), EXTTOK (512), FLASH (off).
 #   usage:  bash eval_notam_chunked.sh gemma-4-e4b-notam-r16 ~/ft/gemma-4/gemma-4-e4b-notam-r16-f16.gguf
@@ -15,7 +16,7 @@ LABEL="$1"; LORA_GGUF="${2:-}"
 BASE="${BASE:-$HOME/fttrain/gemma-4-E4B-it-Q8_0.gguf}"
 REPO="${REPO:-$HOME/avtext/projects/avtext}"; TB=llama-rocm-7.2.4_2
 EXT=eval/notam/v1/eval.jsonl; CLS=eval/notam_cls/v1/eval.jsonl
-CHUNK="${CHUNK:-100}"; EXTTOK="${EXTTOK:-512}"; FLASH="${FLASH:-on}"  # flash on/off proven irrelevant; restart is the fix
+CHUNK="${CHUNK:-20}"; EXTTOK="${EXTTOK:-512}"; FLASH="${FLASH:-on}"  # flash on/off proven irrelevant; restart is the fix
 CHUNKDIR=reports/gemma-4/runs/chunks/${LABEL}-ext
 
 stop8080 () {

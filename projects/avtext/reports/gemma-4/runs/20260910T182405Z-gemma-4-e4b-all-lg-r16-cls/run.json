@@ -1,0 +1,96 @@
+{
+  "model_id": "gemma-4-e4b-all-lg-r16-cls",
+  "prompt_id": "classify-notam-v1",
+  "kind": "classification",
+  "eval_version": "notam-cls-v1",
+  "eval_sha256": "a6c796a74974e8b6c0578dea5964b76b73b70fb3dc3d598107a120e0921441e3",
+  "created_utc": "2026-09-10T18:24:05Z",
+  "n_records": 4047,
+  "offset": 0,
+  "metrics": {
+    "n": 4047,
+    "accuracy": 0.9532987398072647,
+    "macro_f1": 0.9428382999941183,
+    "invalid": 0,
+    "per_class": {
+      "Airspaces": {
+        "precision": 0.9700374531835206,
+        "recall": 0.9792060491493384,
+        "f1": 0.9746001881467545,
+        "support": 529
+      },
+      "Communication_and_Radar": {
+        "precision": 0.8577777777777778,
+        "recall": 0.8812785388127854,
+        "f1": 0.8693693693693694,
+        "support": 219
+      },
+      "GPS": {
+        "precision": 1.0,
+        "recall": 0.9822222222222222,
+        "f1": 0.9910313901345292,
+        "support": 225
+      },
+      "Landing_Navaids": {
+        "precision": 0.9903448275862069,
+        "recall": 0.9822161422708618,
+        "f1": 0.9862637362637363,
+        "support": 731
+      },
+      "Obstacles": {
+        "precision": 0.976878612716763,
+        "recall": 0.9970501474926253,
+        "f1": 0.9868613138686132,
+        "support": 339
+      },
+      "Parking": {
+        "precision": 0.9067357512953368,
+        "recall": 0.9162303664921466,
+        "f1": 0.9114583333333334,
+        "support": 191
+      },
+      "Procedure": {
+        "precision": 0.8755980861244019,
+        "recall": 0.8840579710144928,
+        "f1": 0.8798076923076924,
+        "support": 207
+      },
+      "Runway": {
+        "precision": 0.9584352078239609,
+        "recall": 0.9423076923076923,
+        "f1": 0.9503030303030303,
+        "support": 416
+      },
+      "Services_and_Facilities": {
+        "precision": 0.8862559241706162,
+        "recall": 0.8165938864628821,
+        "f1": 0.8500000000000001,
+        "support": 229
+      },
+      "Signs_and_Lights": {
+        "precision": 0.8766519823788547,
+        "recall": 0.9754901960784313,
+        "f1": 0.9234338747099768,
+        "support": 204
+      },
+      "Taxiway": {
+        "precision": 0.9779005524861878,
+        "recall": 0.9619565217391305,
+        "f1": 0.9698630136986301,
+        "support": 368
+      },
+      "Terminal_or_Enroute_Navaids": {
+        "precision": 0.9796954314720813,
+        "recall": 0.9796954314720813,
+        "f1": 0.9796954314720813,
+        "support": 197
+      },
+      "Wildlife": {
+        "precision": 0.9946808510638298,
+        "recall": 0.9739583333333334,
+        "f1": 0.9842105263157895,
+        "support": 192
+      }
+    }
+  }
+}

@@ -31,8 +31,9 @@ VARIANT_LABEL = {
     "single": "single-task FT",
     "combined": "combined FT (METAR+TAF)",
     "all": "all-products FT",
+    "grown": "grown all-products FT (49k)",
 }
-VARIANT_ORDER = {"base": 0, "single": 1, "combined": 2, "all": 3}
+VARIANT_ORDER = {"base": 0, "single": 1, "combined": 2, "all": 3, "grown": 4}
 
 # Curated narrative — the findings, in the project's own voice. Kept here (not auto-derived) so
 # the story stays deliberate; update alongside the data.
@@ -93,6 +94,28 @@ FINDINGS = [
         "NOTAM-Evolve was rejected (88% Chinese labels); OpenNOTAM (label-identical to the Knots "
         "expert gold) + DEEL-AI (MIT) supply extraction (11,340) and classification (8,212).",
     ),
+    (
+        "Ten times the data, one adapter: the grown 49k all-products LoRA",
+        "A single rank-16 adapter trained on 49,214 leak-checked METAR+TAF+NOTAM examples (S23/S24) "
+        "is the best model on every task it was scored on, and the first one scored on the full evals: "
+        "METAR exact match 94.4% on all 6,200 records (rank-64 METAR-only: 92.1%), TAF 93.3% with "
+        "99.6% value recall on all 5,294, NOTAM classification 95.3% / macro-F1 94.3%, and NOTAM "
+        "extraction 82.3% once the eval was re-run at 20 records per server restart — parity with "
+        "the previous adapter after correcting its run for the same serving fault (est. 82.4%). More data for one product did not cost the others: the shared "
+        "adapter gained on METAR and NOTAM classification while holding the TAF level.",
+    ),
+    (
+        "Two harness ceilings were hiding model quality — and one looked like a regression",
+        "Scoring the full evals exposed limits the 1,500-record smokes had masked. TAF: the runner's "
+        "1,024-token decode cap truncated the long multi-period reports (median 8 periods), so ~3% of "
+        "every adapter's outputs were unparseable; at 2,048 tokens the same adapter gains 6 recall "
+        "points and 2.3 EM points. NOTAM extraction: llama.cpp's session degradation on the long 'area' "
+        "prompts made invalid outputs ramp from ~16% to ~70% within a 100-record server session — a "
+        "63.8% EM that read as a regression until the per-record autopsy showed identical precision and "
+        "the same seven chunks failing in both adapters' runs; restarting the server every 20 records "
+        "is the protocol from now on. Rule kept: no headline number is believed before its invalid "
+        "records have been read.",
+    ),
 ]
 
 
@@ -109,8 +132,13 @@ def _e4b(runs: list[dict], product: str) -> list[dict]:
 
 
 def _pick(rows: list[dict], variant: str) -> dict | None:
+    """The run to headline for a variant: the fullest eval, and among equally full runs the newest
+    (S24: the same adapter has a TAF run at a 1024- and a 2048-token cap, and a NOTAM extraction
+    run at 100 and at 20 records per server restart — the later protocol supersedes the earlier)."""
     cand = [r for r in rows if r["variant"] == variant]
-    return max(cand, key=lambda r: r["metrics"].get("n_records") or 0) if cand else None
+    if not cand:
+        return None
+    return max(cand, key=lambda r: (r["metrics"].get("n_records") or 0, r.get("created_utc") or ""))
 
 
 def _delta_badge(base: float | None, ft: float | None, *, good_up: bool = True) -> str:
@@ -132,7 +160,12 @@ def _card(product: str, label: str, kind: str, blurb: str, rows: list[dict]) -> 
             f'<div class="running">⏳ running on dashi</div></article>'
         )
     base = _pick(rows, "base")
-    ft = _pick(rows, "all") or _pick(rows, "combined") or _pick(rows, "single")
+    ft = (
+        _pick(rows, "grown")
+        or _pick(rows, "all")
+        or _pick(rows, "combined")
+        or _pick(rows, "single")
+    )
     if kind == "classification":
         b_acc = base["metrics"].get("accuracy") if base else None
         f_acc = ft["metrics"].get("accuracy") if ft else None

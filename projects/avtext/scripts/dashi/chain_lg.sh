@@ -54,7 +54,7 @@ stop8080; metrics "$LABEL-metar"
 echo "=== TAF eval/taf/v1 $(date +%H:%M) ==="
 stop8080; LORA="$ADAPTER_GGUF" "$SERVE" "$BASE" "$LABEL" || echo "serve FAILED"
 ( cd "$REPO" && uv run python -m avtext.harness.runner_taf --completion --base-url http://127.0.0.1:8080 \
-    --eval eval/taf/v1/eval.jsonl --max-tokens 1024 --out-dir reports/gemma-4/runs \
+    --eval eval/taf/v1/eval.jsonl --max-tokens 2048 --out-dir reports/gemma-4/runs \
     --model "$LABEL-taf" --model-id "$LABEL-taf" ) || echo "TAF EVAL FAILED"
 stop8080; metrics "$LABEL-taf"
 

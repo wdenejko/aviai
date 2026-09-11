@@ -581,6 +581,171 @@
           "true_abstain": 27563
         }
       }
+    },
+    {
+      "run_dir": "20260909T013632Z-gemma-4-e4b-all-lg-r16-metar",
+      "created_utc": "2026-09-09T01:36:32Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-metar",
+      "prompt_id": "decode-json-v1",
+      "eval_version": "v2",
+      "eval_sha256": "6e19b0eb5d7a1dd6",
+      "product": "metar",
+      "product_label": "METAR",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9985557869281924,
+        "exact_match": 0.9435483870967742,
+        "hallucination_rate": 0.07027276930189552,
+        "precision": 0.9886276726631863,
+        "f1": 0.9935669290022892,
+        "n_records": 6200,
+        "counts": {
+          "hits": 59462,
+          "wrong": 76,
+          "abstain": 10,
+          "hallucinate": 608,
+          "true_abstain": 8044
+        }
+      }
+    },
+    {
+      "run_dir": "20260910T163945Z-gemma-4-e4b-all-lg-r16-taf",
+      "created_utc": "2026-09-10T16:39:45Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-taf",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.93340967573638,
+        "exact_match": 0.9104646769928221,
+        "hallucination_rate": 0.015610772748426783,
+        "precision": 0.9917088661111059,
+        "f1": 0.9616765212321092,
+        "n_records": 5294,
+        "counts": {
+          "hits": 211113,
+          "wrong": 222,
+          "abstain": 14839,
+          "hallucinate": 1543,
+          "true_abstain": 97299
+        }
+      }
+    },
+    {
+      "run_dir": "20260910T182402Z-gemma-4-e4b-all-lg-r16-ext-merged",
+      "created_utc": "2026-09-10T18:24:02Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-ext",
+      "prompt_id": "extract-notam-json-v1",
+      "eval_version": "notam-v1",
+      "eval_sha256": "a8023b5bf7d1f0f1",
+      "product": "notam_ext",
+      "product_label": "NOTAM \u00b7 extraction",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.524416135881104,
+        "exact_match": 0.638458130261409,
+        "hallucination_rate": 0.0417213329834689,
+        "precision": 0.9605911330049262,
+        "f1": 0.67844717084783,
+        "n_records": 2257,
+        "counts": {
+          "hits": 11115,
+          "wrong": 297,
+          "abstain": 9783,
+          "hallucinate": 159,
+          "true_abstain": 3652
+        }
+      }
+    },
+    {
+      "run_dir": "20260910T182405Z-gemma-4-e4b-all-lg-r16-cls",
+      "created_utc": "2026-09-10T18:24:05Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-cls",
+      "prompt_id": "classify-notam-v1",
+      "eval_version": "notam-cls-v1",
+      "eval_sha256": "a6c796a74974e8b6",
+      "product": "notam_cls",
+      "product_label": "NOTAM \u00b7 classification",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "classification",
+        "accuracy": 0.9532987398072647,
+        "macro_f1": 0.9428382999941183,
+        "invalid": 0,
+        "n_records": 4047
+      }
+    },
+    {
+      "run_dir": "20260910T202329Z-gemma-4-e4b-all-lg-r16-taf",
+      "created_utc": "2026-09-10T20:23:29Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-taf",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.9961312971429077,
+        "exact_match": 0.9331318473743861,
+        "hallucination_rate": 0.016565930178495624,
+        "precision": 0.9916853002799444,
+        "f1": 0.9939033267013998,
+        "n_records": 5294,
+        "counts": {
+          "hits": 225299,
+          "wrong": 250,
+          "abstain": 625,
+          "hallucinate": 1639,
+          "true_abstain": 97299
+        }
+      }
+    },
+    {
+      "run_dir": "20260910T223540Z-gemma-4-e4b-all-lg-r16-c20-ext-merged",
+      "created_utc": "2026-09-10T22:35:40Z",
+      "model_id": "gemma-4-e4b-all-lg-r16-c20-ext",
+      "prompt_id": "extract-notam-json-v1",
+      "eval_version": "notam-v1",
+      "eval_sha256": "a8023b5bf7d1f0f1",
+      "product": "notam_ext",
+      "product_label": "NOTAM \u00b7 extraction",
+      "variant": "grown",
+      "model_size": "E4B",
+      "rank": 16,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.6472753007784855,
+        "exact_match": 0.8232166592822331,
+        "hallucination_rate": 0.04350104821802935,
+        "precision": 0.9628044073268299,
+        "f1": 0.7741225595305269,
+        "n_records": 2257,
+        "counts": {
+          "hits": 13719,
+          "wrong": 364,
+          "abstain": 7112,
+          "hallucinate": 166,
+          "true_abstain": 3650
+        }
+      }
     }
   ]
 }

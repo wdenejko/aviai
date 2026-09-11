@@ -29,8 +29,11 @@ PRODUCTS: dict[str, tuple[str, str, str]] = {
 
 
 def _variant(model_id: str) -> str:
-    """base (served base) · single (one product) · combined (METAR+TAF) · all (three products)."""
+    """base (served base) · single (one product) · combined (METAR+TAF) · all (three products,
+    Phase-7 29k set) · grown (three products, the S23/S24 49k set — ids carry "all-lg")."""
     m = model_id.lower()
+    if "all-lg" in m:
+        return "grown"
     if "all-r16" in m or "-all-" in m or "combined-all" in m:
         return "all"
     if "combined" in m:
