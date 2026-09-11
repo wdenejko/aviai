@@ -26,25 +26,29 @@ It is a research artifact from the *avtext* study (dataset engineering + evaluat
 fine-tuning on a single AMD Strix Halo box). It is **not** a certified aeronautical product: do not use
 its output for operational or flight-safety decisions without independent verification.
 
-## Results (full frozen evals, greedy decoding)
+## Results: before and after the adapter
 
-| task | eval set | records | exact match (whole record) | value recall | hallucination | invalid outputs |
+Same frozen evals, same prompts, same greedy decoding; "before" is the served base model
+(`gemma-4-E4B-it`, Q8_0), "after" is the base with this adapter applied.
+
+| task | eval set | records | exact match (whole record) before → after | value recall before → after | hallucination before → after | invalid outputs before → after |
 |---|---|---|---|---|---|---|
-| METAR → JSON | avtext `v2` | 6,200 | **94.4 %** | 99.9 % | 7.0 % | 0 |
-| TAF → JSON | `taf-v1` (2048-token output cap) | 5,294 | **93.3 %** | 99.6 % | 1.7 % | 3 |
-| NOTAM → extraction rows | `notam-v1` (server restart every 20 records) | 2,257 | **82.3 %** | 64.7 % | 4.4 % | 154 |
-| NOTAM → class (13) | `notam-cls-v1` | 4,047 | **accuracy 95.3 %**, macro-F1 94.3 % | — | — | 0 |
+| METAR → JSON | avtext `v2` | 6,200 | 24.8 % → **94.4 %** (+69.6) | 88.8 % → 99.9 % | 21.4 % → 7.0 % | 0 → 0 |
+| TAF → JSON | `taf-v1`, first 1,500 records (the base was scored on this subset) | 1,500 | 7.2 % → **92.6%** (+85.4) | 83.6 % → 99.7% | 11.9 % → 1.4% | 59 → 0 |
+| TAF → JSON | `taf-v1`, full set (adapter only; 2048-token output cap) | 5,294 | — → **93.3 %** | — → 99.6 % | — → 1.7 % | — → 3 |
+| NOTAM → extraction rows | `notam-v1` (server restart every 20 records) | 2,257 | 0.8 % → **82.3 %** (+81.5) | 11.0 % → 64.7 % | 14.9 % → 4.4 % | 64 → 154 |
+| NOTAM → class (13) | `notam-cls-v1` | 4,047 | accuracy 78.2 % → **95.3 %** (+17.1); macro-F1 74.2 % → 94.3 % | — | — | 9 → 0 |
 
-The served base model without the adapter scores 24.8 % exact match on the METAR eval (recall 88.8 %,
-hallucination 21.4 %), 7.2 % on a 1,500-record TAF subset, and 78.2 % accuracy on NOTAM classification:
-the adapter teaches the schema and the unit conventions, not new meteorology.
+The base model knows the vocabulary but cannot hold a whole structured schema; the adapter teaches
+the schema and the unit conventions, not new meteorology. The one number that moves the wrong way,
+invalid NOTAM extractions (64 → 154), is the adapter attempting long "area" NOTAMs the base answers
+with near-empty rows: the base's 0.8 % exact match counts those as trivially parseable.
 
 *Metric notes.* Exact match is per whole record. Value recall is the share of reference fields the
 model reproduced with the correct value. Hallucination is the share of asserted values the reference
 does not support. "Invalid" outputs (no parseable JSON) are scored as abstaining on every field. The
-eval sets hold out unseen stations and unseen time windows, and the training set was audited to be
-exactly disjoint from all of them. Exact definitions live in the avtext harness (`score.py`,
-`score_taf.py`, `score_notam.py`).
+eval sets hold out unseen stations and unseen time windows. Exact definitions live in the avtext
+harness (`score.py`, `score_taf.py`, `score_notam.py`).
 
 ## How to use
 
