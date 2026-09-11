@@ -136,13 +136,6 @@ model = PeftModel.from_pretrained(base, repo, subfolder="adapter")
 | hardware | one AMD Ryzen AI Max+ 395 (Radeon 8060S, gfx1151, 123 GiB unified memory), ROCm/TheRock nightly PyTorch; 16 h 58 min |
 | final train loss | ≈ 0.13 (mean of the last 100 steps; 0.62 over the first 100) |
 
-## Data
-
-- **METAR / TAF**: raw reports from the Iowa Environmental Mesonet ASOS/AFOS archive and NOAA's
-  Aviation Weather Center (US Government works, public domain). Decode targets are parser-consensus
-  decodes calibrated field by field against NOAA's official decodes (≥ 98.7 % agreement per field).
-- **NOTAM classification**: `DEEL-AI/NOTAM` (MIT).
-
 ## Limitations
 
 - Research decode aid, not a certified aeronautical tool. Verify independently before any operational use.
