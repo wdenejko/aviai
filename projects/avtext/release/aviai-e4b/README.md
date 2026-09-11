@@ -17,9 +17,9 @@ tags:
 - fine-tuned
 ---
 
-# gemma-4-e4b-avtext
+# aviai-e4b
 
-A full fine-tune of **Gemma 4 E4B (instruction-tuned)** for structured decoding of aviation text:
+**aviai-e4b** is a full fine-tune of **Gemma 4 E4B (instruction-tuned)** for structured decoding of aviation text:
 **METAR** and **TAF** reports into canonical JSON, and **NOTAMs** into category-specific extraction
 rows or one of 13 operational classes. One model covers all four tasks. The fine-tune was trained as a
 rank-16 LoRA and merged into the base weights, so this repo is a plain Transformers checkpoint (plus
@@ -35,8 +35,8 @@ its output for operational or flight-safety decisions without independent verifi
 | file(s) | format | size | use |
 |---|---|---|---|
 | `model-*.safetensors` + `config.json`, tokenizer and processor files | Transformers checkpoint, bf16, sharded | ~16 GB | `AutoModelForCausalLM.from_pretrained(<repo>)` |
-| `gemma-4-e4b-avtext-Q8_0.gguf` | llama.cpp, 8-bit | ~8.5 GB | `llama-server -m …` (the quantization the study's numbers were measured with) |
-| `gemma-4-e4b-avtext-f16.gguf` | llama.cpp, 16-bit | ~16 GB | for re-quantizing to other formats |
+| `aviai-e4b-Q8_0.gguf` | llama.cpp, 8-bit | ~8.5 GB | `llama-server -m …` (the quantization the study's numbers were measured with) |
+| `aviai-e4b-f16.gguf` | llama.cpp, 16-bit | ~16 GB | for re-quantizing to other formats |
 | `adapter/` | PEFT LoRA (rank 16) + GGUF LoRA | 140 MB + 70 MB | apply to `unsloth/gemma-4-E4B-it` instead of downloading merged weights |
 | `prompts/` | text | — | the exact prompt templates the model was trained on (required, see *How to use*) |
 
@@ -104,7 +104,7 @@ Use `max_new_tokens` ≥ 2048 for TAFs (long multi-period forecasts) and ≥ 512
 ### llama.cpp
 
 ```bash
-llama-server -m gemma-4-e4b-avtext-Q8_0.gguf --flash-attn on --reasoning-budget 0 -c 8192 --port 8080
+llama-server -m aviai-e4b-Q8_0.gguf --flash-attn on --reasoning-budget 0 -c 8192 --port 8080
 ```
 
 Send the **raw** `/completion` endpoint the turn wrapper in `prompts/turn_wrapper.txt` around the

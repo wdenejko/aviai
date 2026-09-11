@@ -1,10 +1,10 @@
-"""Upload the gemma-4-e4b-avtext release to the Hugging Face Hub — run by the maintainer with their
+"""Upload the aviai-e4b release to the Hugging Face Hub — run by the maintainer with their
 own token, on the machine that holds the weights (dashi: ~/fttrain/release).
 
-    uv run python push_to_hub.py --repo-id <namespace>/gemma-4-e4b-avtext \\
-        --weights ~/fttrain/release/gemma-4-e4b-avtext \\
-        --gguf ~/fttrain/release/gemma-4-e4b-avtext-Q8_0.gguf \\
-               ~/fttrain/release/gemma-4-e4b-avtext-f16.gguf \\
+    uv run python push_to_hub.py --repo-id <namespace>/aviai-e4b \\
+        --weights ~/fttrain/release/aviai-e4b \\
+        --gguf ~/fttrain/release/aviai-e4b-Q8_0.gguf \\
+               ~/fttrain/release/aviai-e4b-f16.gguf \\
         --adapter ~/fttrain/adapter-all-lg --adapter-gguf ~/fttrain/adapter-all-lg-f16.gguf \\
         [--private] [--dry-run]
 
