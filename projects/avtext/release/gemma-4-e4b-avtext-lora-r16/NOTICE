@@ -11,4 +11,4 @@ Training data attribution:
   Weather Center (US Government works, public domain). Decode targets are parser-consensus decodes
   calibrated against NOAA's official decodes.
 - NOTAM classification: DEEL-AI/NOTAM (MIT License).
-- NOTAM extraction: Estrellajer/OpenNOTAM, used with permission of the author (see README, "Data").
+- NOTAM extraction: Estrellajer/OpenNOTAM, used with permission of the author.

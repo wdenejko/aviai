@@ -113,10 +113,6 @@ outputs on long NOTAMs.
   Aviation Weather Center (US Government works, public domain). Decode targets are parser-consensus
   decodes calibrated field by field against NOAA's official decodes (≥ 98.7 % agreement per field).
 - **NOTAM classification**: `DEEL-AI/NOTAM` (MIT).
-- **NOTAM extraction**: `Estrellajer/OpenNOTAM`, used with the author's permission
-  (**GRANT REFERENCE: _to be filled by the maintainer_**).
-- No records from the evaluation sets were used in training (record-level exact-match audit across
-  all five eval files; 45 overlapping records were removed before training).
 
 ## Limitations
 
