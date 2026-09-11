@@ -34,7 +34,7 @@ Same frozen evals, same prompts, same greedy decoding; "before" is the served ba
 | task | eval set | records | exact match (whole record) before → after | value recall before → after | hallucination before → after | invalid outputs before → after |
 |---|---|---|---|---|---|---|
 | METAR → JSON | avtext `v2` | 6,200 | 24.8 % → **94.4 %** (+69.6) | 88.8 % → 99.9 % | 21.4 % → 7.0 % | 0 → 0 |
-| TAF → JSON | `taf-v1`, first 1,500 records (the base was scored on this subset) | 1,500 | 7.2 % → **92.6%** (+85.4) | 83.6 % → 99.7% | 11.9 % → 1.4% | 59 → 0 |
+| TAF → JSON | `taf-v1`, first 1,500 records (the base was scored on this subset) | 1,500 | 7.2 % → **92.6 %** (+85.4) | 83.6 % → 99.7 % | 11.9 % → 1.4 % | 59 → 0 |
 | TAF → JSON | `taf-v1`, full set (adapter only; 2048-token output cap) | 5,294 | — → **93.3 %** | — → 99.6 % | — → 1.7 % | — → 3 |
 | NOTAM → extraction rows | `notam-v1` (server restart every 20 records) | 2,257 | 0.8 % → **82.3 %** (+81.5) | 11.0 % → 64.7 % | 14.9 % → 4.4 % | 64 → 154 |
 | NOTAM → class (13) | `notam-cls-v1` | 4,047 | accuracy 78.2 % → **95.3 %** (+17.1); macro-F1 74.2 % → 94.3 % | — | — | 9 → 0 |
