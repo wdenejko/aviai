@@ -3,8 +3,10 @@ own token, on the machine that holds the weights (dashi: ~/fttrain/release).
 
     uv run python push_to_hub.py --repo-id <namespace>/gemma-4-e4b-avtext \\
         --weights ~/fttrain/release/gemma-4-e4b-avtext \\
-        --gguf ~/fttrain/release/gemma-4-e4b-avtext-Q8_0.gguf ~/fttrain/release/gemma-4-e4b-avtext-f16.gguf \\
-        --adapter ~/fttrain/adapter-all-lg --adapter-gguf ~/fttrain/adapter-all-lg-f16.gguf [--private] [--dry-run]
+        --gguf ~/fttrain/release/gemma-4-e4b-avtext-Q8_0.gguf \\
+               ~/fttrain/release/gemma-4-e4b-avtext-f16.gguf \\
+        --adapter ~/fttrain/adapter-all-lg --adapter-gguf ~/fttrain/adapter-all-lg-f16.gguf \\
+        [--private] [--dry-run]
 
 Authenticate first with `hf auth login` (or set HF_TOKEN). Nothing here reads or stores the token.
 Layout in the repo: merged Transformers checkpoint at the root, GGUFs at the root, the original LoRA
