@@ -46,10 +46,10 @@ the PEFT path. The vision and audio towers of Gemma 4 E4B are carried over uncha
 text tower); the model still loads with the multimodal classes but was trained and evaluated as a
 text model.
 
-## Results: before and after the adapter
+## Results: before and after fine-tuning
 
-Same frozen evals, same prompts, greedy decoding, same Q8_0 base served by llama.cpp; "before" is
-the base model alone, "after" is the base with this adapter applied. One row per task, full sets.
+Same frozen evals, same prompts, greedy decoding, same Q8_0 quantization served by llama.cpp;
+"base" is Gemma 4 E4B alone, "aviai-e4b" is this fine-tune. One row per task, full sets.
 
 | task | exact match · base | exact match · aviai-e4b | Δ (pts) | value recall · base | value recall · aviai-e4b | hallucination · base | hallucination · aviai-e4b | invalid outputs · base | invalid outputs · aviai-e4b |
 |---|---|---|---|---|---|---|---|---|---|
@@ -60,9 +60,9 @@ the base model alone, "after" is the base with this adapter applied. One row per
 
 ¹ classification is scored as accuracy (macro-F1: 74.2 % → 94.3 %).
 
-The base model knows the vocabulary but cannot hold a whole structured schema; the adapter teaches
+The base model knows the vocabulary but cannot hold a whole structured schema; the fine-tune teaches
 the schema and the unit conventions, not new meteorology. The one number that moves the wrong way,
-invalid NOTAM extractions (64 → 154), is the adapter attempting long "area" NOTAMs the base answers
+invalid NOTAM extractions (64 → 154), is the fine-tune attempting long "area" NOTAMs the base answers
 with near-empty rows that parse trivially.
 
 *Metric notes.* Eval sets: METAR 6,200 records (`v2`), TAF 5,294 (`taf-v1`, 2048-token output cap),
