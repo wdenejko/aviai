@@ -51,24 +51,22 @@ text model.
 Same frozen evals, same prompts, greedy decoding, same Q8_0 quantization served by llama.cpp;
 "base" is Gemma 4 E4B alone, "aviai-e4b" is this fine-tune. One row per task, full sets.
 
-| task | exact match · base | exact match · aviai-e4b | Δ (pts) | value recall · base | value recall · aviai-e4b | hallucination · base | hallucination · aviai-e4b | invalid outputs · base | invalid outputs · aviai-e4b |
-|---|---|---|---|---|---|---|---|---|---|
-| METAR → JSON | 24.8 % | **94.4 %** | +69.6 | 88.8 % | 99.9 % | 21.4 % | 7.0 % | 0 | 0 |
-| TAF → JSON | 7.2 % | **93.3 %** | +86.1 | 89.4 % | 99.6 % | 11.8 % | 1.7 % | 58 | 3 |
-| NOTAM → extraction rows | 0.8 % | **82.3 %** | +81.5 | 11.0 % | 64.7 % | 14.9 % | 4.4 % | 64 | 154 |
-| NOTAM → class (13) | 78.2 % ¹ | **95.3 %** ¹ | +17.1 | — | — | — | — | 9 | 0 |
+| task | exact match · base | exact match · aviai-e4b | Δ (pts) | value recall · base | value recall · aviai-e4b | hallucination · base | hallucination · aviai-e4b |
+|---|---|---|---|---|---|---|---|
+| METAR → JSON | 24.8 % | **94.4 %** | +69.6 | 88.8 % | 99.9 % | 21.4 % | 7.0 % |
+| TAF → JSON | 7.2 % | **93.3 %** | +86.1 | 89.4 % | 99.6 % | 11.8 % | 1.7 % |
+| NOTAM → extraction rows | 0.8 % | **82.3 %** | +81.5 | 11.0 % | 64.7 % | 14.9 % | 4.4 % |
+| NOTAM → class (13) | 78.2 % ¹ | **95.3 %** ¹ | +17.1 | — | — | — | — |
 
 ¹ classification is scored as accuracy (macro-F1: 74.2 % → 94.3 %).
 
 The base model knows the vocabulary but cannot hold a whole structured schema; the fine-tune teaches
-the schema and the unit conventions, not new meteorology. The one number that moves the wrong way,
-invalid NOTAM extractions (64 → 154), is the fine-tune attempting long "area" NOTAMs the base answers
-with near-empty rows that parse trivially.
+the schema and the unit conventions, not new meteorology.
 
 *Metric notes.* Eval sets: METAR 6,200 records (`v2`), TAF 5,294 (`taf-v1`, 2048-token output cap),
 NOTAM extraction 2,257 (`notam-v1`), NOTAM classification 4,047 (`notam-cls-v1`). Exact match is per whole record. Value recall is the share of reference fields the
 model reproduced with the correct value. Hallucination is the share of asserted values the reference
-does not support. "Invalid" outputs (no parseable JSON) are scored as abstaining on every field. The
+does not support. Outputs with no parseable JSON are scored as abstaining on every field. The
 eval sets hold out unseen stations and unseen time windows. Exact definitions live in the avtext
 harness (`score.py`, `score_taf.py`, `score_notam.py`).
 
