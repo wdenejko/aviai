@@ -40,7 +40,9 @@ its output for operational or flight-safety decisions without independent verifi
 | `adapter/` | PEFT LoRA (rank 16) + GGUF LoRA | 140 MB + 70 MB | apply to `unsloth/gemma-4-E4B-it` instead of downloading merged weights |
 | `prompts/` | text | — | the exact prompt templates the model was trained on (required, see *How to use*) |
 
-The vision and audio towers of Gemma 4 E4B are carried over unchanged (the fine-tune touched only the
+The merged GGUF reproduces the adapter-on-base serving path record for record (300-record METAR
+check: identical exact-match outcomes), and the merged Transformers checkpoint decodes identically to
+the PEFT path. The vision and audio towers of Gemma 4 E4B are carried over unchanged (the fine-tune touched only the
 text tower); the model still loads with the multimodal classes but was trained and evaluated as a
 text model.
 

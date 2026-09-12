@@ -1170,4 +1170,10 @@ under the adapter's protocol for the card's before/after table.
   (memory-bandwidth-bound on the iGPU) = 14.5 s/record, 21 h for 5,294. The cap is not the cost.
 - Build scripts must not print their done-marker unconditionally (a failed conversion still printed
   `BUILD_DONE`; downstream waiters keyed on it).
+- **Base TAF on the full set (5,294, 2048 cap, single-slot, 21 h): EM 7.2 %, recall 89.4 %, halluc
+  11.8 %, 58 invalid** — the card's TAF row is now before → after on one protocol (7.2 → 93.3 %).
+- Merged Q8_0 GGUF == adapter-on-base: 300-record METAR check, 96.0 % vs 96.0 %, 0 records differ.
+- Two self-inflicted stalls worth remembering: a queued waiter keeps the variables it parsed at launch
+  (renaming artifacts after launching it broke the path), and `journalctl`/reboot records settled the
+  "is the box crashing?" question in one look — dashi's outages on 09-11 were deliberate reboots.
 
