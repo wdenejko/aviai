@@ -746,6 +746,35 @@
           "true_abstain": 3650
         }
       }
+    },
+    {
+      "run_dir": "20260912T072854Z-gemma-4-e4b-taf-base",
+      "created_utc": "2026-09-12T07:28:54Z",
+      "model_id": "gemma-4-e4b-taf-base",
+      "prompt_id": "decode-taf-json-v1",
+      "eval_version": "taf-v1",
+      "eval_sha256": "f103708d438a686f",
+      "product": "taf",
+      "product_label": "TAF",
+      "variant": "base",
+      "model_size": "E4B",
+      "rank": null,
+      "metrics": {
+        "kind": "decode",
+        "value_acc": 0.8941346043311786,
+        "exact_match": 0.07177937287495277,
+        "hallucination_rate": 0.11789754075296854,
+        "precision": 0.88711375480339,
+        "f1": 0.8906103431115652,
+        "n_records": 5294,
+        "counts": {
+          "hits": 202230,
+          "wrong": 13164,
+          "abstain": 10780,
+          "hallucinate": 12570,
+          "true_abstain": 94048
+        }
+      }
     }
   ]
 }

@@ -52,7 +52,7 @@ the base model alone, "after" is the base with this adapter applied. One row per
 | task | eval set | records | exact match (whole record) before → after | value recall before → after | hallucination before → after | invalid outputs before → after |
 |---|---|---|---|---|---|---|
 | METAR → JSON | avtext `v2` | 6,200 | 24.8 % → **94.4 %** (+69.6) | 88.8 % → 99.9 % | 21.4 % → 7.0 % | 0 → 0 |
-| TAF → JSON | `taf-v1` (2048-token output cap) | 5,294 | _measuring_ → **93.3 %** | _measuring_ → 99.6 % | _measuring_ → 1.7 % | _measuring_ → 3 |
+| TAF → JSON | `taf-v1` (2048-token output cap) | 5,294 | 7.2 % → **93.3 %** (+86.1) | 89.4 % → 99.6 % | 11.8 % → 1.7 % | 58 → 3 |
 | NOTAM → extraction rows | `notam-v1` | 2,257 | 0.8 % → **82.3 %** (+81.5) | 11.0 % → 64.7 % | 14.9 % → 4.4 % | 64 → 154 |
 | NOTAM → class (13) | `notam-cls-v1` | 4,047 | accuracy 78.2 % → **95.3 %** (+17.1); macro-F1 74.2 % → 94.3 % | — | — | 9 → 0 |
 
@@ -67,11 +67,10 @@ does not support. "Invalid" outputs (no parseable JSON) are scored as abstaining
 eval sets hold out unseen stations and unseen time windows. Exact definitions live in the avtext
 harness (`score.py`, `score_taf.py`, `score_notam.py`).
 
-*Protocol notes.* The base TAF row is being measured on the full set under the adapter's protocol
-(the base's earlier 1,500-record score was 7.2 % exact match at a 1,024-token cap). The base
-NOTAM-extraction run used 100-record llama.cpp sessions and the base METAR run the chat endpoint;
-the adapter runs used 20-record sessions and the raw completion endpoint (the adapter is sensitive
-to template drift, the base is not).
+*Protocol notes.* METAR, TAF and classification rows were measured with identical serving on both
+sides. The base NOTAM-extraction run used 100-record llama.cpp sessions and the base METAR run the
+chat endpoint; the fine-tune's runs used 20-record sessions and the raw completion endpoint (the
+fine-tune is sensitive to template drift, the base is not).
 
 ## How to use
 
