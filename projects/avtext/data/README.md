@@ -10,7 +10,7 @@ or pulled from the Hugging Face dataset repo. (`.gitignore` enforces this.)
 | `reference/` | Trust-anchor tables (FAA vocab, OurAirports, WMO CCT) as CSV | Rebuildable | No (tiny; could be committed later) |
 | `processed/` | Normalized Parquet corpus (DuckDB reads this) | Rebuildable | No |
 | `gold/` | Hand-transcribed worked examples from AC 00-45H / FMH-1 | Append-only | Seeds may be committed later |
-| `third_party/` | **EVAL-ONLY quarantine** (Knots, ERAU) | — | **NEVER** (see DATA_LICENSES.md) |
+| `third_party/` | **EVAL-ONLY quarantine** (Knots, ERAU) | — | **NEVER** (eval-only) |
 
 `manifest.json` is the provenance ledger: for every fetched artifact it records
 the URL, sha256, byte size, and fetch time. It is the one committed record that

@@ -67,8 +67,8 @@ Each problem defines `setup()` (idempotent per-problem namespace — a dedicated
 To enable cross-source problems (flights × weather × NOTAMs), all three align on **one month** and a fixed **airport set** (a handful of busy US hubs, e.g. ORD/ATL/DFW/DEN/LAX). Loaded once into ClickHouse; version + checksum pinned in a manifest.
 
 - **BTS "Reporting Carrier On-Time Performance"** — direct GET `https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_${Y}_${M}.zip` (Appendix A). US-gov **public domain** → publishable. One month ≈ 500–600k rows.
-- **METAR/TAF** — reuse `avtext/src/avtext/ingest/{iem,awc,iem_taf,awc_taf}.py` (IEM ASOS archive + AWC). Underlying obs US public-domain; commit manifests not bulk (avtext `DATA_LICENSES.md`).
-- **NOTAM** — candidate publishable path noted here was Zenodo Pik 2023 (`11420433`), CC-BY 4.0; avtext's `opennotam`/`knots` sets are **quarantined (eval-only, never redistributed)** and may be used *locally* only. **Implemented (Phase 1): DEEL-AI/NOTAM (HuggingFace), MIT** — an 8,478-row, 13-class text-classification corpus. It has no operational fields (ICAO/Q-code/effective window) and is static ~2024, so it does **not** join to flights/weather; it powers a standalone NOTAM text-classification task instead of a cross-source one. Only the manifest + loader are committed (records stay local); see [`DATA_LICENSES.md`](../../DATA_LICENSES.md).
+- **METAR/TAF** — reuse `avtext/src/avtext/ingest/{iem,awc,iem_taf,awc_taf}.py` (IEM ASOS archive + AWC). Underlying obs US public-domain; commit manifests not bulk.
+- **NOTAM** — candidate publishable path noted here was Zenodo Pik 2023 (`11420433`), CC-BY 4.0; avtext's `opennotam`/`knots` sets are **quarantined (eval-only, never redistributed)** and may be used *locally* only. **Implemented (Phase 1): DEEL-AI/NOTAM (HuggingFace), MIT** — an 8,478-row, 13-class text-classification corpus. It has no operational fields (ICAO/Q-code/effective window) and is static ~2024, so it does **not** join to flights/weather; it powers a standalone NOTAM text-classification task instead of a cross-source one. Only the manifest + loader are committed (records stay local).
 
 ### 5. Layout
 
@@ -100,7 +100,7 @@ projects/dsbench/src/dsbench/agentic/    # as shipped in Phase 1
 - **Easier:** a benchmark that measures the owner's actual workflows; cross-source aviation problems; the same instrument scores no-training alternatives (better prompts, retrieval); v1 stays as a fast regression floor.
 - **Harder / new surface:** a container stack to run and keep deterministic; an agent loop and a tool-call parser tied to the served template; live-service state to reset between problems; the agent executes arbitrary Python + SQL — **contained to the `workspace`/`clickhouse` containers, never the host**, network-restricted, resource-limited (v1's "own model, own box" trust model, now enforced by the container boundary — do not point this at an untrusted endpoint).
 - **Determinism:** live services + an agent are less reproducible than v1. Controlled by pinned data snapshots, temp-0 / thinking-off, per-problem namespaces, idempotent setup, step/time budgets, and final-state (not trajectory) grading. Conclusions still come from paired flips + McNemar, not a single percentage.
-- **Licensing:** publishable stack = BTS (public domain) + IEM/AWC METAR/TAF + Zenodo NOTAM (CC-BY, attributed). Quarantined avtext NOTAM sets never leave local eval. Every source gets a row in a v2 `DATA_LICENSES.md` before it's committed.
+- **Licensing:** publishable stack = BTS (public domain) + IEM/AWC METAR/TAF + Zenodo NOTAM (CC-BY, attributed). Quarantined avtext NOTAM sets never leave local eval. Only manifests/loaders are committed — bulk records never enter git.
 
 ## Risks
 
@@ -143,5 +143,5 @@ projects/dsbench/src/dsbench/agentic/    # as shipped in Phase 1
 ## Appendix B — reused avtext assets
 
 - Collectors: `avtext/src/avtext/ingest/{iem,iem_taf,awc,awc_taf}.py` (METAR/TAF), `{opennotam,deel_notam}.py`, `select_stations.py`.
-- Licensing discipline: `avtext/DATA_LICENSES.md` (every source pre-cleared; `data/third_party/` quarantine = eval-only, never committed/trained/redistributed). v2 inherits this file's rules and adds a v2 row per new source.
+- Licensing discipline: every source pre-cleared before use; `data/third_party/` quarantine = eval-only, never committed/trained/redistributed. v2 commits only manifests/loaders, never bulk records.
 - Station registry: OurAirports CSV (public domain) for airport metadata / ICAO↔IATA mapping used to align datasets.

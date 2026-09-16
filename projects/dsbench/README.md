@@ -78,8 +78,7 @@ handful of problems is within noise. Grow the set (more problems per cell) as th
 
 v2 replaces single-shot code with a **tool-calling agent** operating a **live** ClickHouse warehouse
 of real aviation data (BTS flights + METAR/TAF + NOTAM). Bring the stack up and load the data per
-[`sandbox/README.md`](sandbox/README.md); source licenses are tracked in
-[`DATA_LICENSES.md`](DATA_LICENSES.md). Then:
+[`sandbox/README.md`](sandbox/README.md). Then:
 
 ```bash
 # Validate the agentic benchmark: every reference solution must reach the graded state. After each edit.

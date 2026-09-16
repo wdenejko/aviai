@@ -73,6 +73,3 @@ reports/runs/ # per-run results JSON + markdown report — committed
 docs/adr/     # architecture decision records
 docs/LEARNING_LOG.md  # the running "what I learned" log
 ```
-
-See [`DATA_LICENSES.md`](DATA_LICENSES.md) for per-source terms — it is part of
-code review, not an afterthought.

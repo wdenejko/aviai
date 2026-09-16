@@ -45,7 +45,7 @@ Run a loader with `uv run --package dsbench python ingest/<loader>`. Flights + M
 June 2026 and the hub set (ATL/ORD/DFW/DEN/LAX) so cross-source problems work. **NOTAM is a static
 ~2024 corpus, not date-aligned and with no airport/time key** — a standalone reference corpus for
 NOTAM text/classification tasks (ADR-003 §4). Bulk raw stays in `.data/` (gitignored); only manifests
-are committed. Every source needs a row in the v2 data-licenses file before it is committed.
+are committed.
 
 ## Safety / trust model
 

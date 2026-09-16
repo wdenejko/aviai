@@ -1,7 +1,7 @@
 """Build the LICENSED-ONLY SFT set — the publishable mix (METAR + TAF + NOTAM classification).
 
 The Phase-7 all-products adapter was trained on OpenNOTAM/Knots NOTAM-extraction gold, which has
-NO LICENSE (verified 2026-09-07, see DATA_LICENSES.md) — so that adapter is study-only. This mix
+NO LICENSE (verified 2026-09-07) — so that adapter is study-only. This mix
 keeps only Apache-2.0-compatible sources: IEM/AWC METAR+TAF gold (US public domain) and DEEL-AI
 NOTAM classification (MIT). It is the mix for any adapter published on Hugging Face. NOTAM
 *extraction* is excluded until upstream grants a license. Same interleave recipe as build_sft_all.
