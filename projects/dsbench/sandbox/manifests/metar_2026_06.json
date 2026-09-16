@@ -1,0 +1,16 @@
+{
+  "source": "IEM ASOS archive (METAR)",
+  "endpoint": "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py",
+  "year": 2026,
+  "month": 6,
+  "stations": {
+    "KATL": 9166,
+    "KORD": 9206,
+    "KDFW": 9138,
+    "KDEN": 9149,
+    "KLAX": 9137
+  },
+  "rows_loaded": 45796,
+  "license": "US NWS public domain (IEM: polite use + attribution)",
+  "loaded_at": "2026-09-15T17:24:46+00:00"
+}

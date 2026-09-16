@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- We bind-mount config.d read-only, which shadows the official image's docker_related_config.xml
+     that normally sets listen_host to all interfaces. Without this, ClickHouse listens only on the
+     container's 127.0.0.1 and the host's mapped port gets connection-reset. Restore it. -->
+<clickhouse>
+    <listen_host>0.0.0.0</listen_host>
+</clickhouse>

@@ -1,0 +1,2 @@
+# Bulk raw data is never committed (ADR-003 licensing discipline: manifests yes, bulk no).
+.data/

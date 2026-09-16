@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "label": "ts-fix",
+    "model": "ornith",
+    "base_url": "http://localhost:18080",
+    "think": false,
+    "timestamp": "2026-09-15T21:48:27",
+    "n": 1
+  },
+  "results": [
+    {
+      "id": "da_ts_delay",
+      "category": "da",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "steps": 6,
+      "tool_calls": 6,
+      "answer": {
+        "ts_day_avg": 32.5,
+        "non_ts_day_avg": 19.7
+      },
+      "trajectory": [
+        {
+          "role": "system",
+          "content": "You are a data engineer/analyst operating a real aviation data warehouse (ClickHouse) to complete a task. Tools: run_sql (one ClickHouse statement), run_python (analysis container with pandas/numpy/sklearn/clickhouse_connect), finish (end the task).\n\nYour scratch database is `prob_da_ts_delay` and is the DEFAULT for run_sql, so `CREATE TABLE t ...` lands there. Shared data is in `aviation.*` \u2014 always query it fully-qualified. Work step by step: inspect, compute, and produce EXACTLY the deliverable asked for, then call finish (pass the value in `answer` if the task asks a question). You have a limited number of steps, so be efficient. Keep each run_python call to one focused, self-contained script; if a step would need a very long code block, split it across calls \u2014 over-long tool arguments can be truncated.\n\nWarehouse schema (shared database `aviation`):\n- aviation.flights \u2014 one row per US flight, June 2026. Columns include:\n    FlightDate (Date), Reporting_Airline (String), Origin (String, IATA), Dest (String, IATA),\n    DepDelayMinutes (Float, dep delay minutes; NULL when cancelled), ArrDelayMinutes (Float),\n    Cancelled (UInt8 0/1), Diverted (UInt8 0/1), Distance (Float miles),\n    CarrierDelay/WeatherDelay/NASDelay/SecurityDelay/LateAircraftDelay (Float minutes).\n- aviation.metar \u2014 raw METAR obs, June 2026, hub airports. Columns:\n    station (String, ICAO e.g. 'KORD'), valid_utc (DateTime UTC), raw (String, raw METAR text).\n- aviation.airports \u2014 dimension: iata (String), icao (String), name (String).\n    Join flights.Origin/Dest (IATA) -> airports.iata; airports.icao -> metar/taf.station.\n- aviation.taf \u2014 TAF forecasts for the hubs, June 2026, ONE ROW PER FORECAST PERIOD. Columns:\n    station (ICAO), issued (DateTime, bulletin issue time), fx_from/fx_to (DateTime, the period),\n    ftype ('Observation'|'Forecast'), is_tempo/is_amendment (UInt8), sknt/drct/gust (Float, wind),\n    visibility (Float, SM), skyc/skyl (text lists), raw (change-group text), product_id (bulletin).\n    count(DISTINCT product_id) = number of TAF bulletins (a bulletin spans many rows).\n- aviation.notam \u2014 DEEL-AI NOTAM classification corpus. Columns: text (NOTAM E-field), label_id\n    (0-12), category (class name), split ('train'|'test'), source. STATIC ~2024 corpus, NOT\n    date-aligned and with no airport/time key \u2014 use for NOTAM text/classification, not joins."
+        },
+        {
+          "role": "user",
+          "content": "At ORD in June 2026, compare average departure delay on thunderstorm days vs other days.\n\nDefinitions:\n  - A \"thunderstorm day\" is a UTC calendar date on which at least one KORD METAR\n    (aviation.metar, station 'KORD') has raw text CONTAINING the substring 'TS'.\n  - Consider ORD departures that actually departed (aviation.flights, Origin = 'ORD',\n    Cancelled = 0); a flight's day is its FlightDate.\n\nCompute avg(DepDelayMinutes) for ORD departures whose FlightDate is a thunderstorm day, and for\nthose whose FlightDate is NOT, each rounded to 1 decimal. Call finish with a JSON object:\n{\"ts_day_avg\": <number>, \"non_ts_day_avg\": <number>}.\n"
+        },
+        {
+          "role": "assistant",
+          "content": "I'll solve this step by step. First, let me identify the thunderstorm days at KORD.\n\n",
+          "tool_calls": [
+            {
+              "id": "5L8tS23wFkdznP8yql3xrkMgx1aQ6QRM",
+              "type": "function",
+              "function": {
+                "name": "run_sql",
+                "arguments": "{\"query\": \"SELECT CAST(valid_utc AS DATE) AS utc_date FROM aviation.metar WHERE station='KORD' AND raw LIKE '%TS%'\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "5L8tS23wFkdznP8yql3xrkMgx1aQ6QRM",
+          "content": "utc_date\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-06\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-08\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-10\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-11\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-12\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n2026-06-14\n... [243 rows total, showing 200]"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "6fkVV2XJ6uYWaojv5NB60NMLbDb2okWB",
+              "type": "function",
+              "function": {
+                "name": "run_sql",
+                "arguments": "{\"query\": \"SELECT DISTINCT CAST(valid_utc AS DATE) AS utc_date FROM aviation.metar WHERE station='KORD' AND raw LIKE '%TS%' ORDER BY utc_date\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "6fkVV2XJ6uYWaojv5NB60NMLbDb2okWB",
+          "content": "utc_date\n2026-06-06\n2026-06-08\n2026-06-10\n2026-06-11\n2026-06-12\n2026-06-14\n2026-06-24\n2026-06-25"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "SyuXVPqDbViY6TqvtGJeUX8RFrpC2Lut",
+              "type": "function",
+              "function": {
+                "name": "run_sql",
+                "arguments": "{\"query\": \"SELECT round(avgIf(DepDelayMinutes, FlightDate IN (SELECT DISTINCT CAST(valid_utc AS DATE) FROM aviation.metar WHERE station='KORD' AND raw LIKE '%TS%')), 1) AS ts_day_avg, round(avgIf(DepDelayMinutes, FlightDate NOT IN (SELECT DISTINCT CAST(valid_utc AS DATE) FROM aviation.metar WHERE station='KORD' AND raw LIKE '%TS%')), 1) AS non_ts_day_avg FROM aviation.flights WHERE Origin='ORD' AND Cancelled=0\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "SyuXVPqDbViY6TqvtGJeUX8RFrpC2Lut",
+          "content": "ts_day_avg | non_ts_day_avg\n32.5 | 19.7"
+        },
+        {
+          "role": "assistant",
+          "content": "The query returned the results. Let me verify the thunderstorm days are correct and the computation is sound.\n\n",
+          "tool_calls": [
+            {
+              "id": "gtljWxCQcVkbeUXiiPxkUiIqJYi5PgiP",
+              "type": "function",
+              "function": {
+                "name": "run_sql",
+                "arguments": "{\"query\": \"SELECT count() AS n_ts, round(avg(DepDelayMinutes),1) AS ts_avg FROM aviation.flights WHERE Origin='ORD' AND Cancelled=0 AND FlightDate IN ('2026-06-06','2026-06-08','2026-06-10','2026-06-11','2026-06-12','2026-06-14','2026-06-24','2026-06-25')\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "gtljWxCQcVkbeUXiiPxkUiIqJYi5PgiP",
+          "content": "n_ts | ts_avg\n7550 | 32.5"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "SFmiX903AEtDKmtIUCuLPTStEb0nfzkz",
+              "type": "function",
+              "function": {
+                "name": "run_sql",
+                "arguments": "{\"query\": \"SELECT count() AS n_non, round(avg(DepDelayMinutes),1) AS non_avg FROM aviation.flights WHERE Origin='ORD' AND Cancelled=0 AND FlightDate NOT IN ('2026-06-06','2026-06-08','2026-06-10','2026-06-11','2026-06-12','2026-06-14','2026-06-24','2026-06-25')\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "tool_call_id": "SFmiX903AEtDKmtIUCuLPTStEb0nfzkz",
+          "content": "n_non | non_avg\n22823 | 19.7"
+        },
+        {
+          "role": "assistant",
+          "content": "Both computations confirmed. The thunderstorm days (June 2026) at KORD are: 06-06, 06-08, 06-10, 06-11, 06-12, 06-14, 06-24, 06-25.\n\n- Thunderstorm days: 7,550 ORD departures, avg delay = 32.5 min\n- Non-thunderstorm days: 22,823 ORD departures, avg delay = 19.7 min\n\n",
+          "tool_calls": [
+            {
+              "id": "IVWIqQabTcXN5Lx8ZuAcS8ayTlwBh5Tf",
+              "type": "function",
+              "function": {
+                "name": "finish",
+                "arguments": "{\"answer\": {\"ts_day_avg\": 32.5, \"non_ts_day_avg\": 19.7}}"
+              }
+            }
+          ]
+        }
+      ],
+      "latency_s": 17.9
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+# dsbench v2 agentic sandbox (ADR-003). Runs on the Mac via `docker compose`.
+# Phase 1: clickhouse + workspace. Phase 2 adds airflow + mlflow (see ADR-003 §1).
+#
+# Bring up:   docker compose up -d clickhouse         # warehouse only (this phase)
+#             docker compose up -d --build workspace   # + python workspace (agent's hands)
+# Verify:     docker compose exec clickhouse clickhouse-client -u avbench --password avbench -q "SELECT version()"
+# Teardown:   docker compose down            (add -v to also wipe the data volume)
+name: dsbench-sandbox
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: avbench-clickhouse
+    environment:
+      CLICKHOUSE_DB: aviation
+      CLICKHOUSE_USER: avbench
+      CLICKHOUSE_PASSWORD: avbench
+      # let the app user create databases/tables (per-problem namespaces, ADR-003 §3)
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "127.0.0.1:8123:8123"   # HTTP interface (clickhouse-connect / curl)
+      - "127.0.0.1:9000:9000"   # native protocol
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    mem_limit: 6g               # polite citizen next to the model tunnel + Airflow/MLflow later
+    volumes:
+      - ch-data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - ./clickhouse/config.d:/etc/clickhouse-server/config.d:ro
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "-u", "avbench", "--password", "avbench", "-q", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    networks: [avnet]
+
+  # The agent's `run_python` executes HERE, never on the host (ADR-003 §1, security).
+  # Only started when we build the harness; ClickHouse alone is enough for the first bring-up.
+  workspace:
+    build: ./workspace
+    container_name: avbench-workspace
+    depends_on:
+      clickhouse: { condition: service_healthy }
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_USER: avbench
+      CLICKHOUSE_PASSWORD: avbench
+      CLICKHOUSE_DB: aviation
+      MLFLOW_TRACKING_URI: http://mlflow:5000   # live in Phase 2
+    volumes:
+      - ../../..:/repo          # the aviai repo: ingest scripts, avtext data reuse, agent files, dags/
+    working_dir: /repo/projects/dsbench/sandbox
+    command: ["sleep", "infinity"]
+    networks: [avnet]
+
+volumes:
+  ch-data:
+
+networks:
+  avnet:
+    name: avnet

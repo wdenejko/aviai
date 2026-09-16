@@ -1,0 +1,24 @@
+{
+  "source": "IEM TAF archive",
+  "endpoint": "https://mesonet.agron.iastate.edu/cgi-bin/request/taf.py",
+  "year": 2026,
+  "month": 6,
+  "periods_per_station": {
+    "KATL": 1900,
+    "KORD": 1507,
+    "KDFW": 1208,
+    "KDEN": 2737,
+    "KLAX": 1708
+  },
+  "bulletins_per_station": {
+    "KATL": 380,
+    "KORD": 296,
+    "KDFW": 290,
+    "KDEN": 356,
+    "KLAX": 296
+  },
+  "rows_loaded": 9060,
+  "license": "US NWS public domain (IEM: polite use + attribution)",
+  "note": "one row per forecast period; count(DISTINCT product_id) = number of TAF bulletins",
+  "loaded_at": "2026-09-15T18:04:27+00:00"
+}

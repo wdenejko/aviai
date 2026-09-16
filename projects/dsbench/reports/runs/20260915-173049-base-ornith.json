@@ -1,0 +1,211 @@
+{
+  "meta": {
+    "label": "base-ornith",
+    "model": "ornith-1.5-q8",
+    "base_url": "http://localhost:18080",
+    "timestamp": "2026-09-15T17:30:49",
+    "temperature": 0.0,
+    "k": 1,
+    "n": 18
+  },
+  "results": [
+    {
+      "id": "da_easy_01",
+      "category": "da",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "def solve(df):\n    return df.groupby('group')['score'].mean().to_dict()",
+      "raw_response": "```python\ndef solve(df):\n    return df.groupby('group')['score'].mean().to_dict()\n```",
+      "latency_s": 6.861716985702515
+    },
+    {
+      "id": "da_easy_02",
+      "category": "da",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\n\n\ndef solve(df: pd.DataFrame) -> int:\n    mask = (df[\"amount\"] > 100) & (df[\"status\"] == \"active\")\n    return int(mask.sum())",
+      "raw_response": "```python\nimport pandas as pd\n\n\ndef solve(df: pd.DataFrame) -> int:\n    mask = (df[\"amount\"] > 100) & (df[\"status\"] == \"active\")\n    return int(mask.sum())\n```",
+      "latency_s": 4.133618116378784
+    },
+    {
+      "id": "da_hard_01",
+      "category": "da",
+      "difficulty": "hard",
+      "passed": false,
+      "status": "no_code",
+      "reason": "no code block found in the response",
+      "extracted_code": "",
+      "raw_response": "",
+      "latency_s": 175.3768491744995
+    },
+    {
+      "id": "da_hard_02",
+      "category": "da",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\n\ndef solve(users, events):\n    # Total number of users per signup cohort\n    cohort_sizes = users.groupby('signup_month')['user_id'].nunique().reset_index()\n    cohort_sizes.columns = ['signup_month', 'total_users']\n\n    # Attach each user's signup_month to their events\n    ev = events.merge(users, on='user_id', how='left')\n\n    # Users in a cohort who were active in signup_month + 1\n    active_m1 = ev[ev['active_month'] == ev['signup_month'] + 1]\n    active_users = active_m1.groupby('signup_month')['user_id'].nunique().reset_index()\n    active_users.columns = ['signup_month', 'active_m1']\n\n    # Combine and compute retention\n    result = cohort_sizes.merge(active_users, on='signup_month', how='left')\n    result['active_m1'] = result['active_m1'].fillna(0)\n    result['retention_m1'] = result['active_m1'] / result['total_users']\n\n    return result[['signup_month', 'retention_m1']]",
+      "raw_response": "```python\nimport pandas as pd\n\ndef solve(users, events):\n    # Total number of users per signup cohort\n    cohort_sizes = users.groupby('signup_month')['user_id'].nunique().reset_index()\n    cohort_sizes.columns = ['signup_month', 'total_users']\n\n    # Attach each user's signup_month to their events\n    ev = events.merge(users, on='user_id', how='left')\n\n    # Users in a cohort who were active in signup_month + 1\n    active_m1 = ev[ev['active_month'] == ev['signup_month'] + 1]\n    active_users = active_m1.groupby('signup_month')['user_id'].nunique().reset_index()\n    active_users.columns = ['signup_month', 'active_m1']\n\n    # Combine and compute retention\n    result = cohort_sizes.merge(active_users, on='signup_month', how='left')\n    result['active_m1'] = result['active_m1'].fillna(0)\n    result['retention_m1'] = result['active_m1'] / result['total_users']\n\n    return result[['signup_month', 'retention_m1']]\n```",
+      "latency_s": 66.08579301834106
+    },
+    {
+      "id": "da_medium_01",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\n\ndef solve(users):\n    result = (\n        users.groupby('cohort', as_index=False)['converted']\n        .mean()\n        .rename(columns={'converted': 'conversion_rate'})\n    )\n    return result",
+      "raw_response": "```python\nimport pandas as pd\n\ndef solve(users):\n    result = (\n        users.groupby('cohort', as_index=False)['converted']\n        .mean()\n        .rename(columns={'converted': 'conversion_rate'})\n    )\n    return result\n```",
+      "latency_s": 7.65645694732666
+    },
+    {
+      "id": "da_medium_02",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "def solve(orders, customers):\n    merged = orders.merge(customers, on='customer_id', how='inner')\n    result = merged.groupby('country', as_index=False)['amount'].sum()\n    return result.rename(columns={'amount': 'total'})",
+      "raw_response": "```python\ndef solve(orders, customers):\n    merged = orders.merge(customers, on='customer_id', how='inner')\n    result = merged.groupby('country', as_index=False)['amount'].sum()\n    return result.rename(columns={'amount': 'total'})\n```",
+      "latency_s": 14.153761625289917
+    },
+    {
+      "id": "de_easy_01",
+      "category": "de",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "SELECT category, SUM(amount) AS total_amount\nFROM orders\nGROUP BY category\nORDER BY total_amount DESC;",
+      "raw_response": "```sql\nSELECT category, SUM(amount) AS total_amount\nFROM orders\nGROUP BY category\nORDER BY total_amount DESC;\n```",
+      "latency_s": 3.8766560554504395
+    },
+    {
+      "id": "de_easy_02",
+      "category": "de",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\n\ndef solve(events):\n    return (\n        events.sort_values('ts', ascending=False)\n              .drop_duplicates(subset='user_id', keep='first')\n              .reset_index(drop=True)\n    )",
+      "raw_response": "```python\nimport pandas as pd\n\ndef solve(events):\n    return (\n        events.sort_values('ts', ascending=False)\n              .drop_duplicates(subset='user_id', keep='first')\n              .reset_index(drop=True)\n    )\n```",
+      "latency_s": 14.55652403831482
+    },
+    {
+      "id": "de_hard_01",
+      "category": "de",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "WITH flagged AS (\n  SELECT \n    user_id,\n    ts,\n    CASE \n      WHEN LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) IS NULL THEN 1\n      WHEN ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) > INTERVAL '30' MINUTE THEN 1\n      ELSE 0 \n    END AS is_new_session\n  FROM events\n)\nSELECT \n  user_id,\n  ts,\n  SUM(is_new_session) OVER (\n    PARTITION BY user_id \n    ORDER BY ts \n    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n  ) AS session_id\nFROM flagged\nORDER BY user_id, ts;",
+      "raw_response": "```sql\nWITH flagged AS (\n  SELECT \n    user_id,\n    ts,\n    CASE \n      WHEN LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) IS NULL THEN 1\n      WHEN ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) > INTERVAL '30' MINUTE THEN 1\n      ELSE 0 \n    END AS is_new_session\n  FROM events\n)\nSELECT \n  user_id,\n  ts,\n  SUM(is_new_session) OVER (\n    PARTITION BY user_id \n    ORDER BY ts \n    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n  ) AS session_id\nFROM flagged\nORDER BY user_id, ts;\n```",
+      "latency_s": 85.99574112892151
+    },
+    {
+      "id": "de_hard_02",
+      "category": "de",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\n\ndef solve(current, updates):\n    merged = pd.concat([current, updates], ignore_index=True)\n    # For each id, find the index of the row with the largest updated_at\n    idx = merged.groupby('id')['updated_at'].idxmax()\n    # Keep those rows, sort by id, and enforce column order\n    result = merged.loc[idx].sort_values('id').reset_index(drop=True)\n    return result[['id', 'name', 'value', 'updated_at']]",
+      "raw_response": "Looking at this problem, I need to:\n\n1. Combine both DataFrames\n2. For each `id`, keep the row with the largest `updated_at`\n3. Keep ids present in only one frame (naturally handled by concatenation)\n4. Sort by `id` and return the specified columns\n\nThe cleanest approach is to concatenate, then use `groupby('id')['updated_at'].idxmax()` to find the index of the newest row per id.\n\n```python\nimport pandas as pd\n\ndef solve(current, updates):\n    merged = pd.concat([current, updates], ignore_index=True)\n    # For each id, find the index of the row with the largest updated_at\n    idx = merged.groupby('id')['updated_at'].idxmax()\n    # Keep those rows, sort by id, and enforce column order\n    result = merged.loc[idx].sort_values('id').reset_index(drop=True)\n    return result[['id', 'name', 'value', 'updated_at']]\n```\n\n**How it works:**\n- `pd.concat` stacks both frames, so ids unique to either frame are preserved.\n- `groupby('id')['updated_at'].idxmax()` returns the positional index of the maximum `updated_at` within each id group \u2014 this is the \"newest wins\" rule.\n- `merged.loc[idx]` selects exactly those winning rows.\n- Sorting by `id` and reordering columns gives the required output.\n\nThis handles ties deterministically (first occurrence wins via `idxmax`), works whether `updated_at` is a datetime or ISO-formatted string, and gracefully handles empty frames.",
+      "latency_s": 71.76974105834961
+    },
+    {
+      "id": "de_medium_01",
+      "category": "de",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "WITH ranked AS (\n  SELECT\n    category,\n    product,\n    revenue,\n    ROW_NUMBER() OVER (\n      PARTITION BY category\n      ORDER BY revenue DESC, product ASC\n    ) AS rn\n  FROM sales\n)\nSELECT category, product, revenue\nFROM ranked\nWHERE rn <= 2\nORDER BY category, revenue DESC, product ASC;",
+      "raw_response": "```sql\nWITH ranked AS (\n  SELECT\n    category,\n    product,\n    revenue,\n    ROW_NUMBER() OVER (\n      PARTITION BY category\n      ORDER BY revenue DESC, product ASC\n    ) AS rn\n  FROM sales\n)\nSELECT category, product, revenue\nFROM ranked\nWHERE rn <= 2\nORDER BY category, revenue DESC, product ASC;\n```",
+      "latency_s": 13.957452774047852
+    },
+    {
+      "id": "de_medium_02",
+      "category": "de",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\nimport numpy as np\n\n\ndef solve(raw):\n    df = raw.copy()\n\n    # Parse dates that may be in \"YYYY-MM-DD\" or \"MM/DD/YYYY\" format\n    try:\n        df['date'] = pd.to_datetime(df['date'], format='mixed', errors='coerce')\n    except (ValueError, TypeError):\n        df['date'] = pd.to_datetime(df['date'], errors='coerce')\n\n    # Strip \"$\" and \",\", turn \"NA\" into NaN, then cast to float\n    df['amount'] = (\n        df['amount']\n        .astype(str)\n        .str.replace(r'[$,]', '', regex=True)\n        .str.strip()\n        .replace('NA', np.nan)\n    )\n    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')\n\n    # Lowercase and strip surrounding whitespace\n    df['category'] = df['category'].astype(str).str.strip().str.lower()\n\n    return df",
+      "raw_response": "```python\nimport pandas as pd\nimport numpy as np\n\n\ndef solve(raw):\n    df = raw.copy()\n\n    # Parse dates that may be in \"YYYY-MM-DD\" or \"MM/DD/YYYY\" format\n    try:\n        df['date'] = pd.to_datetime(df['date'], format='mixed', errors='coerce')\n    except (ValueError, TypeError):\n        df['date'] = pd.to_datetime(df['date'], errors='coerce')\n\n    # Strip \"$\" and \",\", turn \"NA\" into NaN, then cast to float\n    df['amount'] = (\n        df['amount']\n        .astype(str)\n        .str.replace(r'[$,]', '', regex=True)\n        .str.strip()\n        .replace('NA', np.nan)\n    )\n    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')\n\n    # Lowercase and strip surrounding whitespace\n    df['category'] = df['category'].astype(str).str.strip().str.lower()\n\n    return df\n```",
+      "latency_s": 99.05488586425781
+    },
+    {
+      "id": "ds_easy_01",
+      "category": "ds",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "def solve(df):\n    return float(df['x'].corr(df['y']))",
+      "raw_response": "```python\ndef solve(df):\n    return float(df['x'].corr(df['y']))\n```",
+      "latency_s": 5.074042081832886
+    },
+    {
+      "id": "ds_easy_02",
+      "category": "ds",
+      "difficulty": "easy",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import numpy as np\n\ndef solve(df):\n    x = df['x'].values\n    y = df['y'].values\n    slope, _ = np.polyfit(x, y, 1)\n    return float(slope)",
+      "raw_response": "```python\nimport numpy as np\n\ndef solve(df):\n    x = df['x'].values\n    y = df['y'].values\n    slope, _ = np.polyfit(x, y, 1)\n    return float(slope)\n```",
+      "latency_s": 9.465605020523071
+    },
+    {
+      "id": "ds_hard_01",
+      "category": "ds",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.impute import SimpleImputer\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\n\n\ndef solve(df):\n    feature_cols = [\"f1\", \"f2\"]\n    X = df[feature_cols]\n    y = df[\"label\"]\n\n    pipeline = Pipeline(\n        steps=[\n            (\"imputer\", SimpleImputer(strategy=\"mean\")),\n            (\"scaler\", StandardScaler()),\n            (\"classifier\", LogisticRegression(max_iter=1000)),\n        ]\n    )\n\n    scores = cross_val_score(pipeline, X, y, cv=5, scoring=\"accuracy\")\n    return float(scores.mean())",
+      "raw_response": "```python\nimport pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.impute import SimpleImputer\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import cross_val_score\n\n\ndef solve(df):\n    feature_cols = [\"f1\", \"f2\"]\n    X = df[feature_cols]\n    y = df[\"label\"]\n\n    pipeline = Pipeline(\n        steps=[\n            (\"imputer\", SimpleImputer(strategy=\"mean\")),\n            (\"scaler\", StandardScaler()),\n            (\"classifier\", LogisticRegression(max_iter=1000)),\n        ]\n    )\n\n    scores = cross_val_score(pipeline, X, y, cv=5, scoring=\"accuracy\")\n    return float(scores.mean())\n```",
+      "latency_s": 24.252923250198364
+    },
+    {
+      "id": "ds_hard_02",
+      "category": "ds",
+      "difficulty": "hard",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import numpy as np\nimport pandas as pd\n\n\ndef solve(df):\n    y = df['y_true'].to_numpy()\n    s = df['score'].to_numpy()\n\n    n_pos = int(np.sum(y == 1))\n    n_neg = int(np.sum(y == 0))\n\n    if n_pos == 0 or n_neg == 0:\n        return float('nan')\n\n    # ROC AUC == Mann-Whitney U statistic, computed via average ranks (handles ties)\n    ranks = pd.Series(s).rank(method='average').to_numpy()\n\n    sum_ranks_pos = np.sum(ranks[y == 1])\n    auc = (sum_ranks_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)\n\n    return float(auc)",
+      "raw_response": "```python\nimport numpy as np\nimport pandas as pd\n\n\ndef solve(df):\n    y = df['y_true'].to_numpy()\n    s = df['score'].to_numpy()\n\n    n_pos = int(np.sum(y == 1))\n    n_neg = int(np.sum(y == 0))\n\n    if n_pos == 0 or n_neg == 0:\n        return float('nan')\n\n    # ROC AUC == Mann-Whitney U statistic, computed via average ranks (handles ties)\n    ranks = pd.Series(s).rank(method='average').to_numpy()\n\n    sum_ranks_pos = np.sum(ranks[y == 1])\n    auc = (sum_ranks_pos - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)\n\n    return float(auc)\n```",
+      "latency_s": 36.59045600891113
+    },
+    {
+      "id": "ds_medium_01",
+      "category": "ds",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score\n\n\ndef solve(df):\n    feature_cols = [c for c in df.columns if c != \"label\"]\n    X = df[feature_cols]\n    y = df[\"label\"]\n\n    X_train, X_test, y_train, y_test = train_test_split(\n        X, y, test_size=0.25, random_state=42\n    )\n\n    clf = LogisticRegression(max_iter=1000)\n    clf.fit(X_train, y_train)\n\n    preds = clf.predict(X_test)\n    return float(accuracy_score(y_test, preds))",
+      "raw_response": "```python\nimport pandas as pd\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score\n\n\ndef solve(df):\n    feature_cols = [c for c in df.columns if c != \"label\"]\n    X = df[feature_cols]\n    y = df[\"label\"]\n\n    X_train, X_test, y_train, y_test = train_test_split(\n        X, y, test_size=0.25, random_state=42\n    )\n\n    clf = LogisticRegression(max_iter=1000)\n    clf.fit(X_train, y_train)\n\n    preds = clf.predict(X_test)\n    return float(accuracy_score(y_test, preds))\n```",
+      "latency_s": 11.042024850845337
+    },
+    {
+      "id": "ds_medium_02",
+      "category": "ds",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import numpy as np\n\ndef solve(df):\n    y_true = df['y_true'].values\n    y_pred = df['y_pred'].values\n\n    tp = np.sum((y_true == 1) & (y_pred == 1))\n    fp = np.sum((y_true == 0) & (y_pred == 1))\n    fn = np.sum((y_true == 1) & (y_pred == 0))\n\n    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0\n    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0\n    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0\n\n    return {\"precision\": precision, \"recall\": recall, \"f1\": f1}",
+      "raw_response": "```python\nimport numpy as np\n\ndef solve(df):\n    y_true = df['y_true'].values\n    y_pred = df['y_pred'].values\n\n    tp = np.sum((y_true == 1) & (y_pred == 1))\n    fp = np.sum((y_true == 0) & (y_pred == 1))\n    fn = np.sum((y_true == 1) & (y_pred == 0))\n\n    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0\n    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0\n    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0\n\n    return {\"precision\": precision, \"recall\": recall, \"f1\": f1}\n```",
+      "latency_s": 29.124300003051758
+    }
+  ]
+}

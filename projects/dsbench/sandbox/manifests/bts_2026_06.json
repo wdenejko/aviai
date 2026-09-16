@@ -1,0 +1,13 @@
+{
+  "source": "BTS Reporting Carrier On-Time Performance",
+  "url": "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2026_6.zip",
+  "year": 2026,
+  "month": 6,
+  "csv": "On_Time_Reporting_Carrier_On_Time_Performance_(1987_present)_2026_6.csv",
+  "sha256": "acd9d03e223e079e54b77065015f0ce9b6de92f1f46148048600cc9813a47a6e",
+  "zip_bytes": 31606062,
+  "rows_parsed": 607577,
+  "rows_loaded": 607577,
+  "license": "US government public domain",
+  "loaded_at": "2026-09-15T17:21:07+00:00"
+}

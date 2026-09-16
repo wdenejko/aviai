@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!-- Keep ClickHouse a polite citizen on a laptop that is also holding the model tunnel
+     and (Phase 2) Airflow + MLflow. Cap server memory well under the compose mem_limit. -->
+<clickhouse>
+    <max_server_memory_usage>4000000000</max_server_memory_usage>   <!-- 4 GB -->
+    <mark_cache_size>536870912</mark_cache_size>                    <!-- 512 MB -->
+    <max_concurrent_queries>16</max_concurrent_queries>
+</clickhouse>

@@ -1,0 +1,38 @@
+{
+  "source": "DEEL-AI/NOTAM (HuggingFace)",
+  "license": "MIT (publishable, with attribution)",
+  "task": "single-label classification into 13 NOTAM classes",
+  "classes": {
+    "Airspaces": 0,
+    "Communication_and_Radar": 1,
+    "GPS": 2,
+    "Landing_Navaids": 3,
+    "Obstacles": 4,
+    "Parking": 5,
+    "Procedure": 6,
+    "Runway": 7,
+    "Services_and_Facilities": 8,
+    "Signs_and_Lights": 9,
+    "Taxiway": 10,
+    "Terminal_or_Enroute_Navaids": 11,
+    "Wildlife": 12
+  },
+  "rows_loaded": 8478,
+  "by_category": {
+    "Landing_Navaids": 1558,
+    "Airspaces": 1058,
+    "Runway": 831,
+    "Taxiway": 737,
+    "Obstacles": 678,
+    "GPS": 664,
+    "Services_and_Facilities": 470,
+    "Communication_and_Radar": 447,
+    "Procedure": 433,
+    "Signs_and_Lights": 408,
+    "Parking": 402,
+    "Wildlife": 398,
+    "Terminal_or_Enroute_Navaids": 394
+  },
+  "caveat": "static ~2024 corpus; NOT date-aligned to the flights/weather month; no airport/time keys",
+  "loaded_at": "2026-09-15T18:04:28+00:00"
+}

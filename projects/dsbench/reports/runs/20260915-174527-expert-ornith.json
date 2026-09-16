@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "label": "expert-ornith",
+    "model": "ornith-1.5-q8",
+    "base_url": "http://localhost:18080",
+    "timestamp": "2026-09-15T17:45:27",
+    "temperature": 0.0,
+    "k": 1,
+    "n": 3
+  },
+  "results": [
+    {
+      "id": "da_expert_01",
+      "category": "da",
+      "difficulty": "expert",
+      "passed": false,
+      "status": "no_code",
+      "reason": "no code block found in the response",
+      "extracted_code": "",
+      "raw_response": "",
+      "latency_s": 183.1354079246521
+    },
+    {
+      "id": "de_expert_01",
+      "category": "de",
+      "difficulty": "expert",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "WITH ranked AS (\n  SELECT\n    s.product,\n    s.qty,\n    p.price,\n    ROW_NUMBER() OVER (PARTITION BY s.sale_id ORDER BY p.effective_from DESC) AS rn\n  FROM sales s\n  JOIN price_history p\n    ON s.product = p.product\n   AND p.effective_from <= s.ts\n)\nSELECT\n  product,\n  SUM(qty * price) AS revenue\nFROM ranked\nWHERE rn = 1\nGROUP BY product;",
+      "raw_response": "## Approach\n\nFor each sale, I need to find the latest price whose `effective_from` is `<=` the sale's `ts`. The cleanest way is to:\n\n1. **Join** sales to `price_history` on matching product where `effective_from <= ts`. This automatically excludes sales whose `ts` precedes the product's earliest effective_from (no matching rows \u2192 excluded).\n2. **Rank** the matched prices per sale by `effective_from DESC`, keeping only the latest (`rn = 1`).\n3. **Aggregate** `qty * price` per product.\n\n```sql\nWITH ranked AS (\n  SELECT\n    s.product,\n    s.qty,\n    p.price,\n    ROW_NUMBER() OVER (PARTITION BY s.sale_id ORDER BY p.effective_from DESC) AS rn\n  FROM sales s\n  JOIN price_history p\n    ON s.product = p.product\n   AND p.effective_from <= s.ts\n)\nSELECT\n  product,\n  SUM(qty * price) AS revenue\nFROM ranked\nWHERE rn = 1\nGROUP BY product;\n```\n\n**Why this works:**\n- The `JOIN` condition `p.effective_from <= s.ts` ensures only prices already in effect at sale time are candidates, and any sale before a product's earliest price yields no rows (naturally excluded).\n- `ROW_NUMBER() ... ORDER BY effective_from DESC` selects the *latest* applicable price per sale.\n- Filtering `rn = 1` gives exactly one price per sale, then `SUM(qty * price)` grouped by product produces the required revenue.",
+      "latency_s": 68.20393419265747
+    },
+    {
+      "id": "ds_expert_01",
+      "category": "ds",
+      "difficulty": "expert",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.model_selection import GroupKFold, cross_val_score\n\n\ndef solve(df):\n    X = df[['f1', 'f2']]\n    y = df['label']\n    groups = df['entity']\n\n    pipeline = Pipeline([\n        ('scaler', StandardScaler()),\n        ('knn', KNeighborsClassifier(n_neighbors=5)),\n    ])\n\n    gkf = GroupKFold(n_splits=5)\n    scores = cross_val_score(pipeline, X, y, groups=groups, cv=gkf, scoring='accuracy')\n\n    return float(scores.mean())",
+      "raw_response": "```python\nimport pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.model_selection import GroupKFold, cross_val_score\n\n\ndef solve(df):\n    X = df[['f1', 'f2']]\n    y = df['label']\n    groups = df['entity']\n\n    pipeline = Pipeline([\n        ('scaler', StandardScaler()),\n        ('knn', KNeighborsClassifier(n_neighbors=5)),\n    ])\n\n    gkf = GroupKFold(n_splits=5)\n    scores = cross_val_score(pipeline, X, y, groups=groups, cv=gkf, scoring='accuracy')\n\n    return float(scores.mean())\n```",
+      "latency_s": 26.991519927978516
+    }
+  ]
+}

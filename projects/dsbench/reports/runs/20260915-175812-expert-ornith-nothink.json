@@ -1,0 +1,48 @@
+{
+  "meta": {
+    "label": "expert-ornith-nothink",
+    "model": "ornith-1.5-q8",
+    "base_url": "http://localhost:18080",
+    "timestamp": "2026-09-15T17:58:12",
+    "temperature": 0.0,
+    "k": 1,
+    "n": 3,
+    "max_tokens": 4096,
+    "no_think": true
+  },
+  "results": [
+    {
+      "id": "da_expert_01",
+      "category": "da",
+      "difficulty": "expert",
+      "passed": false,
+      "status": "error",
+      "reason": "ValueError: Can only compare identically-labeled Series objects",
+      "extracted_code": "import pandas as pd\n\n\ndef solve(df):\n    df = df.sort_values(\"ts\").reset_index(drop=True)\n\n    # First view time per user\n    first_view = (\n        df[df[\"step\"] == \"view\"]\n        .groupby(\"user_id\")[\"ts\"]\n        .min()\n        .rename(\"first_view_ts\")\n    )\n\n    # First cart time per user\n    carts = df[df[\"step\"] == \"cart\"].groupby(\"user_id\")[\"ts\"].min().rename(\"first_cart_ts\")\n\n    # First purchase time per user\n    purchases = (\n        df[df[\"step\"] == \"purchase\"]\n        .groupby(\"user_id\")[\"ts\"]\n        .min()\n        .rename(\"first_purchase_ts\")\n    )\n\n    users_with_view = first_view.index\n\n    n_view = len(users_with_view)\n\n    # Reach cart: has a cart strictly after their first view\n    cart_mask = carts.index.isin(users_with_view) & (carts > first_view)\n    users_reached_cart = set(carts.index[cart_mask])\n\n    # Reach purchase: has a purchase strictly after the first post-view cart\n    # (i.e., the first cart that qualified above)\n    first_qualifying_cart = carts[cart_mask]\n    purchase_mask = purchases.index.isin(users_reached_cart) & (\n        purchases > first_qualifying_cart.loc[purchases.index]\n    )\n    users_reached_purchase = set(purchases.index[purchase_mask])\n\n    n_cart = len(users_reached_cart)\n    n_purchase = len(users_reached_purchase)\n\n    view_to_cart = n_cart / n_view if n_view else 0.0\n    cart_to_purchase = n_purchase / n_cart if n_cart else 0.0\n\n    return {\n        \"n_view\": int(n_view),\n        \"view_to_cart\": float(view_to_cart),\n        \"cart_to_purchase\": float(cart_to_purchase),\n    }",
+      "raw_response": "```python\nimport pandas as pd\n\n\ndef solve(df):\n    df = df.sort_values(\"ts\").reset_index(drop=True)\n\n    # First view time per user\n    first_view = (\n        df[df[\"step\"] == \"view\"]\n        .groupby(\"user_id\")[\"ts\"]\n        .min()\n        .rename(\"first_view_ts\")\n    )\n\n    # First cart time per user\n    carts = df[df[\"step\"] == \"cart\"].groupby(\"user_id\")[\"ts\"].min().rename(\"first_cart_ts\")\n\n    # First purchase time per user\n    purchases = (\n        df[df[\"step\"] == \"purchase\"]\n        .groupby(\"user_id\")[\"ts\"]\n        .min()\n        .rename(\"first_purchase_ts\")\n    )\n\n    users_with_view = first_view.index\n\n    n_view = len(users_with_view)\n\n    # Reach cart: has a cart strictly after their first view\n    cart_mask = carts.index.isin(users_with_view) & (carts > first_view)\n    users_reached_cart = set(carts.index[cart_mask])\n\n    # Reach purchase: has a purchase strictly after the first post-view cart\n    # (i.e., the first cart that qualified above)\n    first_qualifying_cart = carts[cart_mask]\n    purchase_mask = purchases.index.isin(users_reached_cart) & (\n        purchases > first_qualifying_cart.loc[purchases.index]\n    )\n    users_reached_purchase = set(purchases.index[purchase_mask])\n\n    n_cart = len(users_reached_cart)\n    n_purchase = len(users_reached_purchase)\n\n    view_to_cart = n_cart / n_view if n_view else 0.0\n    cart_to_purchase = n_purchase / n_cart if n_cart else 0.0\n\n    return {\n        \"n_view\": int(n_view),\n        \"view_to_cart\": float(view_to_cart),\n        \"cart_to_purchase\": float(cart_to_purchase),\n    }\n```",
+      "latency_s": 12.81668996810913
+    },
+    {
+      "id": "de_expert_01",
+      "category": "de",
+      "difficulty": "expert",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "WITH priced_sales AS (\n    SELECT\n        s.product,\n        s.qty * p.price AS revenue\n    FROM sales s\n    JOIN price_history p\n      ON p.product = s.product\n     AND p.effective_from = (\n        SELECT MAX(e2.effective_from)\n        FROM price_history e2\n        WHERE e2.product = s.product\n          AND e2.effective_from <= s.ts\n     )\n)\nSELECT\n    product,\n    SUM(revenue) AS total_revenue\nFROM priced_sales\nGROUP BY product;",
+      "raw_response": "```sql\nWITH priced_sales AS (\n    SELECT\n        s.product,\n        s.qty * p.price AS revenue\n    FROM sales s\n    JOIN price_history p\n      ON p.product = s.product\n     AND p.effective_from = (\n        SELECT MAX(e2.effective_from)\n        FROM price_history e2\n        WHERE e2.product = s.product\n          AND e2.effective_from <= s.ts\n     )\n)\nSELECT\n    product,\n    SUM(revenue) AS total_revenue\nFROM priced_sales\nGROUP BY product;\n```",
+      "latency_s": 6.255332946777344
+    },
+    {
+      "id": "ds_expert_01",
+      "category": "ds",
+      "difficulty": "expert",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "extracted_code": "import pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.model_selection import GroupKFold, cross_val_score\n\n\ndef solve(df: pd.DataFrame) -> float:\n    features = [\"f1\", \"f2\"]\n    X = df[features]\n    y = df[\"label\"]\n    groups = df[\"entity\"]\n\n    pipeline = Pipeline([\n        (\"scaler\", StandardScaler()),\n        (\"knn\", KNeighborsClassifier(n_neighbors=5)),\n    ])\n\n    kf = GroupKFold(n_splits=5)\n\n    scores = cross_val_score(pipeline, X, y, groups=groups, cv=kf, scoring=\"accuracy\")\n\n    return float(scores.mean())",
+      "raw_response": "```python\nimport pandas as pd\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.model_selection import GroupKFold, cross_val_score\n\n\ndef solve(df: pd.DataFrame) -> float:\n    features = [\"f1\", \"f2\"]\n    X = df[features]\n    y = df[\"label\"]\n    groups = df[\"entity\"]\n\n    pipeline = Pipeline([\n        (\"scaler\", StandardScaler()),\n        (\"knn\", KNeighborsClassifier(n_neighbors=5)),\n    ])\n\n    kf = GroupKFold(n_splits=5)\n\n    scores = cross_val_score(pipeline, X, y, groups=groups, cv=kf, scoring=\"accuracy\")\n\n    return float(scores.mean())\n```",
+      "latency_s": 8.520773887634277
+    }
+  ]
+}
