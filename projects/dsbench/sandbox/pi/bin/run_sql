@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# run_sql — run ONE ClickHouse SQL statement against the aviation sandbox.
+#
+# WHY this exists: the pi agent drives the sandbox through its `bash` tool. Rather than make it
+# learn our docker/network layout, we put two thin wrappers on its PATH that mirror the dsbench v2
+# tools exactly (run_sql / run_python), so the agent sees the same contract the custom harness gave.
+#
+# Shared, read-only data lives in the `aviation` database — query it FULLY-QUALIFIED (e.g.
+# aviation.flights). Your scratch database ($CLICKHOUSE_DB) is the DEFAULT, so unqualified
+# `CREATE TABLE t ...` / `INSERT` land there. Results print as a table; add LIMIT for big sets.
+# ClickHouse errors come back as text (HTTP 500 body) so the agent can read and recover.
+#
+# Usage:  run_sql "SELECT count() FROM aviation.flights"
+#         run_sql < query.sql
+set -euo pipefail
+db="${CLICKHOUSE_DB:-aviation}"
+host="${CLICKHOUSE_HTTP:-http://localhost:8123}"
+q="${*:-}"
+[ -z "$q" ] && q="$(cat)"
+curl -sS "${host}/?user=avbench&password=avbench&database=${db}&default_format=PrettyCompact" \
+  --data-binary "$q"

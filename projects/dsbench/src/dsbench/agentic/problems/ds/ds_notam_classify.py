@@ -69,7 +69,7 @@ Train a text classifier on aviation.notam WHERE split = 'train' (feature: `text`
 `category`), predict the category for every row of notam_test, and write your predictions to a table
 named exactly `notam_pred(id UInt32, predicted String)` in your scratch database — one row per test
 id, `predicted` being one of the 13 category names. You must beat the majority-class baseline by a
-clear margin. Use run_python (pandas + scikit-learn are available). Then call finish.
+clear margin. Use run_python (pandas + scikit-learn are available). That table is the deliverable.
 """
 
 PROBLEM = AgentProblem(

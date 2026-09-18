@@ -37,8 +37,8 @@ def reference(ctx: GradeContext):
 
 PROMPT = """Among the five hub airports (ATL, ORD, DFW, DEN, LAX), which one had the HIGHEST average
 departure delay in June 2026? Use avg(DepDelayMinutes) over flights DEPARTING that airport
-(Origin). Query the warehouse to find out, then call finish with the airport's 3-letter IATA code
-as `answer`.
+(Origin). Query the warehouse to find out, then reply with ONLY the airport's 3-letter
+IATA code (e.g. `ATL`), and nothing else.
 """
 
 from dsbench.agentic.schema import AgentProblem  # noqa: E402

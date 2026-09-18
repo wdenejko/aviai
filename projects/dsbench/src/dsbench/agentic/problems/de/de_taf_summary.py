@@ -59,7 +59,8 @@ PROMPT = """In your scratch database, create a table named exactly `taf_summary`
   - n_periods     (UInt32)  number of TAF forecast-period rows for that airport
 
 One row per hub airport. TAFs are in aviation.taf keyed by ICAO `station`; a bulletin is identified
-by `product_id` and spans multiple rows. Map ICAO->IATA via aviation.airports. Then call finish.
+by `product_id` and spans multiple rows. Map ICAO->IATA via aviation.airports. That table is the
+deliverable.
 """
 
 PROBLEM = AgentProblem(

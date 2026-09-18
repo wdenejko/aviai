@@ -29,6 +29,7 @@ dsbench-selftest = "dsbench.harness.selftest:main"
 # v2 agentic sandbox (ADR-003)
 dsbench-agent-run = "dsbench.agentic.runner:main"
 dsbench-agent-selftest = "dsbench.agentic.selftest:main"
+dsbench-pi-run = "dsbench.agentic.pi_runner:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# run_python — execute Python 3 in the analysis container (avbench-workspace), code read from STDIN.
+#
+# WHY: mirrors the dsbench v2 run_python tool so the pi agent gets the identical contract. Execution
+# happens INSIDE the container (never the host), reusing its data-science stack and network path to
+# ClickHouse (host 'clickhouse' on the avnet docker network).
+#
+# Available: pandas, numpy, scipy, scikit-learn, clickhouse_connect. The CLICKHOUSE_* env is set
+# (incl. CLICKHOUSE_DB = your scratch database), so a client reads/writes your scratch DB by default;
+# query shared data as aviation.* (fully-qualified).
+#
+# Usage:  run_python < script.py
+#         echo 'print(2 + 2)' | run_python
+set -euo pipefail
+# Pass the full ClickHouse connection into the container so the agent's code can connect without
+# guessing. Host is `clickhouse` (the avnet service name) as seen from INSIDE the container — not
+# localhost. Defaults match the sandbox creds; override via env if the compose config changes.
+exec docker exec -i \
+  -e "CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}" \
+  -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}" \
+  -e "CLICKHOUSE_USER=${CLICKHOUSE_USER:-avbench}" \
+  -e "CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-avbench}" \
+  -e "CLICKHOUSE_DB=${CLICKHOUSE_DB:-aviation}" \
+  avbench-workspace python -

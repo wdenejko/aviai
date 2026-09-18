@@ -109,7 +109,7 @@ In your scratch database, create a table named exactly `hub_daily` with these co
 
 One row per (airport, day). Departures come from aviation.flights (Origin is IATA). METARs are in
 aviation.metar keyed by ICAO station; map IATA<->ICAO via aviation.airports; bucket m.valid_utc to
-the calendar day. When the table is built, call finish.
+the calendar day. That table is the deliverable.
 """
 
 from dsbench.agentic.schema import AgentProblem  # noqa: E402

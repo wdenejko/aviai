@@ -38,8 +38,8 @@ def reference(ctx: GradeContext):
 
 PROMPT = """For flights DEPARTING ORD (Origin = 'ORD') in June 2026, which day of the week had the
 highest CANCELLATION RATE — i.e. cancelled flights divided by total flights for that weekday
-(Cancelled is 0/1)? Query the warehouse, then call finish with the weekday NAME
-(Monday, Tuesday, ... Sunday) as `answer`.
+(Cancelled is 0/1)? Query the warehouse, then reply with ONLY the weekday NAME
+(Monday, Tuesday, ... Sunday), and nothing else.
 """
 
 PROBLEM = AgentProblem(

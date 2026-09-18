@@ -1,10 +1,11 @@
 # ADR-003: dsbench v2 — an agentic, real-world aviation data-stack sandbox
 
-- **Status:** Proposed — design for review; Phase 1 (ClickHouse vertical slice) starting immediately after.
-- **Date:** 2026-09-15
+- **Status:** Accepted. Phase 1 (ClickHouse vertical slice) shipped; **Gate 0 v2 baseline established 2026-09-18** via a public harness (see §6). Phase 2 (live Airflow + MLflow) pending.
+- **Date:** 2026-09-15 (baseline addendum 2026-09-18)
 - **Deciders:** Wojtek Denejko (box owner)
-- **Relates to:** ADR-002 (the single-shot dsbench harness this evolves; its execution-verified / paired / oracle-gated methodology carries over), ADR-001 (the fine-tune study these scores gate), `avtext` (reused data collectors and licensing discipline), memory `reference-fork-thinking-eval` (thinking-model eval protocol).
+- **Relates to:** ADR-002 (the single-shot dsbench harness this evolves; its execution-verified / paired / oracle-gated methodology carries over), ADR-001 (the fine-tune study these scores gate), `avtext` (reused data collectors and licensing discipline), memory `reference-fork-thinking-eval` (thinking-model eval protocol), memory `reference-ornith-agentic-behavior` (the baseline finding).
 - **Decisions locked with the owner (2026-09-15):** tool-calling agent loop; **all three services live** (ClickHouse + Airflow + MLflow); first increment = ADR + ClickHouse vertical slice; host = the Mac (agent reaches the served model on dashi via the SSH tunnel).
+- **Decisions locked with the owner (2026-09-18, Gate 0 baseline):** the v2 baseline is measured through a **public agent harness — `pi`, pinned @ 0.84.4** (not our bespoke loop); **thinking ON** for all agentic tests; **k=5** per-problem pass rates (temp-0 thinking is nondeterministic on the fork); grow the set with harder cases. See §6.
 
 ## Context
 
@@ -28,7 +29,7 @@ This is dsbench v2. It does not replace ADR-002's set — that stays as the fast
 - **Oracle gate** (v1's `dsbench-selftest`): a reference solution must reach the graded state before any model is scored. If the reference fails, the bug is in the problem.
 - **Independent expected computation.** The checker recomputes the answer from the raw source a *different* way — never by trusting the agent's output.
 - **Paired, noise-aware comparison** (`dsbench-compare`) and a **fair, discriminating** checker (negative controls) remain the standard.
-- **Thinking-model protocol** (memory `reference-fork-thinking-eval`): the agent model runs **thinking off** (`chat_template_kwargs enable_thinking=false`) at temp 0 for a reproducible, artifact-free loop; the run records the protocol.
+- **Thinking-model protocol** (memory `reference-fork-thinking-eval`): v1 runs **thinking off** at temp 0 for a reproducible, artifact-free loop. **The v2 agentic baseline flips this to thinking ON** (owner's call, 2026-09-18) — agentic coding is a thinking-on use case, and the fork serves it cleanly via `chat_template_kwargs enable_thinking=true`. temp stays 0; the run records the protocol. See §6.
 
 ## Decision
 
@@ -88,6 +89,42 @@ projects/dsbench/src/dsbench/agentic/    # as shipped in Phase 1
   selftest.py                   # dsbench-agent-selftest — oracle gate (references reach graded state)
 ```
 
+### 6. Gate 0 v2 baseline: a public harness (`pi`), thinking on, k=5 (decided 2026-09-18)
+
+The Phase-1 baseline (§action-item 6) was measured through **our own** ReAct loop, and its headline miss
+(`da_hub_delay`) turned out to be an artifact of *that loop's* `finish(answer=)` contract, not the model.
+For a Gate-0 number that is **accurate and portable** — attributable to a mainstream agent and reproducible
+by others — the owner directed three changes:
+
+- **Measure through a public agent harness — [`pi`](https://github.com/badlogic/pi-mono) (`earendil-works/pi`, MIT), pinned @ `0.84.4`.** Native tool-calls (`read`/`bash`/`write`), headless `--print --mode json --no-session`, and a `--thinking` flag. The baseline number is defined as the triple **"model + pi 0.84.4 + thinking level"** — pin all three when quoting a score. (Our `agentic/loop.py` stays as a debugging/inspection instrument, not the scoring path.) `pi` drives the *same* sandbox through thin `sandbox/pi/bin/{run_sql,run_python}` wrappers, and `dsbench-pi-run` (`agentic/pi_runner.py`) orchestrates per-problem runs and grades the end state with the **same independent oracle** — capability misses (`wrong`) are split from tool-reliability failures (`model_error`). Provider config: `~/.pi/agent/models.json` → `dashi-ornith` (baseUrl `http://localhost:18080/v1`, thinkingFormat `qwen-chat-template`, temp 0).
+- **Thinking ON.** Agentic coding is a thinking-on use case; sweeps run `--thinking high`. (Per-request `reasoning_effort` is ignored by the fork — the server is launched `--reasoning-effort medium` — but the chat-template thinking toggle works.)
+- **k=5 per-problem pass rates.** temp-0 **with thinking is not deterministic** on this fork (MoE routing + parallel KV slots), so a single run misreports borderline problems. The baseline reports **passes/k and majority-pass** over k=5. This is the single biggest accuracy improvement over the Phase-1 1/2 number.
+
+**Set grown to 10 (harder cases).** Added `da_delay_deviation` (trailing-7-day window), `de_carrier_ontime` (group + `row_number()` rank), `de_taf_latest` (`argMax` dedup), and two deliberate **ClickHouse-dialect traps** (`da_weekend_delay`, and the existing `da_cancel_dow`) that hinge on the `dayOfWeek`/`toDayOfWeek` ISO convention (1=Monday). All 10 pass the oracle gate (`dsbench-agent-selftest` 10/10). Prompts were made harness-agnostic (no "call finish" wording).
+
+**Reframing — the real fine-tune target is capability, not plumbing.** Under `pi`: `da_hub_delay` passes, **zero** `model_error`s, and the write-heavy `ds_notam_classify` (94% CV) is solid. The Phase-1 "structured-tool-output is the bottleneck" conclusion was a native-`finish` artifact. The residual, *reproducible* weakness is **SQL-dialect capability** — two independent problems isolate the ClickHouse `dayOfWeek` convention as the sharpest miss. This is the movable Gate-2 target for ADR-001.
+
+**Authoritative baseline — Ornith-1.5-35B-A3B (Q8_0), pi 0.84.4, thinking high, temp 0, k=5** (`reports/agentic-runs/20260918-123914-ornith-pi-harder-k5-v2.json`):
+
+**Overall: 37/50 passing runs · 8/10 problems pass by majority.**
+
+| Problem | Cat | passes/5 | Majority | Note |
+|---|---|---|---|---|
+| `da_hub_delay` | da | 5/5 | ✅ | busiest-hub avg delay |
+| `da_ts_delay` | da | 4/5 | ✅ | 1 tool hiccup (answer None) |
+| `da_delay_deviation` | da | 4/5 | ✅ | 1 run emitted no answer |
+| `da_cancel_dow` | da | **0/5** | ❌ | **genuine: `dayOfWeek` convention** (picks Wed, not Thu) |
+| `da_weekend_delay` | da | **1/5** | ❌ | **genuine: `dayOfWeek` trap** (`IN (1,7)` = Mon+Sun) |
+| `de_hub_daily` | de | 4/5 | ✅ | 1 run built an empty table (calendar-JOIN syntax) |
+| `de_taf_summary` | de | 5/5 | ✅ | distinct-bulletin counts |
+| `de_taf_latest` | de | 4/5 | ✅ | 1 run returned all 9,060 rows unaggregated |
+| `de_carrier_ontime` | de | 5/5 | ✅ | group + rank leaderboard |
+| `ds_notam_classify` | ds | 5/5 | ✅ | 13-class text ML, 94% CV |
+
+The two majority-failures are the **same** capability gap (ClickHouse weekday numbering). The scattered 1/5 misses on otherwise-passing problems (format extraction, a tool hiccup, calendar-JOIN syntax) are run-to-run variance — a *secondary* reliability signal, and precisely why k>1 is mandatory: at k=1 several of these would have been miscalled.
+
+**Harness gaps fixed en route** (all setup, not model misses — each surfaced as a false negative until pinned): `run_python` must inject the full `CLICKHOUSE_*` env (host `clickhouse`, avbench/avbench) or the agent connects to `localhost` inside the container and fails; `SYSTEM_PI` must document the write API (`client.command('CREATE TABLE … ENGINE=MergeTree ORDER BY …'); client.insert_df('t', df)`) or the model invents `bulk_insert`/`data_insert` and 0/5s a solvable problem; and prompt ambiguities (cancellation handling; "n_periods" all-rows vs Forecast-only) must be pinned with an exact, discrete/rounded expected answer.
+
 ## Options considered (the owner's choices, with the trade-off recorded)
 
 - **Agent loop vs single-shot** → *agent loop.* Real-world-facing and what the fine-tune targets; cost is a harder harness, tool-format fragility, and looser determinism (mitigated by step budgets, temp-0/no-think, final-state grading).
@@ -122,9 +159,9 @@ projects/dsbench/src/dsbench/agentic/    # as shipped in Phase 1
 3. [x] All datasets loaded: METAR (`ingest/metar.py`, IEM, 45,796 obs) + `aviation.airports`; **TAF** (`ingest/taf.py`, IEM, 9,060 decoded forecast periods / 1,618 bulletins, June 2026); **NOTAM** (`ingest/notam.py`, DEEL-AI, MIT, 8,478 records, 13-class — a static ~2024 corpus, not date-aligned, standalone).
 4. [x] `agentic/` harness: ReAct loop + `run_sql`/`run_python`/`finish`; **native OpenAI tool-calling** (verified working on the fork — the ADR-001 template worry did not materialise); thinking-off; trajectory logging; `model_error`/`truncated` statuses.
 5. [x] 6 problems across de/da/ds using all five tables — answer- and table-graded, incl. a NOTAM-ML task with a `setup()`-seeded unlabeled test set graded on real held-out accuracy; independent oracles + negative controls; `dsbench-agent-selftest` green 6/6.
-6. [x] Baseline Ornith-1.5: **1/2**. `de_hub_daily` PASS (real multi-step cross-source ETL). `da_hub_delay` FAIL — it computed the right answer but emitted a malformed `finish(answer=-1)`: a genuine tool-use-reliability signal. Good headroom; harness fair (oracle gate green, checker independent).
+6. [x] Baseline Ornith-1.5 (native loop, thinking off): **1/2** — but its `da_hub_delay` "fail" was a `finish(answer=)` artifact, not the model. **Superseded by the Gate-0 baseline in §6** (public harness, thinking on, k=5): **37/50 runs, 8/10 by majority.**
 
-**Phase 1 complete** (data foundation + agent harness + 6 problems). Next: **Phase 2 — live Airflow + MLflow** (problems that build/trigger a DAG and log an experiment, graded on live service state); keep growing the set and re-baseline as it grows.
+**Phase 1 + Gate 0 complete** (data foundation + agent harness + **10** problems + an authoritative public-harness baseline; see §6). Next: **Phase 2 — live Airflow + MLflow** (problems that build/trigger a DAG and log an experiment, graded on live service state); keep growing the set and re-baseline as it grows.
 
 **Phase 2 — live Airflow + MLflow:** add both services; `trigger_dag`/`get_dag_run` tools; MLflow tracking URI preset in `workspace`; problems that build a DAG (assert on the run) and log an experiment (assert on logged metrics/artifacts).
 

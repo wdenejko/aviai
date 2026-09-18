@@ -63,8 +63,8 @@ Definitions:
     Cancelled = 0); a flight's day is its FlightDate.
 
 Compute avg(DepDelayMinutes) for ORD departures whose FlightDate is a thunderstorm day, and for
-those whose FlightDate is NOT, each rounded to 1 decimal. Call finish with a JSON object:
-{"ts_day_avg": <number>, "non_ts_day_avg": <number>}.
+those whose FlightDate is NOT, each rounded to 1 decimal. Your final message must be ONLY a JSON
+object and nothing else: {"ts_day_avg": <number>, "non_ts_day_avg": <number>}.
 """
 
 PROBLEM = AgentProblem(
