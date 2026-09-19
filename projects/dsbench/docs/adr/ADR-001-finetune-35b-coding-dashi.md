@@ -154,7 +154,7 @@ Each gate has a kill criterion; nothing below a gate starts before the gate pass
 
 ### Gate 1 - end-to-end pipeline on a 1M-token pilot (1-2 days)
 
-1. [ ] Pilot mixture: ~1M tokens sampled from the Gate 2 mixture (Appendix B.4), rendered with the corrected Qwen3.5 chat template (tool-call `arguments` mapping fix), assistant-only labels, thinking disabled for non-reasoning rows.
+1. [ ] Pilot mixture: ~1M tokens sampled from the Gate 2 mixture (Appendix B.4 breadth/replay **+ the targeted slice specified in ADR-004** — the three Gate-0-measured gaps), rendered with the corrected Qwen3.5 chat template (tool-call `arguments` mapping fix), assistant-only labels, thinking disabled for non-reasoning rows.
 2. [ ] Train ~500 steps; save the adapter; convert with `convert_lora_to_gguf.py --base <bf16 snapshot>` from this fork. Watch the GDN `in_proj_qkv`/`out_proj` V-reorder replay on the LoRA tensors; if it fails, exclude those two projections from LoRA (the GDN `in_proj_z`, attention and expert projections remain) or use the merge route.
 3. [ ] Serve base GGUF + adapter on the Vulkan build; greedy parity vs the HF model on 10 fixed prompts; measure decode/prefill and MTP acceptance with and without the adapter.
 4. [ ] Merge route dry run: merge into bf16 (`merge_and_unload`), copy `mtp.*` tensors from the base safetensors into the saved checkpoint, convert with `conversion/qwen.py` (MTP as a separate `mtp_only` GGUF), quantize with the production recipe and imatrix, and check greedy parity vs the runtime-adapter server on the same prompts.
@@ -163,7 +163,7 @@ Each gate has a kill criterion; nothing below a gate starts before the gate pass
 
 ### Gate 2 - first real run, 10M tokens (8-20 h GPU, ~1 day eval)
 
-1. [ ] Mixture per Appendix B.4 (data science + data engineering + SWE + 25-30% general replay), decontaminated against every eval set (13-gram overlap) before training.
+1. [ ] Mixture per Appendix B.4 (data science + data engineering + SWE + 25-30% general replay) **plus the ~20% targeted slice of ADR-004** (Targets A/B/C, execution-verified), decontaminated against every eval set **and against dsbench's own 23 prompts/schema/answers** (13-gram overlap, ADR-004 protocol) before training.
 2. [ ] Hyperparameters from the Decision; checkpoint every 200 steps; governor on; resumable launcher (`prod_all_lg.sh` pattern).
 3. [ ] Full battery before/after; acceptance: target-domain gains on at least two of DS-1000, BIRD-dev, the owner's DE suite, and the tool-call format tests; regression <= 1 point on IFEval/MMLU-Pro/GPQA subsets and <= 2 points on LiveCodeBench/HumanEval+; MTP acceptance drop <= 5 points at the served quant.
 4. [ ] If a regression exceeds the threshold: halve the adapter scale at load (`--lora-scaled`) and re-evaluate, then raise replay to 40% and retrain; if it persists, the data slice responsible is identified by ablation before any scale-up.
