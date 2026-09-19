@@ -1,6 +1,6 @@
 # ADR-001: Fine-tuning a 35B-class coding model on dashi (Strix Halo) - feasibility and plan
 
-- **Status:** Proposed
+- **Status:** Proposed; **Gate 0 base comparison done (2026-09-19): base = `Qwen3.6-35B-A3B`** (dsbench v2 head-to-head vs Ornith-1.5 — see Gate 0 action items)
 - **Date:** 2026-09-15
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-002 (the dsbench evaluation harness that measures this plan's gates); aviai ADR-005 (compute inventory) and ADR-008 (ROCm training stack on dashi); memory notes `engram-graft-research`, `qwen3.6-27b-strix-halo-measured`, `flashnext-build-recipe`
@@ -144,7 +144,7 @@ Each gate has a kill criterion; nothing below a gate starts before the gate pass
 
 ### Gate 0 - stack smoke test and throughput (1-2 GPU sessions, ~4-6 h)
 
-1. [ ] Baseline evals of `Qwen3.6-35B-A3B` (UD-Q4_K_XL + MTP) and `Ornith-1.5` on the battery in "Evaluation gates" using the Vulkan server; record decode/prefill/MTP acceptance. This is the reference for every later delta.
+1. [x] Baseline evals of `Qwen3.6-35B-A3B` and `Ornith-1.5` on the dsbench v2 agentic battery (ADR-003), pi harness @ 0.84.4, thinking high, temp 0, k=5, **Q8_0 GGUFs both** (apples-to-apples). **Result: a statistical tie** — Qwen3.6 **79/115** runs · 15/23 by majority; Ornith **75/115** · 16/23. On the *target* DS/DE domains Qwen3.6 leads **38/50 vs 34/50** (mainly `ds_delay_predict` 4/5 vs 1/5 and `de_taf_latest` 5/5 vs 3/5). Both share the same intrinsic gaps: ClickHouse `dayOfWeek`/timezone conventions, the `da_delay_attribution` denominator error (Qwen 40.9 / Ornith 42.8 vs 44.1 truth — two different wrong answers confirm a genuine family-wide reasoning gap, not an oracle artifact), and ML-output-delivery reliability. **Decision: fine-tune `Qwen3.6-35B-A3B`.** Per the base-selection rule Ornith wins only if its DS/DE scores are *higher* (they are not), so the official Apache-2.0 base is chosen — cleaner provenance, intact MTP head, and a cleaner SFT substrate than an opaque RL tune. Reports: `projects/dsbench/reports/agentic-runs/20260919-005921-ornith-23problem-k5.json` and `20260919-110559-qwen36-23problem-k5.json`. (Decode/prefill/MTP-acceptance speed metrics still to record once the training-base GGUF is fixed.)
 2. [ ] New venv `~/ftgguf` (Python 3.12, TheRock gfx1151 torch as in `~/fttorch`): build `torch-ggml-ops` (`tools/generate_vendor.py --llama-cpp=~/src/llama-qwen4exp-src`, `pip install --no-build-isolation --no-deps -e .`), install `woct0rdho/transformers@gguf`, `peft`, `trl`, `flash-linear-attention` (pin the commit the recipe validates), `causal-conv1d`, `aiter`, `liger-kernel`, `bitsandbytes` (for `adamw_8bit` only). Keep `CC=~/fttrain/bin/zigcc`, `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`, `HIP_FORCE_DEV_KERNARG=1`, `PYTORCH_ALLOC_CONF=expandable_segments:True`, `num_workers=0`, `torch.cuda.set_per_process_memory_fraction(0.8)`.
 3. [ ] Base GGUF for training: prefer our own Q4_K_M or Q5_K imatrix quant of the official bf16 weights made with this fork (provenance), else `mudler/Qwen3.6-35B-A3B-APEX-I-Mini.gguf` (the author's validated file).
 4. [ ] Run the recipe's `audit_qwen3_5_training_step.py` at rank 4 (reproduce 5.33 s / 15 GiB), then rank 16 and sequence 4096; record s/step, tokens/s, peak GTT.
