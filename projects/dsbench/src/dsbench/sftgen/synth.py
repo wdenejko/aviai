@@ -82,7 +82,45 @@ def support_tickets(seed: int, n: int = 4000) -> Domain:
     return Domain("support_tickets", df, "opened_ts", "office_city", "tickets")
 
 
-_BUILDERS = {b.__name__: b for b in (retail_orders, iot_readings, support_tickets)}
+def payments(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "payment_id": np.arange(1, n + 1, dtype="int64"),
+        "paid_ts": _timestamps(rng, n),
+        "branch_city": _cities(rng, n),
+        "method": rng.choice(["card", "ach", "wire", "cash"], size=n),
+        "amount": np.round(rng.gamma(2.5, 40.0, size=n), 2),
+    })
+    return Domain("payments", df, "paid_ts", "branch_city", "payments")
+
+
+def web_sessions(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "session_id": np.arange(1, n + 1, dtype="int64"),
+        "started_ts": _timestamps(rng, n),
+        "edge_city": _cities(rng, n),
+        "device": rng.choice(["mobile", "desktop", "tablet"], size=n),
+        "duration_s": np.round(rng.exponential(180.0, size=n), 1),
+    })
+    return Domain("web_sessions", df, "started_ts", "edge_city", "sessions")
+
+
+def gym_checkins(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "checkin_id": np.arange(1, n + 1, dtype="int64"),
+        "checkin_ts": _timestamps(rng, n),
+        "club_city": _cities(rng, n),
+        "plan": rng.choice(["basic", "plus", "premium"], size=n),
+        "minutes": np.round(rng.normal(65.0, 20.0, size=n), 1),
+    })
+    return Domain("gym_checkins", df, "checkin_ts", "club_city", "check-ins")
+
+
+_BUILDERS = {b.__name__: b for b in (
+    retail_orders, iot_readings, support_tickets, payments, web_sessions, gym_checkins,
+)}
 
 
 def build(domain: str, seed: int, n: int = 4000) -> Domain:

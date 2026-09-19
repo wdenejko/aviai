@@ -111,18 +111,19 @@ class WeekdayNumbering(Convention):
     tags = ("date", "weekday", "dialect")
 
     def params(self, rng: np.random.Generator) -> dict:
-        return {"weekday": int(rng.integers(0, 7))}
+        return {"weekday": int(rng.integers(0, 7)), "variant": int(rng.integers(0, 3))}
 
     def truth(self, domain: Domain, params: dict) -> int:
         s = domain.df[domain.ts_col].dt.dayofweek  # Monday=0..Sunday=6
         return int((s == params["weekday"]).sum())
 
     def question(self, domain: Domain, params: dict) -> str:
-        day = _WEEKDAYS[params["weekday"]]
-        return (
-            f"How many {domain.label} have a {domain.ts_col} that falls on a {day}? "
-            f"Reply with the count."
-        )
+        day, col, lab = _WEEKDAYS[params["weekday"]], domain.ts_col, domain.label
+        return [
+            f"How many {lab} have a {col} that falls on a {day}? Reply with the count.",
+            f"Count the {lab} whose {col} is a {day}.",
+            f"On {day}s specifically, how many {lab} were there (by {col})? Give the number.",
+        ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
         expr = _dow_expr(dialect, domain.ts_col)
@@ -150,7 +151,9 @@ class TimezoneDirection(Convention):
 
     def params(self, rng: np.random.Generator) -> dict:
         # A UTC window to count in; the answer depends on getting the conversion direction right.
-        return {"lo": 18, "hi": 23}
+        windows = [(18, 23), (0, 5), (12, 17), (6, 11)]
+        lo, hi = windows[int(rng.integers(0, len(windows)))]
+        return {"lo": lo, "hi": hi, "variant": int(rng.integers(0, 2))}
 
     def _utc_hour(self, domain: Domain) -> pd.Series:
         local_h = domain.df[domain.ts_col].dt.hour
@@ -162,11 +165,16 @@ class TimezoneDirection(Convention):
         return int(((uh >= params["lo"]) & (uh <= params["hi"])).sum())
 
     def question(self, domain: Domain, params: dict) -> str:
-        return (
-            f"Each {domain.ts_col} is a LOCAL time in its {domain.location_col} (all US cities). "
-            f"Convert each to UTC and count how many {domain.label} fall in UTC hours "
-            f"{params['lo']} through {params['hi']} inclusive. Reply with the count."
+        col, loc, lab, lo, hi = (
+            domain.ts_col, domain.location_col, domain.label, params["lo"], params["hi"]
         )
+        return [
+            (f"Each {col} is a LOCAL time in its {loc} (all US cities). Convert each to UTC and "
+             f"count how many {lab} fall in UTC hours {lo} through {hi} inclusive. "
+             f"Reply with the count."),
+            (f"{col} is local time for the {loc}. After converting to UTC, how many {lab} land in "
+             f"the UTC hour range {lo}-{hi} (inclusive)? Give the count."),
+        ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
         h = _hour_expr(dialect, domain.ts_col)
@@ -186,7 +194,90 @@ class TimezoneDirection(Convention):
         )
 
 
-ALL_CONVENTIONS: tuple[Convention, ...] = (WeekdayNumbering(), TimezoneDirection())
+_MONTHS = ["January", "February", "March", "April", "May", "June",
+           "July", "August", "September", "October", "November", "December"]
+
+
+def _month_expr(dialect: str, col: str) -> str:
+    return {
+        "clickhouse": f"toMonth({col})",
+        "duckdb": f"month({col})",
+        "postgres": f"EXTRACT(MONTH FROM {col})",
+        "mysql": f"MONTH({col})",
+    }[dialect]
+
+
+class WeekendFlag(Convention):
+    """The `da_weekend_delay` gap: 'weekend' is Sat+Sun, whose integers differ by dialect."""
+
+    family = "weekend-flag"
+    tags = ("date", "weekend", "dialect")
+
+    def params(self, rng: np.random.Generator) -> dict:
+        return {"variant": int(rng.integers(0, 3))}
+
+    def truth(self, domain: Domain, params: dict) -> int:
+        return int((domain.df[domain.ts_col].dt.dayofweek >= 5).sum())  # Sat=5, Sun=6
+
+    def question(self, domain: Domain, params: dict) -> str:
+        col, lab = domain.ts_col, domain.label
+        return [
+            f"How many {lab} fall on a weekend (Sat or Sun), by {col}? Reply with the count.",
+            f"Count the weekend {lab} (Saturday or Sunday {col}).",
+            f"Of all {lab}, how many have a {col} on Sat or Sun? Give the number.",
+        ][params["variant"]]
+
+    def sql(self, domain: Domain, dialect: str, params: dict) -> str:
+        expr = _dow_expr(dialect, domain.ts_col)
+        sat, sun = _dow_int(dialect, 5), _dow_int(dialect, 6)
+        return f"SELECT count(*) FROM {domain.name} WHERE {expr} IN ({sat}, {sun})"
+
+    def thinking(self, dialect: str, params: dict) -> str:
+        sat, sun = _dow_int(dialect, 5), _dow_int(dialect, 6)
+        return (
+            f"In {DIALECT_DISPLAY[dialect]}, Saturday = {sat}, Sunday = {sun}, so weekend = "
+            f"IN ({sat}, {sun}). The mistake is another engine's numbering (e.g. treating Sunday "
+            "as 0 when this engine calls it 7, or the reverse)."
+        )
+
+
+class MonthBucket(Convention):
+    """Function-name breadth: month numbering is consistent (1-12); the extractor differs."""
+
+    family = "month-bucket"
+    tags = ("date", "month", "dialect")
+
+    def params(self, rng: np.random.Generator) -> dict:
+        return {"month": int(rng.integers(1, 13)), "variant": int(rng.integers(0, 2))}
+
+    def truth(self, domain: Domain, params: dict) -> int:
+        return int((domain.df[domain.ts_col].dt.month == params["month"]).sum())
+
+    def question(self, domain: Domain, params: dict) -> str:
+        name, col, lab = _MONTHS[params["month"] - 1], domain.ts_col, domain.label
+        return [
+            f"How many {lab} have a {col} in {name}? Reply with the count.",
+            f"Count the {lab} whose {col} falls in the month of {name}.",
+        ][params["variant"]]
+
+    def sql(self, domain: Domain, dialect: str, params: dict) -> str:
+        return (
+            f"SELECT count(*) FROM {domain.name} "
+            f"WHERE {_month_expr(dialect, domain.ts_col)} = {params['month']}"
+        )
+
+    def thinking(self, dialect: str, params: dict) -> str:
+        name = _MONTHS[params["month"] - 1]
+        return (
+            f"Month numbering is consistent (January=1 ... December=12), so {name} = "
+            f"{params['month']}; the dialect difference is only the extractor "
+            f"({_month_expr(dialect, 'ts')})."
+        )
+
+
+ALL_CONVENTIONS: tuple[Convention, ...] = (
+    WeekdayNumbering(), WeekendFlag(), TimezoneDirection(), MonthBucket(),
+)
 
 
 def conventions_by_family() -> dict[str, Convention]:

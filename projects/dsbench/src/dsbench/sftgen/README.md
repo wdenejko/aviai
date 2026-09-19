@@ -12,10 +12,10 @@ aviation benchmark, so a dsbench before/after measures learning, not memorisatio
 
 | Target | Generator | Skill | Status |
 |---|---|---|---|
-| **A** | `dialect_conventions.py` | SQL-dialect date/time conventions (weekday numbering, tz direction) | **done** — execution-verified, teacher-free |
-| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | todo |
-| **C** | `ml_delivery_trajectories.py` | agentic ML-workflow delivery discipline | todo |
-| — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench | todo |
+| **A** | `dialect_conventions.py` | SQL-dialect date/time conventions (weekday, weekend, tz, month) | **done** — 6 domains × 4 families, execution-verified, teacher-free |
+| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | todo (needs teacher) |
+| **C** | `ml_delivery_trajectories.py` | agentic ML-workflow delivery discipline | todo (needs teacher) |
+| — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench | **done** — all 3 rules verified |
 
 ## Run Target A
 
@@ -42,10 +42,13 @@ exercises the trap.
 ## Files
 
 - `schema.py` — the row contract (`SFTRow`, `Turn`, `Provenance`, `Verification`) + (de)serialisation.
-- `synth.py` — seeded non-aviation domains (retail / IoT / support), reproducible from `(domain, seed)`.
-- `conventions.py` — the trap families: `weekday-numbering`, `timezone-direction`.
+- `synth.py` — six seeded non-aviation domains (retail / IoT / support / payments / web / gym),
+  reproducible from `(domain, seed)`.
+- `conventions.py` — the trap families: `weekday-numbering`, `weekend-flag` (the `da_weekend_delay`
+  gap), `timezone-direction`, `month-bucket`; each with paraphrased question variants.
 - `engines.py` — dialect execution backends (DuckDB, ClickHouse, optional Postgres/MySQL).
 - `dialect_conventions.py` — Target A generator + CLI + run report.
 - `render.py` — raw rows → Qwen chat-template training JSONL.
+- `decontaminate.py` — the dsbench-disjointness gate (run over the rendered mixture before training).
 
 Generated `*.jsonl` are artifacts, not source — write them outside the repo (e.g. a scratch dir).

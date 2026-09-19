@@ -33,6 +33,7 @@ dsbench-pi-run = "dsbench.agentic.pi_runner:main"
 # Targeted SFT-data generators (ADR-004): the sandbox also MANUFACTURES the fine-tune data.
 dsbench-sftgen-a = "dsbench.sftgen.dialect_conventions:main"
 dsbench-sftgen-render = "dsbench.sftgen.render:main"
+dsbench-sftgen-decontaminate = "dsbench.sftgen.decontaminate:main"
 
 [build-system]
 requires = ["hatchling"]
