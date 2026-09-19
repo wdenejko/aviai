@@ -102,28 +102,48 @@ by others — the owner directed three changes:
 
 **Set grown to 10 (harder cases).** Added `da_delay_deviation` (trailing-7-day window), `de_carrier_ontime` (group + `row_number()` rank), `de_taf_latest` (`argMax` dedup), and two deliberate **ClickHouse-dialect traps** (`da_weekend_delay`, and the existing `da_cancel_dow`) that hinge on the `dayOfWeek`/`toDayOfWeek` ISO convention (1=Monday). All 10 pass the oracle gate (`dsbench-agent-selftest` 10/10). Prompts were made harness-agnostic (no "call finish" wording).
 
-**Set expanded to 20 (2026-09-18) — headroom for the fine-tune.** 8/10 by majority left too little room to *measure* an improvement, so 10 more hard problems were added across five capability axes, each with a pandas-vs-ClickHouse cross-validated oracle (gate now **20/20**): **time/timezone** — `da_worst_dep_hour` (parse a String `hhmm`), `da_utc_peak_hour` (per-hub local→UTC, sign of the offset), `da_redeye_count` (midnight wraparound); **dialect/NULL** — `da_all_flights_avg_delay` (`avg` skips NULLs → wrong denominator); **statistical rigor** — `da_weighted_ontime` (pooled vs average-of-averages / Simpson), `da_delay_attribution` (5-cause share, population rule); **window / gaps-and-islands** — `da_delay_streak` (longest consecutive-day run); **grain + rank** — `da_cancel_weather_share` (rate within a group), `de_route_leaderboard` and `de_recovery_leaderboard` (state tables, conditional denominators). Candidates deliberately *dropped* after probing the data (rigor over volume): a `uniq()`-approximation trap (ClickHouse `uniq` is exact at ~1.2k distinct here), an exact-percentile trap (`quantileExact` vs pandas interpolation is oracle-fragile), and a METAR as-of join (obs cadence is ~5 min, so any as-of/tz error still matches an obs → non-discriminating). **Re-baseline pending** (blocked on model hosting); the 37/50 table below is the 10-problem run and will be superseded once the 20-problem k=5 sweep runs.
+**Set expanded to 20 (2026-09-18) — headroom for the fine-tune.** 8/10 by majority left too little room to *measure* an improvement, so 10 more hard problems were added across five capability axes, each with a pandas-vs-ClickHouse cross-validated oracle (gate now **20/20**): **time/timezone** — `da_worst_dep_hour` (parse a String `hhmm`), `da_utc_peak_hour` (per-hub local→UTC, sign of the offset), `da_redeye_count` (midnight wraparound); **dialect/NULL** — `da_all_flights_avg_delay` (`avg` skips NULLs → wrong denominator); **statistical rigor** — `da_weighted_ontime` (pooled vs average-of-averages / Simpson), `da_delay_attribution` (5-cause share, population rule); **window / gaps-and-islands** — `da_delay_streak` (longest consecutive-day run); **grain + rank** — `da_cancel_weather_share` (rate within a group), `de_route_leaderboard` and `de_recovery_leaderboard` (state tables, conditional denominators). Candidates deliberately *dropped* after probing the data (rigor over volume): a `uniq()`-approximation trap (ClickHouse `uniq` is exact at ~1.2k distinct here), an exact-percentile trap (`quantileExact` vs pandas interpolation is oracle-fragile), and a METAR as-of join (obs cadence is ~5 min, so any as-of/tz error still matches an obs → non-discriminating).
+
+**Set expanded to 23 (2026-09-19) — the DS/ML axis.** Rounded out DS (was one text-classification problem) with three more leakage-safe ML tasks so it spans the canonical types: `ds_delay_predict` (binary late-arrival, **ROC-AUC** — the target is zero-inflated so MAE/accuracy are traps, only ranking is honest), `ds_cancel_predict` (**imbalanced** ~2% binary, ROC-AUC), `ds_taxi_regression` (**regression**, MAE vs the predict-the-median baseline — taxi-out is not zero-inflated, so MAE is fair). Each exposes only pre-departure features (leakage-safe by construction), uses a deterministic `cityHash64` split with a once-materialised test id, and grades held-out truth the agent never sees. Gate **23/23**. The authoritative baseline below is now the **23-problem k=5** run (superseding the earlier 10-problem 37/50).
 
 **Reframing — the real fine-tune target is capability, not plumbing.** Under `pi`: `da_hub_delay` passes, **zero** `model_error`s, and the write-heavy `ds_notam_classify` (94% CV) is solid. The Phase-1 "structured-tool-output is the bottleneck" conclusion was a native-`finish` artifact. The residual, *reproducible* weakness is **SQL-dialect capability** — two independent problems isolate the ClickHouse `dayOfWeek` convention as the sharpest miss. This is the movable Gate-2 target for ADR-001.
 
-**Authoritative baseline — Ornith-1.5-35B-A3B (Q8_0), pi 0.84.4, thinking high, temp 0, k=5** (`reports/agentic-runs/20260918-123914-ornith-pi-harder-k5-v2.json`):
+**Authoritative baseline — Ornith-1.5-35B-A3B (Q8_0), pi 0.84.4, thinking high, temp 0, k=5** (`reports/agentic-runs/20260919-005921-ornith-23problem-k5.json`):
 
-**Overall: 37/50 passing runs · 8/10 problems pass by majority.**
+**Overall: 75/115 passing runs · 16/23 problems pass by majority.**
 
 | Problem | Cat | passes/5 | Majority | Note |
 |---|---|---|---|---|
-| `da_hub_delay` | da | 5/5 | ✅ | busiest-hub avg delay |
-| `da_ts_delay` | da | 4/5 | ✅ | 1 tool hiccup (answer None) |
-| `da_delay_deviation` | da | 4/5 | ✅ | 1 run emitted no answer |
-| `da_cancel_dow` | da | **0/5** | ❌ | **genuine: `dayOfWeek` convention** (picks Wed, not Thu) |
-| `da_weekend_delay` | da | **1/5** | ❌ | **genuine: `dayOfWeek` trap** (`IN (1,7)` = Mon+Sun) |
-| `de_hub_daily` | de | 4/5 | ✅ | 1 run built an empty table (calendar-JOIN syntax) |
-| `de_taf_summary` | de | 5/5 | ✅ | distinct-bulletin counts |
-| `de_taf_latest` | de | 4/5 | ✅ | 1 run returned all 9,060 rows unaggregated |
-| `de_carrier_ontime` | de | 5/5 | ✅ | group + rank leaderboard |
-| `ds_notam_classify` | ds | 5/5 | ✅ | 13-class text ML, 94% CV |
+| `da_hub_delay` | da | 5/5 | ✅ | |
+| `da_worst_dep_hour` | da | 5/5 | ✅ | String `hhmm` parse |
+| `da_all_flights_avg_delay` | da | 5/5 | ✅ | NULL/denominator |
+| `da_weighted_ontime` | da | 5/5 | ✅ | pooled, not avg-of-avgs |
+| `da_cancel_weather_share` | da | 5/5 | ✅ | rate within group |
+| `da_redeye_count` | da | 4/5 | ✅ | 1 undercount (5333 vs 6538) |
+| `da_delay_deviation` | da | 4/5 | ✅ | 1 wrong (DEN 06-08) |
+| `da_delay_streak` | da | 3/5 | ✅ | 2 empty answers |
+| `da_ts_delay` | da | 3/5 | ✅ | 2 format/variance |
+| `da_cancel_dow` | da | **0/5** | ❌ | **`dayOfWeek` convention** (picks Wed, not Thu) |
+| `da_delay_attribution` | da | **0/5** | ❌ | **systematically 42.8% vs 44.1%** (wrong denominator/population) |
+| `da_utc_peak_hour` | da | **1/5** | ❌ | **timezone conversion** (got 5, not 13) |
+| `da_weekend_delay` | da | **1/5** | ❌ | **`dayOfWeek` trap** (`IN (1,7)` = Mon+Sun) |
+| `de_hub_daily` | de | 5/5 | ✅ | cross-source fact table |
+| `de_taf_summary` | de | 5/5 | ✅ | |
+| `de_recovery_leaderboard` | de | 5/5 | ✅ | conditional denominator + rank |
+| `de_carrier_ontime` | de | 4/5 | ✅ | 1 wrong grain (86 rows) |
+| `de_route_leaderboard` | de | 4/5 | ✅ | 1 table-write miss |
+| `de_taf_latest` | de | 3/5 | ✅ | 2 wrong (returned 1618 rows) |
+| `ds_notam_classify` | ds | 5/5 | ✅ | 13-class text ML |
+| `ds_cancel_predict` | ds | **1/5** | ❌ | **ML workflow: didn't deliver the pred table** |
+| `ds_delay_predict` | ds | **1/5** | ❌ | **ML workflow: didn't deliver the pred table** |
+| `ds_taxi_regression` | ds | **1/5** | ❌ | **ML workflow: over-tuned, never wrote the table** |
 
-The two majority-failures are the **same** capability gap (ClickHouse weekday numbering). The scattered 1/5 misses on otherwise-passing problems (format extraction, a tool hiccup, calendar-JOIN syntax) are run-to-run variance — a *secondary* reliability signal, and precisely why k>1 is mandatory: at k=1 several of these would have been miscalled.
+The 7 majority-failures cluster into three **movable fine-tune targets**, not noise:
+1. **SQL-dialect conventions** — `da_cancel_dow` + `da_weekend_delay` (ClickHouse `dayOfWeek` ISO 1=Monday) and `da_utc_peak_hour` (local→UTC offset sign). The sharpest, most reproducible gap.
+2. **A systematic reasoning error** — `da_delay_attribution` returns **42.8% every single run** vs the correct 44.1%; a consistent wrong denominator/population reading (not variance), which is the cleanest possible signal.
+3. **Agentic ML-workflow discipline** — `ds_delay_predict` / `ds_cancel_predict` / `ds_taxi_regression` all land at 1/5, but the trajectories show the model is *competent at the ML* (a failed `ds_taxi_regression` run tuned GBR to MAE 6.75 < 7.64 baseline in log-space) — it just **fails to deliver the output table within the run**: it over-explores/tunes or ends its turn before writing. `ds_notam_classify` at 5/5 proves the write path works when the model commits the artifact. This is the direct descendant of the old "structured-output reliability" theme, now on real ML tasks.
+
+The remaining 1–2/5 misses on otherwise-passing problems (an undercount, an empty answer, a wrong grain, `de_taf_latest` returning all rows) are run-to-run variance — a secondary reliability signal, and exactly why k>1 is mandatory.
 
 **Harness gaps fixed en route** (all setup, not model misses — each surfaced as a false negative until pinned): `run_python` must inject the full `CLICKHOUSE_*` env (host `clickhouse`, avbench/avbench) or the agent connects to `localhost` inside the container and fails; `SYSTEM_PI` must document the write API (`client.command('CREATE TABLE … ENGINE=MergeTree ORDER BY …'); client.insert_df('t', df)`) or the model invents `bulk_insert`/`data_insert` and 0/5s a solvable problem; and prompt ambiguities (cancellation handling; "n_periods" all-rows vs Forecast-only) must be pinned with an exact, discrete/rounded expected answer.
 
