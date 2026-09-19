@@ -4,17 +4,22 @@ The measured gap: both base and Ornith divide by the WRONG base on ratio questio
 (`da_delay_attribution` 0/5, two different stable wrong answers -> a real reasoning gap). This
 generator teaches the transferable skill on NON-aviation data, as execution-filtered teacher traces:
 
-  1. build a synthetic table whose ratio has ONE defensible answer, and compute that truth two ways
-     (pandas + a reference SQL on DuckDB) -- if they disagree the problem is buggy and is skipped;
-  2. ask a licence-clean teacher (gpt-oss / DeepSeek / Qwen-class) to reason it out, give a number;
+  1. build a small synthetic table, INLINE it in the prompt (a teacher with only a schema recites
+     "SUM/COUNT" instead of a number), and compute the truth two ways (pandas + a DuckDB reference
+     SQL); if they disagree the problem is skipped as buggy;
+  2. ask a licence-clean teacher (Ling-3.0-flash / DeepSeek / Qwen-class) to reason it out;
   3. KEEP the teacher's trace only if its answer matches the verified truth AND it exposed a trace
-     -- the reasoning is the point of Target B.
+     -- the reasoning is the point of Target B. The data is small enough to reason over by hand, so
+     the ONLY thing separating right from wrong is the denominator/population choice.
 
-Trap families:
+Trap families (the four ADR-004 denominator traps):
   * `conditional-null-share` -- cause columns populated only under a condition (null = N/A, not 0);
     the share denominator is the sum of the causes, not a grand total (da_delay_attribution analog).
   * `pooled-vs-mean-rate` -- the overall rate is pooled sum/sum, not the mean of per-group rates
     (da_weighted_ontime analog; uneven groups make the two answers diverge).
+  * `share-of-subtotal` -- divide by the category SUBTOTAL, not the grand total.
+  * `excluded-denominator` -- cancelled rows count as 0 in the numerator but stay in the denominator
+    (da_all_flights_avg_delay analog).
 """
 from __future__ import annotations
 
@@ -52,9 +57,29 @@ class BProblem:
     tags: tuple[str, ...]
 
 
-def _conditional_null_share(seed: int, n: int = 5000) -> BProblem:
+def _md_table(df: pd.DataFrame) -> str:
+    """Render a small DataFrame as a markdown table (nulls -> NULL) for inlining in a prompt."""
+    cols = list(df.columns)
+    head = "| " + " | ".join(cols) + " |"
+    sep = "| " + " | ".join("---" for _ in cols) + " |"
+    lines = [head, sep]
+    for rec in df.itertuples(index=False, name=None):
+        cells = []
+        for v in rec:
+            if v is None or (isinstance(v, float) and np.isnan(v)):
+                cells.append("NULL")
+            elif isinstance(v, float):
+                cells.append(f"{v:g}")
+            else:
+                cells.append(str(v))
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def _conditional_null_share(seed: int, n: int = 12) -> BProblem:
+    """Small INLINE table: the teacher must sum causes over the non-null rows and pick the base."""
     rng = np.random.default_rng(seed)
-    breached = rng.random(n) < 0.30  # causes populated ONLY for breached incidents
+    breached = rng.random(n) < 0.5  # ~half breached; causes populated ONLY for those
     cols = {"incident_id": np.arange(1, n + 1, dtype="int64"),
             "region": rng.choice(_REGIONS, size=n), "breached": breached.astype("int64")}
     for c in _CAUSES:
@@ -68,42 +93,95 @@ def _conditional_null_share(seed: int, n: int = 5000) -> BProblem:
     den = " + ".join(f"sum({c})" for c in _CAUSES)
     ref_sql = f"SELECT 100.0 * sum(cause_c) / ({den}) FROM incidents"
     q = (
-        "Table `incidents(incident_id, region, breached, cause_a, cause_b, cause_c, cause_d, "
-        "cause_e)`. The five cause columns hold minutes and are populated ONLY for incidents that "
-        "breached SLA (breached = 1); otherwise they are null. Of the total minutes summed across "
-        "all FIVE cause columns, what percentage is attributable to cause_c? Reply rounded to 1 "
-        "decimal."
+        "Here is the full `incidents` table. The five cause columns hold minutes and are populated "
+        "ONLY for incidents that breached SLA (breached = 1); otherwise they are NULL.\n\n"
+        f"{_md_table(df)}\n\n"
+        "Of the total minutes summed across all FIVE cause columns, what percentage is "
+        "attributable to cause_c? Reply rounded to 1 decimal."
     )
     return BProblem("conditional-null-share", "incidents", df, q, truth, ref_sql, 0.2,
                     ("ratio", "null", "denominator"))
 
 
-def _pooled_vs_mean_rate(seed: int, n: int = 6000) -> BProblem:
+def _pooled_vs_mean_rate(seed: int) -> BProblem:
+    """Small INLINE per-store summary: pooled Sum/Sum vs the mean of per-store rates diverge."""
     rng = np.random.default_rng(seed)
-    # Uneven group sizes + per-group success probabilities so pooled != mean-of-group-rates.
     stores = [f"store_{i}" for i in range(6)]
-    weights = np.array([0.40, 0.25, 0.15, 0.10, 0.07, 0.03])
-    probs = rng.uniform(0.55, 0.95, size=len(stores))
-    store_idx = rng.choice(len(stores), size=n, p=weights)
-    success = (rng.random(n) < probs[store_idx]).astype("int64")
-    df = pd.DataFrame({
-        "attempt_id": np.arange(1, n + 1, dtype="int64"),
-        "store": np.array(stores)[store_idx],
-        "success": success,
-    })
-    truth = round(float(df["success"].mean()), 4)  # pooled = sum(success)/count()
-    ref_sql = "SELECT sum(success) * 1.0 / count(*) FROM attempts"
+    attempts = rng.integers(20, 600, size=len(stores)).astype("int64")  # uneven volumes
+    rates = rng.uniform(0.55, 0.95, size=len(stores))
+    successes = np.round(attempts * rates).astype("int64")
+    df = pd.DataFrame({"store": stores, "successes": successes, "attempts": attempts})
+    truth = round(float(df["successes"].sum()) / float(df["attempts"].sum()), 4)  # pooled
+    ref_sql = "SELECT sum(successes) * 1.0 / sum(attempts) FROM attempts"
     q = (
-        "Table `attempts(attempt_id, store, success)` where success is 1/0. What is the OVERALL "
-        "success rate across ALL attempts (total successes divided by total attempts)? Note the "
-        "stores have very different attempt volumes. Reply as a fraction rounded to 4 decimals."
+        "Here is a per-store summary of checkout `attempts` (successes out of attempts).\n\n"
+        f"{_md_table(df)}\n\n"
+        "What is the OVERALL success rate across ALL attempts (total successes divided by total "
+        "attempts, pooling every store together)? The stores have very different volumes. Reply as "
+        "a fraction rounded to 4 decimals."
     )
     return BProblem("pooled-vs-mean-rate", "attempts", df, q, truth, ref_sql, 0.0005,
                     ("ratio", "pooled", "weighting"))
 
 
+def _share_of_subtotal(seed: int) -> BProblem:
+    """Denominator = the category SUBTOTAL, not the grand total (share-of-part vs share-of-all)."""
+    rng = np.random.default_rng(seed)
+    cats = {"electronics": ["phones", "laptops", "audio"],
+            "apparel": ["shoes", "coats"], "grocery": ["produce", "dairy"]}
+    rows = []
+    for cat, subs in cats.items():
+        for sub in subs:
+            rows.append((cat, sub, float(np.round(rng.gamma(3.0, 400.0), 2))))
+    df = pd.DataFrame(rows, columns=["category", "subcategory", "amount"])
+    tcat = "electronics"
+    tsub = str(rng.choice(cats[tcat]))
+    part = float(df[(df.category == tcat) & (df.subcategory == tsub)]["amount"].sum())
+    subtotal = float(df[df.category == tcat]["amount"].sum())
+    truth = round(100.0 * part / subtotal, 1)
+    ref_sql = (
+        f"SELECT 100.0 * sum(CASE WHEN category='{tcat}' AND subcategory='{tsub}' THEN amount "
+        f"ELSE 0 END) / sum(CASE WHEN category='{tcat}' THEN amount ELSE 0 END) FROM sales"
+    )
+    q = (
+        "Here is the full `sales` table (amount per subcategory).\n\n"
+        f"{_md_table(df)}\n\n"
+        f"Within category '{tcat}' ONLY, what percentage of that category's total amount comes "
+        f"from subcategory '{tsub}'? Reply rounded to 1 decimal."
+    )
+    return BProblem("share-of-subtotal", "sales", df, q, truth, ref_sql, 0.2,
+                    ("ratio", "subtotal", "denominator"))
+
+
+def _excluded_denominator(seed: int, n: int = 12) -> BProblem:
+    """Cancelled rows count as 0 in the numerator but stay in the denominator (da_all_flights)."""
+    rng = np.random.default_rng(seed)
+    cancelled = rng.random(n) < 0.35
+    delay = np.round(rng.gamma(2.0, 20.0, size=n), 1)
+    delay[cancelled] = np.nan  # delay is NULL for cancelled orders
+    df = pd.DataFrame({
+        "order_id": np.arange(1, n + 1, dtype="int64"),
+        "cancelled": cancelled.astype("int64"),
+        "delay_minutes": delay,
+    })
+    num = float(np.nan_to_num(delay).sum())  # cancelled -> 0 delay
+    truth = round(num / float(n), 2)  # denominator = ALL orders, cancelled included
+    ref_sql = "SELECT sum(coalesce(delay_minutes, 0)) * 1.0 / count(*) FROM orders"
+    q = (
+        "Here is the full `orders` table. delay_minutes is NULL for cancelled orders "
+        "(cancelled = 1).\n\n"
+        f"{_md_table(df)}\n\n"
+        "What is the average delay PER ORDER across ALL orders, counting each cancelled order as 0 "
+        "delay (they still count in the denominator)? Reply rounded to 2 decimals."
+    )
+    return BProblem("excluded-denominator", "orders", df, q, truth, ref_sql, 0.05,
+                    ("ratio", "excluded", "denominator"))
+
+
 _TRAPS = {"conditional-null-share": _conditional_null_share,
-          "pooled-vs-mean-rate": _pooled_vs_mean_rate}
+          "pooled-vs-mean-rate": _pooled_vs_mean_rate,
+          "share-of-subtotal": _share_of_subtotal,
+          "excluded-denominator": _excluded_denominator}
 
 
 def _extract_number(text: str) -> float | None:
