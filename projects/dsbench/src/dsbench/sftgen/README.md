@@ -13,7 +13,7 @@ aviation benchmark, so a dsbench before/after measures learning, not memorisatio
 | Target | Generator | Skill | Status |
 |---|---|---|---|
 | **A** | `dialect_conventions.py` | SQL-dialect date/time conventions (weekday, weekend, tz, month) | **done** — 6 domains × 4 families, execution-verified, teacher-free |
-| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | todo (needs teacher) |
+| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | **generator done** — teacher-agnostic + execution-filter verified offline; needs a hosted teacher to produce rows |
 | **C** | `ml_delivery_trajectories.py` | agentic ML-workflow delivery discipline | todo (needs teacher) |
 | — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench | **done** — all 3 rules verified |
 
@@ -50,5 +50,18 @@ exercises the trap.
 - `dialect_conventions.py` — Target A generator + CLI + run report.
 - `render.py` — raw rows → Qwen chat-template training JSONL.
 - `decontaminate.py` — the dsbench-disjointness gate (run over the rendered mixture before training).
+- `teacher.py` — pluggable licence-clean teacher client (HTTP OpenAI-compatible + offline stub).
+- `denominator_reasoning.py` — Target B generator: execution-verified traps + teacher execution-filter.
+
+## Target B (needs a hosted teacher)
+
+```bash
+# with a licence-clean teacher served on dashi behind the SSH tunnel (e.g. gpt-oss-120b):
+uv run python -m dsbench.sftgen.denominator_reasoning --reps 40 \
+    --base-url http://localhost:18080/v1 --model gpt-oss --out targetB_raw.jsonl
+```
+
+The generator computes each ratio's truth two ways (pandas + DuckDB) and keeps a teacher trace ONLY
+if its answer matches that truth — teacher supplies phrasing, ground truth supplies correctness.
 
 Generated `*.jsonl` are artifacts, not source — write them outside the repo (e.g. a scratch dir).
