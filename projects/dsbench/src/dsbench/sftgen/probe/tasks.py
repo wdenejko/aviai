@@ -77,16 +77,19 @@ PROBE_WEEKDAY = AgentProblem(
 def _trips_setup(ctx: GradeContext) -> None:
     rng = np.random.default_rng(32)
     n = 4000
-    # Store the LOCAL hour directly (UInt8) -> no DateTime/timezone round-trip ambiguity.
+    # Local time as a 4-char "HHMM" String (like dsbench CRSDepTime): the model must PARSE the hour
+    # AND get the local->UTC direction right -- the two things that make the gap bite.
+    hh, mm = rng.integers(0, 24, n), rng.integers(0, 60, n)
+    local = [f"{h:02d}{m:02d}" for h, m in zip(hh, mm, strict=True)]
     df = pd.DataFrame({"trip_id": np.arange(1, n + 1, dtype="uint32"),
-                       "request_hour": rng.integers(0, 24, n).astype("uint8"),
-                       "city": rng.choice(_CITIES, n)})
-    _ins(ctx, "rideshare_trips", "trip_id UInt32, request_hour UInt8, city String", df)
+                       "request_local": local, "city": rng.choice(_CITIES, n)})
+    _ins(ctx, "rideshare_trips", "trip_id UInt32, request_local String, city String", df)
 
 
 def _trips_check(ctx: GradeContext) -> tuple[bool, str]:
-    df = ctx.client.query_df(f"SELECT request_hour, city FROM {ctx.namespace}.rideshare_trips")
-    utc_h = (df["request_hour"].astype(int) + df["city"].map(_UTC_ADD)) % 24
+    df = ctx.client.query_df(f"SELECT request_local, city FROM {ctx.namespace}.rideshare_trips")
+    local_h = df["request_local"].astype(str).str.zfill(4).str[:2].astype(int)
+    utc_h = (local_h + df["city"].map(_UTC_ADD)) % 24
     truth = int(utc_h.value_counts().idxmax())
     got = _num(ctx.answer)
     ok = got is not None and int(got) == truth
@@ -95,9 +98,9 @@ def _trips_check(ctx: GradeContext) -> tuple[bool, str]:
 
 def _trips_ref(ctx: GradeContext):
     r = ctx.client.query(
-        f"SELECT (request_hour + multiIf(city='Boston',4, city='Miami',4, city='Houston',5, "
-        f"city='Denver',6, 7)) % 24 AS uh FROM {ctx.namespace}.rideshare_trips "
-        f"GROUP BY uh ORDER BY count() DESC LIMIT 1")
+        f"SELECT (toInt16(substring(request_local, 1, 2)) + multiIf(city='Boston',4, "
+        f"city='Miami',4, city='Houston',5, city='Denver',6, 7)) % 24 AS uh "
+        f"FROM {ctx.namespace}.rideshare_trips GROUP BY uh ORDER BY count() DESC LIMIT 1")
     return int(r.result_rows[0][0])
 
 
@@ -105,11 +108,11 @@ PROBE_UTC = AgentProblem(
     id="probe_utc_peak_trips", category="da", difficulty="hard",
     title="Busiest UTC hour of rideshare requests", setup=_trips_setup, check=_trips_check,
     reference=_trips_ref, max_steps=10, tags=("probe", "timezone"),
-    prompt=("Table `rideshare_trips(trip_id, request_hour, city)`. request_hour is the LOCAL "
-            "clock-hour (0-23) in its city. Cities and their offset to UTC: Boston=UTC-4, "
-            "Miami=UTC-4, Houston=UTC-5, Denver=UTC-6, Seattle=UTC-7, Phoenix=UTC-7. Converting "
-            "each request to UTC, which UTC clock-hour (0-23) has the most requests? Reply with "
-            "ONLY the integer hour."),
+    prompt=("Table `rideshare_trips(trip_id, request_local, city)`. request_local is LOCAL time as "
+            "a 4-char string 'HHMM' (e.g. '0830' means 08:30). Cities and their offset to UTC: "
+            "Boston=UTC-4, Miami=UTC-4, Houston=UTC-5, Denver=UTC-6, Seattle=UTC-7, Phoenix=UTC-7. "
+            "Converting each request to UTC, which UTC clock-hour (0-23) has the most requests? "
+            "Reply with ONLY the integer hour."),
 )
 
 
@@ -119,17 +122,24 @@ def _grid_setup(ctx: GradeContext) -> None:
     rng = np.random.default_rng(33)
     n = 4000
     major = rng.random(n) < 0.3
+    roots = ["root_a", "root_b", "root_c", "root_d", "root_e"]
     cols = {"incident_id": np.arange(1, n + 1, dtype="uint32"),
             "region": rng.choice(["west", "east", "north"], n), "major": major.astype("int64")}
-    for c in ["root_a", "root_b", "root_c", "root_d", "root_e"]:
+    stack = []
+    for c in roots:
         v = np.round(rng.gamma(2.0, 25.0, n), 1)
         v[~major] = np.nan
         cols[c] = v
-    # Nullable so non-major rows are NULL (skipped by sum), not NaN (which ClickHouse propagates).
+        stack.append(np.nan_to_num(v))
+    # total_downtime > sum(roots): total outage includes unclassified minutes. It is the TEMPTING
+    # WRONG denominator (mirrors da_delay_attribution: divide by ArrDelayMinutes, not the 5 causes).
+    total = np.sum(stack, axis=0) * rng.uniform(1.3, 2.2, n)
+    total[~major] = np.nan
+    cols["total_downtime"] = np.round(total, 1)
     _ins(ctx, "grid_incidents",
          "incident_id UInt32, region String, major UInt8, root_a Nullable(Float64), "
          "root_b Nullable(Float64), root_c Nullable(Float64), root_d Nullable(Float64), "
-         "root_e Nullable(Float64)", pd.DataFrame(cols))
+         "root_e Nullable(Float64), total_downtime Nullable(Float64)", pd.DataFrame(cols))
 
 
 def _grid_check(ctx: GradeContext) -> tuple[bool, str]:
@@ -153,10 +163,12 @@ PROBE_SHARE = AgentProblem(
     id="probe_incident_share", category="da", difficulty="hard",
     title="Share of grid outage minutes from root cause B", setup=_grid_setup, check=_grid_check,
     reference=_grid_ref, max_steps=10, tags=("probe", "denominator"),
-    prompt=("Table `grid_incidents(incident_id, region, major, root_a..root_e)`. The five root_* "
-            "columns hold minutes and are populated only for major incidents (major = 1), else "
-            "null. Of the total minutes across all five root_* columns, what percentage is root_b? "
-            "Reply rounded to 1 decimal."),
+    prompt=("Table `grid_incidents(incident_id, region, major, root_a..root_e, total_downtime)`. "
+            "For major incidents (major = 1) the five root_* columns hold classified root-cause "
+            "minutes and total_downtime holds the total outage minutes (which also includes "
+            "unclassified time); for non-major incidents these are null. Of the total ROOT-CAUSE "
+            "minutes (summed across the five root_* columns), what percentage is attributable to "
+            "root_b? Reply rounded to 1 decimal."),
 )
 
 
