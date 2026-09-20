@@ -54,6 +54,8 @@ exercises the trap.
 - `denominator_reasoning.py` — Target B generator: execution-verified traps + teacher execution-filter.
 - `ml_tasks.py` — synthetic, non-aviation ML sandbox tasks for Target C (oracle-gated: `selftest()`).
 - `ml_delivery_trajectories.py` — Target C generator: teacher-as-agent, keeps oracle-passing runs.
+- `probe/` — the held-out generalisation probe (6 problems on fresh domains) + its runner; the
+  independent validation set that proves the fine-tune generalises rather than memorising dsbench.
 
 ## Target B (teacher-hosted)
 
@@ -83,5 +85,19 @@ The teacher operates the ADR-003 sandbox (run_sql / run_python / finish) on synt
 ML tasks and only trajectories that **pass the oracle** (correct-schema table, every row predicted,
 metric beats the bar) are kept — a kept trajectory is by construction a demonstration of *finishing*
 the loop. Records are OpenAI-format messages + the tool schemas + an assistant-only loss mask.
+
+## Held-out probe (validation)
+
+```bash
+uv run python -m dsbench.sftgen.probe.tasks          # oracle-gate the 6 probe problems (no model)
+# baseline the CURRENT base now (the "before"), re-run on the fine-tune later (the "after"):
+uv run python -m dsbench.sftgen.probe.runner --provider dashi-qwen36 --model qwen36 --repeat 5
+```
+
+Six problems (2 per skill) on domains that appear in **neither** dsbench nor the generators
+(clinic / rideshare / grid / marketplace / loans / energy), hand-written (not generator-produced).
+Run through the same pi harness with a neutral, aviation-free system prompt. The generalisation
+claim is that the fine-tune moves **both** the probe and dsbench; a dsbench gain without a probe
+gain is the overfitting alarm (ADR-004 kill criterion).
 
 Generated `*.jsonl` are artifacts, not source — write them outside the repo (e.g. a scratch dir).

@@ -119,10 +119,10 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 
 ## Action items (gated; slot under ADR-001 Gate 1)
 
-1. [ ] Scaffold `projects/dsbench/src/dsbench/sftgen/` (or a sibling package) with the render/decontaminate/provenance plumbing and the corrected chat-template renderer (tool-call XML, assistant-only labels, thinking on/off).
-2. [ ] **Target A generator** first (cheapest, teacher-free, highest provenance): synthetic multi-domain schemas, four dialects, execution-verified, ~0.5M tokens; commit the decontamination report.
-3. [ ] **Target B generator:** trap-family templates + licence-clean teacher traces, execution-filtered, ~0.6M tokens.
-4. [ ] **Target C generator** last: wrap ~4 held-out public datasets in the ADR-003 harness, run a licence-clean teacher agent, keep only oracle-passing trajectories, ~0.9M tokens.
-5. [ ] Build the **held-out targeted probe** (~8–12 problems, disjoint from both the generators and dsbench) and baseline the *current* Qwen3.6 on it (so the "before" exists before any training).
-6. [ ] Assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1.
+1. [x] Scaffold `sftgen/` with the render/decontaminate/provenance plumbing and the chat-template renderer (assistant-only labels, thinking on/off). **Done** (`schema.py`/`render.py`/`decontaminate.py`).
+2. [x] **Target A generator** (teacher-free, highest provenance): synthetic multi-domain schemas, execution-verified across dialects (DuckDB + ClickHouse live; Postgres/MySQL optional via DSN). **Done** — 6 domains × 4 convention families; scales to the ~0.5M-token target.
+3. [x] **Target B generator:** four trap families on inline data, licence-clean teacher trace (Ling-3.0-flash), execution-filtered. **Done** — 12/12 live yield.
+4. [x] **Target C generator:** synthetic ML tasks in the ADR-003 harness (`ml_tasks.py`, oracle-gated), teacher-as-agent, keep only oracle-passing trajectories. **Done** — 4/4 live; trajectory shows train→recover→deliver→finish.
+5. [x] Build the **held-out probe** (6 problems, 2 per skill, disjoint from both the generators and dsbench) + its runner (neutral prompt). **Done, oracle-gated 6/6.** Still to do: baseline the *current* Qwen3.6 on it (needs Qwen3.6 hosted) to record the "before".
+6. [ ] Run the **volume generation** (A ~0.5M teacher-free; B ~0.6M + C ~0.9M on Ling; harden incremental writes for the long runs), assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1.
 7. **Kill / re-plan:** if the held-out probe cannot be moved by the targeted slice even when dsbench moves, the gain is memorisation — stop, and treat the gaps as needing method changes (more/better traces, or RL-style execution feedback) rather than more SFT volume.

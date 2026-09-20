@@ -97,9 +97,12 @@ def _parse_trajectory(events_path: Path) -> dict:
 
 
 def run_pi_agent(problem: AgentProblem, ctx: GradeContext, *, provider: str, model: str,
-                 thinking: str, timeout: float, verbose: bool = False) -> AgentResult:
+                 thinking: str, timeout: float, verbose: bool = False,
+                 system_override: str | None = None) -> AgentResult:
     t0 = time.time()
-    system = SYSTEM_PI.format(namespace=ctx.namespace, schema=SCHEMA_DOC)
+    # system_override lets a caller (e.g. the held-out probe) run the SAME harness with a NEUTRAL,
+    # non-aviation system prompt; default keeps the aviation-warehouse prompt for the eval set.
+    system = system_override or SYSTEM_PI.format(namespace=ctx.namespace, schema=SCHEMA_DOC)
     workdir = Path(tempfile.mkdtemp(prefix=f"pi-{problem.id}-"))
     env = os.environ.copy()
     env["PATH"] = f"{_BIN}:{env['PATH']}"
