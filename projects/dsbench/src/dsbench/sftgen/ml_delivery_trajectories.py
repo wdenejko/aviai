@@ -139,7 +139,9 @@ def _record(task: AgentProblem, res: dict, model: str, run_ix: int) -> dict:
 
 
 def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | None = None,
-             verbose: bool = False) -> tuple[list[dict], dict]:
+             verbose: bool = False, sink=None) -> tuple[list[dict], dict]:
+    # `sink(record)` is called as each trajectory passes the oracle -- the caller writes+flushes it,
+    # so a multi-hour Ling run never loses a delivered trajectory to a crash.
     picked = [t for t in ML_TASKS if not tasks or t.id in tasks]
     report: dict[str, Any] = {"emitted": 0, "failed": 0, "by_task": {},
                               "statuses": {}, "fail_reasons": []}
@@ -154,7 +156,10 @@ def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | Non
                 get_client(database="default").command(f"DROP DATABASE IF EXISTS {ctx.namespace}")
             report["statuses"][res["status"]] = report["statuses"].get(res["status"], 0) + 1
             if res["passed"]:
-                records.append(_record(task, res, model, run_ix))
+                rec = _record(task, res, model, run_ix)
+                records.append(rec)
+                if sink is not None:
+                    sink(rec)
                 report["emitted"] += 1
                 report["by_task"][task.id] = report["by_task"].get(task.id, 0) + 1
             else:
@@ -175,14 +180,21 @@ def main() -> None:
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
-    records, report = generate(
-        base_url=args.base_url, model=args.model, reps=args.reps,
-        tasks=[t for t in args.tasks.split(",") if t] or None, verbose=args.verbose,
-    )
-    if args.out:
-        with open(args.out, "w") as fh:
-            for rec in records:
-                fh.write(json.dumps(rec) + "\n")
+    out_fh = open(args.out, "w") if args.out else None  # closed in the finally below
+
+    def _sink(rec) -> None:  # write+flush each passing trajectory immediately
+        out_fh.write(json.dumps(rec) + "\n")
+        out_fh.flush()
+
+    try:
+        records, report = generate(
+            base_url=args.base_url, model=args.model, reps=args.reps,
+            tasks=[t for t in args.tasks.split(",") if t] or None, verbose=args.verbose,
+            sink=_sink if out_fh else None,
+        )
+    finally:
+        if out_fh:
+            out_fh.close()
     if args.report:
         with open(args.report, "w") as fh:
             json.dump(report, fh, indent=2)

@@ -61,8 +61,11 @@ def _build_row(*, domain, dialect, conv, params, sql, truth, result, seed, think
 def generate(
     *, seed: int = 7, reps: int = 1, n: int = 4000,
     dialects: list[str] | None = None, families: list[str] | None = None,
-    thinking_frac: float = 0.4,
+    thinking_frac: float = 0.4, sink=None,
 ) -> tuple[list[SFTRow], dict]:
+    # `sink(row)`, if given, is called as each row is verified -- the caller writes+flushes it so a
+    # long run is crash-safe (partial output survives). The returned list still powers the report;
+    # rows are tiny, so keeping both is cheap.
     rng = np.random.default_rng(seed)
     conv_map = conventions_by_family()
     convs = [conv_map[f] for f in (families or list(conv_map))]
@@ -107,10 +110,13 @@ def generate(
                             )
                             continue
                         thinking_on = bool(rng.random() < thinking_frac)
-                        rows.append(_build_row(
+                        row = _build_row(
                             domain=domain, dialect=eng.name, conv=c, params=p, sql=sql,
                             truth=truth, result=result, seed=dseed, thinking_on=thinking_on,
-                        ))
+                        )
+                        rows.append(row)
+                        if sink is not None:
+                            sink(row)
                         report["emitted"] += 1
                         report["thinking_rows"] += int(thinking_on)
                         report["by_dialect"][eng.name] = report["by_dialect"].get(eng.name, 0) + 1
@@ -141,17 +147,23 @@ def main() -> None:
     ap.add_argument("--sample", type=int, default=0, help="print N rows to stdout")
     args = ap.parse_args()
 
-    rows, report = generate(
-        seed=args.seed, reps=args.reps, n=args.n,
-        dialects=[d for d in args.dialects.split(",") if d] or None,
-        families=[f for f in args.families.split(",") if f] or None,
-        thinking_frac=args.thinking_frac,
-    )
+    out_fh = open(args.out, "w") if args.out else None  # closed in the finally below
 
-    if args.out:
-        with open(args.out, "w") as fh:
-            for r in rows:
-                fh.write(json.dumps(row_to_dict(r), default=_js) + "\n")
+    def _sink(row) -> None:  # write+flush each row so a long run is crash-safe
+        out_fh.write(json.dumps(row_to_dict(row), default=_js) + "\n")
+        out_fh.flush()
+
+    try:
+        rows, report = generate(
+            seed=args.seed, reps=args.reps, n=args.n,
+            dialects=[d for d in args.dialects.split(",") if d] or None,
+            families=[f for f in args.families.split(",") if f] or None,
+            thinking_frac=args.thinking_frac, sink=_sink if out_fh else None,
+        )
+    finally:
+        if out_fh:
+            out_fh.close()
+
     if args.report:
         with open(args.report, "w") as fh:
             json.dump(report, fh, indent=2, default=_js)
