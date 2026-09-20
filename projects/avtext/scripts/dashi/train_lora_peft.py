@@ -9,9 +9,10 @@ stay comparable to the Phase 6/7 results. Output is a PEFT adapter that convert_
 into the GGUF our llama.cpp harness serves.
 
 Run inside the reconstructed ROCm venv/toolbox (never set HSA_OVERRIDE_GFX_VERSION on gfx1151):
-    ~/fttorch/bin/python train_lora_peft.py --model unsloth/gemma-4-E4B-it --out ~/ft/gemma-4/<name> \
-    --data <sft.jsonl> --rank 16 --epochs 1 --batch 6 --grad-accum 2 --max-seq 2048 \
-    --group-by-length --compile --ckpt-above <N>   # see docs/STRIX_HALO_TRAINING_SPEED.md
+    ~/fttorch/bin/python train_lora_peft.py --model unsloth/gemma-4-E4B-it \
+    --out ~/ft/gemma-4/<name> --data <sft.jsonl> --rank 16 --epochs 1 --batch 6 \
+    --grad-accum 2 --max-seq 2048 --group-by-length --compile --ckpt-above <N>
+    # see docs/STRIX_HALO_TRAINING_SPEED.md
 """
 
 import argparse
@@ -32,18 +33,18 @@ from trl import SFTConfig, SFTTrainer
 class AvtextSFTTrainer(SFTTrainer):
     """SFTTrainer with the two gfx1151 levers that need trainer internals.
 
-    1. Length-grouped batches (`group_by_length`): trl 1.x dropped TrainingArguments.group_by_length,
-       so we inject the sampler directly. On gfx1151 this is the single biggest lever measured: random
-       batches mixing METAR (~460 tok) with TAF (~1100+ tok) pad every row to the longest, and 49% of
-       linear compute was padding. Length-grouped batches bring that to ~1% (≈2x less linear work,
-       ≈3x less attention work).
-    2. Length-adaptive gradient checkpointing (`ckpt_above` tokens): recompute is a compute-for-memory
-       trade, and on this 123 GiB unified-memory box it is only *needed* for the long tail. Measured
-       (S24): no-checkpointing is 1.7x faster on the short half of the data but does NOT fit the
-       ~2048-token TAF bucket at batch 6 (OOM, or worse: a swap storm that ends in a GPU page fault).
-       HF checkpointing is a runtime flag checked per forward, so we flip it per microbatch on the
-       padded length. With grouped batches lengths descend inside each megabatch, so the flag changes
-       ~twice per megabatch (two cached compiled graphs under torch.compile)."""
+    1. Length-grouped batches (`group_by_length`): trl 1.x dropped
+       TrainingArguments.group_by_length, so we inject the sampler directly. On gfx1151 this is the
+       single biggest lever measured: random batches mixing METAR (~460 tok) with TAF (~1100+ tok)
+       pad every row to the longest, and 49% of linear compute was padding. Length-grouped batches
+       bring that to ~1% (≈2x less linear work, ≈3x less attention work).
+    2. Length-adaptive gradient checkpointing (`ckpt_above` tokens): recompute is a
+       compute-for-memory trade, and on this 123 GiB unified-memory box it is only *needed* for the
+       long tail. Measured (S24): no-checkpointing is 1.7x faster on the short half of the data but
+       does NOT fit the ~2048-token TAF bucket at batch 6 (OOM, or worse: a swap storm that ends in
+       a GPU page fault). HF checkpointing is a runtime flag checked per forward, so we flip it per
+       microbatch on the padded length. With grouped batches lengths descend inside each megabatch,
+       so the flag changes ~twice per megabatch (two cached compiled graphs under torch.compile)."""
 
     group_by_length = True
     ckpt_above = 0
@@ -71,7 +72,7 @@ class AvtextSFTTrainer(SFTTrainer):
                 (m.gradient_checkpointing_enable if want else m.gradient_checkpointing_disable)()
                 self._ckpt_on = want
         out = super().training_step(model, inputs, *args, **kwargs)
-        if self.log_mem:  # per-microbatch memory curve: how the compiled no-ckpt peak scales with length
+        if self.log_mem:  # per-microbatch memory curve: how the no-ckpt peak scales with length
             print(f"MEMLOG len={inputs['input_ids'].shape[1]} ckpt={self._ckpt_on} "
                   f"peak={torch.cuda.max_memory_allocated() / 2**30:.1f}GiB "
                   f"reserved={torch.cuda.memory_reserved() / 2**30:.1f}GiB", flush=True)
@@ -103,7 +104,7 @@ def main() -> None:
     # and SDPA's math backend does O(flattened_len^2) attention — catastrophically slow (S23:
     # 310s/step). Non-packed + dynamic padding keeps short METAR/NOTAM rows short. And with ~100 GiB
     # of unified RAM free, gradient checkpointing (a compute-for-memory trade) is usually a net loss
-    # here — --no-grad-checkpointing removes the recompute. Bigger --batch fills the under-used iGPU.
+    # here — --no-grad-checkpointing removes the recompute. Bigger --batch fills the iGPU.
     ap.add_argument(
         "--grad-checkpointing", action=argparse.BooleanOptionalAction, default=True
     )
@@ -114,7 +115,7 @@ def main() -> None:
     #    (~2x linear, ~3x attention work).
     #  --compile: torch.compile via the Trainer (inductor) fused the ~35% unfused elementwise ops
     #    for a measured 1.42x on a real step. Sequence length varies per batch, so we rely on
-    #    dynamo's automatic dynamic shapes + a raised recompile cap instead of recompiling per shape.
+    #    dynamo's automatic dynamic shapes + a raised recompile cap, not per-shape recompiles.
     ap.add_argument("--group-by-length", action="store_true")
     ap.add_argument("--compile", action="store_true")
     # Resilience: a crash mid-run (S24's "GPU page fault" turned out to be a memory blow-up that
@@ -124,12 +125,14 @@ def main() -> None:
     ap.add_argument("--save-steps", type=int, default=0, help="checkpoint every N steps (0=off)")
     ap.add_argument("--resume", action="store_true", help="resume from latest checkpoint in --out")
     # S24 memory levers. --ckpt-above N: checkpoint only microbatches longer than N tokens (see
-    # AvtextSFTTrainer); implies checkpointing machinery on. --mem-fraction: on an APU the "GPU" pool
+    # AvtextSFTTrainer); implies checkpointing on. --mem-fraction: on an APU the "GPU" pool
     # is host RAM, so an over-allocation is not a clean OOM but a swap storm that ends in an amdgpu
     # page fault and a hung box — a cap turns it back into a fast, retryable OOM (0 = off).
-    ap.add_argument("--ckpt-above", type=int, default=0, help="adaptive checkpointing threshold (tokens)")
+    ap.add_argument("--ckpt-above", type=int, default=0,
+                    help="adaptive checkpointing threshold (tokens)")
     ap.add_argument("--mem-fraction", type=float, default=0.85, help="cap on the GPU pool (0=off)")
-    ap.add_argument("--log-mem", action="store_true", help="print peak GiB per microbatch (MEMLOG lines)")
+    ap.add_argument("--log-mem", action="store_true",
+                    help="print peak GiB per microbatch (MEMLOG lines)")
     a = ap.parse_args()
     if a.mem_fraction:
         torch.cuda.set_per_process_memory_fraction(a.mem_fraction)
@@ -165,7 +168,8 @@ def main() -> None:
         warmup_steps=10, num_train_epochs=a.epochs, max_steps=a.max_steps,
         learning_rate=a.lr, logging_steps=5, optim="adamw_torch", weight_decay=0.01,
         lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
-        dataset_num_proc=1, bf16=True, gradient_checkpointing=a.grad_checkpointing and not a.ckpt_above,
+        dataset_num_proc=1, bf16=True,
+        gradient_checkpointing=a.grad_checkpointing and not a.ckpt_above,
         torch_compile=a.compile,
         save_strategy="steps" if a.save_steps else "no", save_steps=a.save_steps or 500,
         save_total_limit=2,

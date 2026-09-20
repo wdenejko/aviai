@@ -1,10 +1,13 @@
 """Unsloth bf16 LoRA finetune for the aviation-decode task (Phase 4, dashi/gfx1151)."""
-import argparse, os
+import argparse
+import os
+
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 import torch
-from unsloth import FastLanguageModel
 from datasets import load_dataset
-from trl import SFTTrainer, SFTConfig
+from trl import SFTConfig, SFTTrainer
+from unsloth import FastLanguageModel
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -18,7 +21,7 @@ def main():
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--packing", action="store_true",
-                    help="pack short examples into max_seq sequences (much faster on mixed-length sets)")
+                    help="pack short examples into max_seq sequences (faster on mixed-length sets)")
     a = ap.parse_args()
 
     model, tok = FastLanguageModel.from_pretrained(
@@ -42,7 +45,8 @@ def main():
             lr_scheduler_type="linear", seed=42, output_dir=a.out, report_to="none",
             max_seq_length=a.max_seq, dataset_num_proc=1, bf16=True))
     trainer.train()
-    model.save_pretrained(a.out); tok.save_pretrained(a.out)
+    model.save_pretrained(a.out)
+    tok.save_pretrained(a.out)
     print("SAVED_ADAPTER", a.out)
 
 if __name__ == "__main__":
