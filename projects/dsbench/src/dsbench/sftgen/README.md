@@ -13,7 +13,7 @@ aviation benchmark, so a dsbench before/after measures learning, not memorisatio
 | Target | Generator | Skill | Status |
 |---|---|---|---|
 | **A** | `dialect_conventions.py` | SQL-dialect date/time conventions (weekday, weekend, tz, month) | **done** — 6 domains × 4 families, execution-verified, teacher-free |
-| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | **done** — 4 trap families, inline-data prompts, execution-filtered; live yield 8/8 with the Ling teacher |
+| **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | **built, then DROPPED** — no measured gap (probe 5/5 + `da_delay_attribution` was a prompt-scope artifact). Generator kept as a tool; not in the mixture. See ADR-004 |
 | **C** | `ml_delivery_trajectories.py` | agentic ML-workflow delivery discipline | **done** — runs the teacher as a sandbox agent on synthetic ML tasks; keeps only oracle-passing trajectories |
 | — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench | **done** — all 3 rules verified |
 

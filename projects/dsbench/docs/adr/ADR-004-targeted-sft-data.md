@@ -59,6 +59,8 @@ Three generators, one per target. Each is defined by: the **skill statement** (w
 
 ### Target B — conditional-population / denominator reasoning  *(generator: `sftgen/denominator_reasoning.py`)*
 
+> **DROPPED from the mixture (2026-09-20) — no measured gap.** The held-out probe (`probe_incident_share`) passed **5/5 even with a tempting wrong-base decoy**, and a trajectory investigation of the one dsbench "denominator failure" (`da_delay_attribution`) showed Qwen3.6's **5-cause denominator was exactly correct** — it only scoped the population differently (`Origin IN hubs OR Dest IN hubs` → 40.9 vs the oracle's `Origin IN hubs` → 44.1). So the "systematic denominator error" was a **prompt-ambiguity artifact**, not a reasoning deficiency. Training it would be teaching-to-the-test on an artifact. The `da_delay_attribution` prompt has been disambiguated (a false negative fixed); the generator below is retained as a tool but is **not** in the targeted mixture. This is exactly the kill-criterion check the probe exists for. The original rationale is kept below for the record.
+
 - **Skill:** identify the **correct population and denominator** for a rate/share/attribution question — especially when a field is populated only under a condition (nulls that mean "not applicable", not "zero"), and when "share of X across categories" means *divide by the summed categories*, not by a grand total or an average-of-averages.
 - **Source distribution (NOT aviation):** the same synthetic domains as Target A, but shaped to reproduce the trap families: (i) conditional-null columns (a `refund_reason` populated only for returned orders; a `fault_code` only for failed sensor reads); (ii) share-of-total vs share-of-subtotal; (iii) pooled rate vs mean-of-per-group-rates (the `da_weighted_ontime` trap, generalised); (iv) rate with a cancelled/excluded denominator (the `da_all_flights_avg_delay` trap, generalised).
 - **Generation + verification:** template the question + the **execution-verified truth** (SQL and pandas agree). Then — because the *reasoning* is the point — generate a thinking trace with a **licence-clean teacher** that must arrive at the verified number; **drop any trace whose answer ≠ truth** (execution-filtered distillation). The kept trace explicitly discusses *which rows are in scope* and *what the denominator is and why*. This is the one target where a teacher earns its keep (natural denominator-reasoning prose is hard to template well), and it stays provenance-clean because the teacher is licence-clean and the label is ground truth.
@@ -75,14 +77,14 @@ Three generators, one per target. Each is defined by: the **skill statement** (w
 
 ### The targeted slice inside ADR-001's mixtures
 
-The targeted slice is **~2M tokens (~20%)** of the Gate 2 10M-token first run; the rest stays as ADR-001 B.4 breadth + replay. Rationale: three narrow behaviours must not crowd out breadth (or the model over-specialises and regresses — the very thing ADR-001 Gate 2's thresholds guard). Replay stays at 25–30%.
+The targeted slice is **~1.4M tokens (~14%)** of the Gate 2 10M-token first run (Target B dropped — see its banner); the rest stays as ADR-001 B.4 breadth + replay. Rationale: the narrow behaviours must not crowd out breadth (or the model over-specialises and regresses — the very thing ADR-001 Gate 2's thresholds guard). Replay stays at 25–30%.
 
 | Bucket | Source | Tokens | % of 10M |
 |---|---|---|---|
 | **Target A — dialect conventions** | `sftgen/dialect_conventions.py` (own-gen, exec-verified) | 0.5M | 5 |
-| **Target B — denominator reasoning** | `sftgen/denominator_reasoning.py` (teacher trace, exec-filtered) | 0.6M | 6 |
+| ~~Target B — denominator reasoning~~ | dropped 2026-09-20 (no measured gap — held-out probe + `da_delay_attribution` trajectory) | — | — |
 | **Target C — ML-delivery trajectories** | `sftgen/ml_delivery_trajectories.py` (teacher-in-sandbox, oracle-passed) | 0.9M | 9 |
-| Breadth (DS/DE/SWE/general code) | ADR-001 B.4 buckets | 5.5M | 55 |
+| Breadth (DS/DE/SWE/general code) | ADR-001 B.4 buckets (+ the freed 0.6M) | 6.1M | 61 |
 | General replay | ADR-001 B.4 (SmolTalk2/Dolci/Tulu-3) | 2.5M | 25 |
 
 The **Gate 1 pilot (1M tokens)** is a proportional down-sample of this table: ~0.2M targeted (all three generators represented) + ~0.8M breadth/replay — enough to prove the pipeline (render → decontaminate → train → convert → serve → parity) end-to-end before spending a Gate 2 GPU window.
@@ -121,8 +123,8 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 
 1. [x] Scaffold `sftgen/` with the render/decontaminate/provenance plumbing and the chat-template renderer (assistant-only labels, thinking on/off). **Done** (`schema.py`/`render.py`/`decontaminate.py`).
 2. [x] **Target A generator** (teacher-free, highest provenance): synthetic multi-domain schemas, execution-verified across dialects (DuckDB + ClickHouse live; Postgres/MySQL optional via DSN). **Done** — 6 domains × 4 convention families; scales to the ~0.5M-token target.
-3. [x] **Target B generator:** four trap families on inline data, licence-clean teacher trace (Ling-3.0-flash), execution-filtered. **Done** — 12/12 live yield.
+3. [x] **Target B generator:** four trap families on inline data, licence-clean teacher trace (Ling-3.0-flash), execution-filtered. **Done — 12/12 live yield, then DROPPED from the mixture (2026-09-20):** the held-out probe (5/5 with a decoy) and a `da_delay_attribution` trajectory investigation (Qwen's 5-cause denominator was correct; only the population scope differed) showed no general denominator gap. Generator retained as a tool, not trained on.
 4. [x] **Target C generator:** synthetic ML tasks in the ADR-003 harness (`ml_tasks.py`, oracle-gated), teacher-as-agent, keep only oracle-passing trajectories. **Done** — 4/4 live; trajectory shows train→recover→deliver→finish.
 5. [x] Build the **held-out probe** (6 problems, 2 per skill, disjoint from both the generators and dsbench) + its runner (neutral prompt). **Done, oracle-gated 6/6.** Still to do: baseline the *current* Qwen3.6 on it (needs Qwen3.6 hosted) to record the "before".
-6. [ ] Run the **volume generation** (A ~0.5M teacher-free; B ~0.6M + C ~0.9M on Ling; harden incremental writes for the long runs), assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1.
+6. [ ] Run the **volume generation** (A ~0.5M teacher-free; C ~0.9M on Ling; B dropped; harden incremental writes for the long runs), assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1.
 7. **Kill / re-plan:** if the held-out probe cannot be moved by the targeted slice even when dsbench moves, the gain is memorisation — stop, and treat the gaps as needing method changes (more/better traces, or RL-style execution feedback) rather than more SFT volume.
