@@ -34,10 +34,23 @@ equals the independent pandas truth — mismatches are counted in the report, ne
 ## Dialects
 
 DuckDB (in-process) and ClickHouse (the ADR-003 sandbox) work out of the box. PostgreSQL and MySQL
-are optional: set `SFTGEN_PG_DSN` / `SFTGEN_MYSQL_DSN` (and install `psycopg` / `pymysql`) and they
-join automatically — otherwise they are skipped. The weekday-numbering contrast is sharpest with
-MySQL present (Sunday=1), but ClickHouse ISO (Sunday=7) vs DuckDB/Postgres (Sunday=0) already
-exercises the trap.
+are optional but validated — with all four, the weekday-numbering contrast spans three schemes
+(execution-verified): **Sunday → ClickHouse 7 (ISO), DuckDB/Postgres 0, MySQL 1**. Bring them up as
+throwaway containers and pass the drivers ephemerally (no repo/lock churn — they are generation-only):
+
+```bash
+docker run -d --name sftgen-pg -e POSTGRES_PASSWORD=sftgen -e POSTGRES_USER=sftgen \
+    -e POSTGRES_DB=sftgen -p 55432:5432 postgres:16
+docker run -d --name sftgen-mysql -e MYSQL_ROOT_PASSWORD=rootsftgen -e MYSQL_DATABASE=sftgen \
+    -e MYSQL_USER=sftgen -e MYSQL_PASSWORD=sftgen -p 33061:3306 mysql:8
+
+export SFTGEN_PG_DSN="host=127.0.0.1 port=55432 user=sftgen password=sftgen dbname=sftgen"
+export SFTGEN_MYSQL_DSN='{"host":"127.0.0.1","port":33061,"user":"sftgen","password":"sftgen","database":"sftgen"}'
+uv run --with 'psycopg[binary]' --with pymysql python -m dsbench.sftgen.dialect_conventions --reps 20 ...
+```
+
+An engine with no DSN (or an unreachable one) is simply skipped — a dialect only ever emits
+execution-verified rows. Validated end-to-end: 192 rows across all four dialects, 0 rejected.
 
 ## Files
 
