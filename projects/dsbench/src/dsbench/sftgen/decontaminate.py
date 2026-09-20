@@ -89,9 +89,15 @@ def scan_text(text: str, deny: DenyList, n: int = _NGRAM) -> dict | None:
 
 
 def _row_text(obj: dict[str, Any]) -> str:
-    """Extract scannable text from either a raw SFTRow dict or a rendered chat record."""
+    """Scannable text from a raw SFTRow dict OR a rendered chat record (incl. tool-call args)."""
     if "messages" in obj:
-        return "\n".join(m.get("content", "") for m in obj["messages"])
+        parts: list[str] = []
+        for m in obj["messages"]:
+            parts.append(m.get("content") or "")
+            # Target C trajectories carry the SQL/code in tool-call arguments, not in content.
+            for tc in (m.get("tool_calls") or []):
+                parts.append((tc.get("function") or {}).get("arguments") or "")
+        return "\n".join(parts)
     if "turns" in obj:
         return row_from_dict(obj).text_blob()
     return json.dumps(obj)

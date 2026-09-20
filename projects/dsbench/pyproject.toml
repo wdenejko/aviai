@@ -32,6 +32,8 @@ dsbench-agent-selftest = "dsbench.agentic.selftest:main"
 dsbench-pi-run = "dsbench.agentic.pi_runner:main"
 # Targeted SFT-data generators (ADR-004): the sandbox also MANUFACTURES the fine-tune data.
 dsbench-sftgen-a = "dsbench.sftgen.dialect_conventions:main"
+dsbench-sftgen-b = "dsbench.sftgen.denominator_reasoning:main"
+dsbench-sftgen-c = "dsbench.sftgen.ml_delivery_trajectories:main"
 dsbench-sftgen-render = "dsbench.sftgen.render:main"
 dsbench-sftgen-decontaminate = "dsbench.sftgen.decontaminate:main"
 

@@ -7,8 +7,10 @@ gap (ADR-004):
   - Target A  `dialect_conventions`  -- SQL-dialect date/time conventions (weekday numbering,
                                         timezone direction). Own-generated, teacher-free, verified
                                         against real engines across dialects. Apache-2.0-clean.
-  - Target B  `denominator_reasoning` (todo) -- conditional-population / ratio-denominator sense.
-  - Target C  `ml_delivery_trajectories` (todo) -- agentic ML-workflow delivery discipline.
+  - Target B  `denominator_reasoning` -- conditional-population / ratio-denominator reasoning on
+      inline data; a licence-clean teacher trace, execution-filtered against the verified truth.
+  - Target C  `ml_delivery_trajectories` -- agentic ML-workflow delivery discipline; a teacher runs
+      the sandbox on synthetic ML tasks (`ml_tasks`), and only oracle-passing trajectories are kept.
 
 Design invariants shared by all three (ADR-004):
   * teach the TRANSFERABLE skill on a distribution that is NOT the aviation benchmark, so the gain
