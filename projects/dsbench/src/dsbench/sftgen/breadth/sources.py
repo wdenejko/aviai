@@ -185,6 +185,20 @@ def _tulu_row_ok(row: dict) -> bool:
     return any(s in src for s in _TULU_CLEAN_SOURCE_SUBSTR)
 
 
+# ADR-001 non-negotiable: exclude SWE-bench-Verified's repos from every SWE source (they are an eval
+# target). Conservative: a trajectory that names any of these owner/repo slugs anywhere is dropped.
+_SWEBENCH_VERIFIED_REPOS: tuple[str, ...] = (
+    "astropy/astropy", "django/django", "matplotlib/matplotlib", "mwaskom/seaborn",
+    "pallets/flask", "psf/requests", "pydata/xarray", "pylint-dev/pylint", "pytest-dev/pytest",
+    "scikit-learn/scikit-learn", "sphinx-doc/sphinx", "sympy/sympy",
+)
+
+
+def _swe_row_ok(row: dict) -> bool:
+    text = " ".join(str(m.get("content") or "") for m in (row.get("messages") or [])).lower()
+    return not any(repo in text for repo in _SWEBENCH_VERIFIED_REPOS)
+
+
 # ---- the registry ----
 
 SOURCES: list[Source] = [
@@ -219,6 +233,13 @@ SOURCES: list[Source] = [
         bucket="ds_notebooks", licence="MIT", teacher="DataMind pipeline", redistributable=True,
         gated=False, normalize=_norm_trajectory,
         notes="Data-analysis rollouts in `trajectory`.",
+    ),
+    Source(
+        key="swe_swiss", hf_id="SWE-Swiss/SWESwiss-SFT-Merged-10K", config="default", split="train",
+        bucket="swe", licence="MIT", teacher="DeepSeek-R1", redistributable=True, gated=False,
+        normalize=_norm_messages_passthrough, row_ok=_swe_row_ok,
+        notes="ADR-named SWE SFT, public at the un-hyphenated id. row_ok drops any trajectory "
+              "naming a SWE-bench-Verified repo (eval hygiene).",
     ),
     Source(
         key="tulu3", hf_id="allenai/tulu-3-sft-mixture", config="default", split="train",

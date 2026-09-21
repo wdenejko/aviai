@@ -14,6 +14,7 @@ from dsbench.sftgen.breadth.sources import (
     _norm_jupyter_agent,
     _norm_text_to_sql,
     _norm_trajectory,
+    _swe_row_ok,
     _tulu_row_ok,
     _valid_messages,
 )
@@ -88,6 +89,15 @@ def test_tulu_clean_source_filter():
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/personahub_math"})   # GPT-4o teacher
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/wildchat_gpt4"})     # GPT teacher
     assert not _tulu_row_ok({"source": ""})
+
+
+def test_swe_excludes_swebench_verified_repos():
+    # a trajectory that names a SWE-bench-Verified repo is dropped (eval hygiene)
+    def msg(c):
+        return {"messages": [{"role": "user", "content": c}]}
+    assert not _swe_row_ok(msg("fix bug in django/django #123"))
+    assert not _swe_row_ok(msg("patch scikit-learn/scikit-learn regression"))
+    assert _swe_row_ok(msg("fix acme/widget in file x.py"))   # unrelated repo is kept
 
 
 def test_approx_tokens_counts_content_and_toolcall_args():
