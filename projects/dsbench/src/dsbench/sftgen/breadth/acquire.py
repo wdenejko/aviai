@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from typing import Any
 
 from dsbench.sftgen.breadth.sources import SOURCES, SOURCES_BY_KEY, Source, public_sources
@@ -114,6 +116,8 @@ def main() -> None:
     else:
         raise SystemExit("pick --source / --bucket / --all-public (or --list)")
 
+    if args.out_dir:
+        os.makedirs(args.out_dir, exist_ok=True)
     deny = build_denylist()
     manifest: dict[str, Any] = {"max_trace_tokens": MAX_TRACE_TOKENS, "cap_tokens": args.cap_tokens,
                                 "sources": []}
@@ -145,3 +149,9 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    # HF `datasets` streaming can leave a non-daemon shard-download thread alive after we break at
+    # the token cap, hanging the process (and, in a sequential shell, blocking the next source from
+    # ever running). All output is flushed row-by-row, so flush the console summary and exit hard.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
