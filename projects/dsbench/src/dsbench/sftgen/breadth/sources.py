@@ -44,6 +44,7 @@ class Source:
     gated: bool                    # needs an HF token / accepted terms to download
     normalize: Callable[[dict], dict | None]
     row_ok: Callable[[dict], bool] = lambda r: True
+    heavy: bool = False            # too big to stream in bulk (shards); excluded from --all-public
     notes: str = ""
 
 
@@ -156,13 +157,15 @@ def _norm_text_to_sql(row: dict) -> dict | None:
     Field names are confirmed at acquire time from a live row; this handles the documented shape and
     drops anything that doesn't carry a question + SQL so a schema drift fails closed, not silently.
     """
-    q = row.get("question") or row.get("query")
+    q = row.get("question") or row.get("query") or row.get("sql_prompt")
     sql = row.get("sql") or row.get("SQL") or row.get("answer")
     if not (isinstance(q, str) and q.strip() and isinstance(sql, str) and sql.strip()):
         return None
-    schema = row.get("schema") or row.get("ddl") or row.get("db_schema") or ""
+    schema = (row.get("schema") or row.get("ddl") or row.get("db_schema")
+              or row.get("sql_context") or "")
     know = row.get("external_knowledge") or row.get("evidence") or ""
-    cot = row.get("cot") or row.get("chain_of_thought") or row.get("reasoning") or ""
+    cot = (row.get("cot") or row.get("chain_of_thought") or row.get("reasoning")
+           or row.get("sql_explanation") or "")
     user = (f"{schema}\n\n" if schema else "") + (f"Knowledge: {know}\n\n" if know else "") + q
     answer = (f"{cot}\n\n" if cot else "") + f"```sql\n{sql.strip()}\n```"
     msgs = [{"role": "user", "content": user.strip()}, {"role": "assistant", "content": answer}]
@@ -199,10 +202,17 @@ SOURCES: list[Source] = [
         notes="Has executable `testcase` asserts; also a `package_instruct` config.",
     ),
     Source(
+        key="gretel_sql", hf_id="gretelai/synthetic_text_to_sql", config="default", split="train",
+        bucket="text_to_sql", licence="Apache-2.0", teacher="Gretel Navigator",
+        redistributable=True, gated=False, normalize=_norm_text_to_sql,
+        notes="Self-contained: embeds the DDL per row (sql_context) + explanation. Clean teacher.",
+    ),
+    Source(
         key="synsql", hf_id="seeklhy/SynSQL-2.5M", config="default", split="train",
         bucket="text_to_sql", licence="Apache-2.0", teacher="Qwen (verify)", redistributable=True,
-        gated=False, normalize=_norm_text_to_sql,
-        notes="OmniSQL SynSQL-2.5M. Confirm the teacher isn't GPT-4o before shippable use.",
+        gated=False, heavy=True, normalize=_norm_text_to_sql,
+        notes="OmniSQL SynSQL-2.5M: 2.5M rows in huge shards (heavy to stream) and schema is by "
+              "db_id, not per-row -> needs a schema-join. Prefer gretel_sql for the pilot.",
     ),
     Source(
         key="datamind", hf_id="zjunlp/DataMind-12K", config="default", split="train",
@@ -222,4 +232,5 @@ SOURCES_BY_KEY: dict[str, Source] = {s.key: s for s in SOURCES}
 
 
 def public_sources() -> list[Source]:
-    return [s for s in SOURCES if not s.gated]
+    """Non-gated sources safe to stream in bulk (`--all-public`); heavy sources are opt-in only."""
+    return [s for s in SOURCES if not s.gated and not s.heavy]
