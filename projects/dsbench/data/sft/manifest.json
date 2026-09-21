@@ -1,0 +1,41 @@
+{
+  "note": "Generated SFT-data artifacts (ADR-004). Data is gitignored; this manifest + README are tracked for provenance. Regenerate with the commands in each entry; final decontamination runs at mixture-assembly time.",
+  "artifacts": [
+    {
+      "file": "targetA_dialect_conventions.raw.jsonl",
+      "bytes": 4523227,
+      "rows": 3840,
+      "sha256": "31e608c222d200ab",
+      "approx_tokens": 1291253,
+      "target": "A",
+      "format": "raw SFTRow",
+      "teacher": null,
+      "licence": "Apache-2.0 (execution-verified, teacher-free)",
+      "regen": "uv run --with 'psycopg[binary]' --with pymysql python -m dsbench.sftgen.dialect_conventions --reps 40 --n 1500 --out <raw> --report <rep>"
+    },
+    {
+      "file": "targetA_dialect_conventions.train.jsonl",
+      "bytes": 4334419,
+      "rows": 3840,
+      "sha256": "ba04b7fe5fdc01eb",
+      "approx_tokens": 1237308,
+      "target": "A",
+      "format": "Qwen chat train",
+      "regen": "uv run python -m dsbench.sftgen.render <raw> <train>"
+    },
+    {
+      "file": "targetC_ml_delivery.jsonl",
+      "bytes": 1234818,
+      "rows": 58,
+      "sha256": "2c9b85e1bf659e9e",
+      "approx_tokens": 352789,
+      "target": "C",
+      "format": "OpenAI messages+tools+loss_mask",
+      "teacher": "ling-3.0-flash-q6-mtp (inclusionAI, MIT)",
+      "licence": "Apache-2.0 (oracle-gated teacher-in-sandbox)",
+      "yield": "58/60 emitted (2 rejected: no deliverable table)",
+      "decontam": "58/58 clean vs dsbench",
+      "regen": "uv run python -m dsbench.sftgen.ml_delivery_trajectories --reps 30 --out <out> --report <rep>  # Ling served on dashi:8080 via tunnel :18080"
+    }
+  ]
+}

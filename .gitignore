@@ -23,6 +23,13 @@ projects/avtext/data/gold/
 !projects/avtext/data/README.md
 !projects/avtext/data/manifest.json
 
+# dsbench targeted-SFT data (ADR-004): generators are committed, the generated
+# JSONL are regenerable artifacts (Target C costs GPU hours, so it is persisted
+# here rather than only in scratch) — ignore the bulk by pattern (so the tracked
+# provenance anchors README.md + manifest.json in the same dir stay trackable).
+projects/dsbench/data/sft/*.jsonl
+projects/dsbench/data/sft/*.report.json
+
 # Frozen eval sets and run reports ARE committed (reproducibility contract),
 # so they are intentionally NOT ignored here.
 
