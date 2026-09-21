@@ -58,6 +58,19 @@ _LINES = ["A", "B", "C"]
 _CARRIERS = ["north", "south", "east", "west"]
 
 
+def _run_seed(ctx: GradeContext, base: int) -> int:
+    """Vary the synthetic data per run so repetitions are DISTINCT datasets, not the same one.
+
+    The C generator names each run's scratch DB `sftc_<task>_<run_ix>`, so the trailing integer is
+    the run index; a volume run of N reps then trains on N different datasets. selftest() uses a
+    non-numeric namespace and falls back to the base seed (a fixed, oracle-gated dataset).
+    """
+    try:
+        return base + int(ctx.namespace.rsplit("_", 1)[1])
+    except (ValueError, IndexError):
+        return base
+
+
 def _split(n: int, rng: np.random.Generator, test_frac: float = 0.2) -> np.ndarray:
     """Return a boolean is_test mask over 0..n-1 (deterministic given rng)."""
     is_test = np.zeros(n, dtype=bool)
@@ -87,7 +100,7 @@ def _widget_data(seed: int, n: int = 4000):
 
 
 def _widget_setup(ctx: GradeContext) -> None:
-    df, is_test = _widget_data(101)
+    df, is_test = _widget_data(_run_seed(ctx, 101))
     tr, te = df[~is_test], df[is_test]
     _insert(ctx, "widget_train", "id UInt32, x1 Float64, x2 Float64, x3 Float64, line String, "
                                  "label UInt8", tr)
@@ -166,7 +179,7 @@ def _delivery_data(seed: int, n: int = 4000):
 
 
 def _delivery_setup(ctx: GradeContext) -> None:
-    df, is_test = _delivery_data(202)
+    df, is_test = _delivery_data(_run_seed(ctx, 202))
     tr, te = df[~is_test], df[is_test]
     cols = "id UInt32, dist Float64, weight Float64, hour UInt16, carrier String, minutes Float64"
     _insert(ctx, "delivery_train", cols, tr)
