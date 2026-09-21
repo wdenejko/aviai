@@ -36,6 +36,7 @@ dsbench-sftgen-b = "dsbench.sftgen.denominator_reasoning:main"
 dsbench-sftgen-c = "dsbench.sftgen.ml_delivery_trajectories:main"
 dsbench-sftgen-render = "dsbench.sftgen.render:main"
 dsbench-sftgen-decontaminate = "dsbench.sftgen.decontaminate:main"
+dsbench-sftgen-breadth = "dsbench.sftgen.breadth.acquire:main"
 
 [build-system]
 requires = ["hatchling"]

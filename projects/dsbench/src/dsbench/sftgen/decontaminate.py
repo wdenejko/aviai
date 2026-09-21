@@ -92,11 +92,20 @@ def _row_text(obj: dict[str, Any]) -> str:
     """Scannable text from a raw SFTRow dict OR a rendered chat record (incl. tool-call args)."""
     if "messages" in obj:
         parts: list[str] = []
+
+        def _s(v: Any) -> str:
+            # Content/arguments are usually strings, but some breadth sources use structured content
+            # or a dict `arguments`; coerce so the scan never crashes on a non-str (and still sees
+            # the text inside a JSON-dumped dict).
+            if v is None:
+                return ""
+            return v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+
         for m in obj["messages"]:
-            parts.append(m.get("content") or "")
+            parts.append(_s(m.get("content")))
             # Target C trajectories carry the SQL/code in tool-call arguments, not in content.
             for tc in (m.get("tool_calls") or []):
-                parts.append((tc.get("function") or {}).get("arguments") or "")
+                parts.append(_s((tc.get("function") or {}).get("arguments")))
         return "\n".join(parts)
     if "turns" in obj:
         return row_from_dict(obj).text_blob()
