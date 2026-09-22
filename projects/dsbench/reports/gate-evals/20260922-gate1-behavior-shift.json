@@ -1,0 +1,16 @@
+{
+  "base": {
+    "targetA_heldout": 1.2833403497934341,
+    "targetA_trained": 1.3672022223472595,
+    "targetC_heldout": 3.534453947097063,
+    "targetC_trained": 3.469680391252041,
+    "tulu3_trained": 2.9059810042381287
+  },
+  "adapter": {
+    "targetA_heldout": 0.1639733137562871,
+    "targetA_trained": 0.16093457490205765,
+    "targetC_heldout": 0.33853844413533807,
+    "targetC_trained": 0.42308805882930756,
+    "tulu3_trained": 1.1976758986711502
+  }
+}
