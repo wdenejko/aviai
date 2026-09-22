@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "label": "qwen36-smoke",
+    "harness": "pi",
+    "model": "qwen36",
+    "provider": "dashi-qwen36",
+    "thinking": "high",
+    "repeat": 1,
+    "timestamp": "2026-09-19T10:04:40",
+    "n": 1
+  },
+  "results": [
+    {
+      "id": "da_hub_delay",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "steps": 2,
+      "tool_calls": 1,
+      "answer": "DFW",
+      "trajectory": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Among the five hub airports (ATL, ORD, DFW, DEN, LAX), which one had the HIGHEST average\ndeparture delay in June 2026? Use avg(DepDelayMinutes) over flights DEPARTING that airport\n(Origin). Query the warehouse to find out, then reply with ONLY the airport's 3-letter\nIATA code (e.g. `ATL`), and nothing else.\n"
+            }
+          ],
+          "timestamp": 1789805074760
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "The user wants to find which of the five hub airports (ATL, ORD, DFW, DEN, LAX) had the highest average departure delay in June 2026. I need to query the aviation.flights table, filter for flights departing from these airports, and compute the average DepDelayMinutes grouped by Origin.\n\nLet me write a SQL query to do this.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "toolCall",
+              "id": "V0STYUNBFhLn24t9Dcy8nRhZC8lCS67L",
+              "name": "bash",
+              "arguments": {
+                "command": "run_sql \"SELECT Origin, avg(DepDelayMinutes) AS avg_dep_delay FROM aviation.flights WHERE Origin IN ('ATL','ORD','DFW','DEN','LAX') AND Cancelled = 0 GROUP BY Origin ORDER BY avg_dep_delay DESC LIMIT 1\""
+              }
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-qwen36",
+          "model": "qwen36",
+          "usage": {
+            "input": 2264,
+            "output": 163,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2427,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "toolUse",
+          "timestamp": 1789805074769,
+          "responseId": "chatcmpl-S39DWHvjDvVBNrzIrHE22gOMfSKKAQH0",
+          "rawStopReason": "tool_calls"
+        },
+        {
+          "role": "toolResult",
+          "toolCallId": "V0STYUNBFhLn24t9Dcy8nRhZC8lCS67L",
+          "toolName": "bash",
+          "content": [
+            {
+              "type": "text",
+              "text": "   \u250c\u2500Origin\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500avg_dep_delay\u2500\u2510\n1. \u2502 DFW    \u2502 31.845197740112994 \u2502\n   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n"
+            }
+          ],
+          "isError": false,
+          "timestamp": 1789805079831
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "The query shows DFW has the highest average departure delay at ~31.85 minutes. The user wants only the 3-letter IATA code.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "text",
+              "text": "DFW"
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-qwen36",
+          "model": "qwen36",
+          "usage": {
+            "input": 71,
+            "output": 38,
+            "cacheRead": 2426,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2535,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "stop",
+          "timestamp": 1789805079832,
+          "responseId": "chatcmpl-Rp6OYgFqp1N8g79lDyKgCnxaR0XaqkJX",
+          "rawStopReason": "stop"
+        }
+      ],
+      "latency_s": 6.4
+    }
+  ]
+}

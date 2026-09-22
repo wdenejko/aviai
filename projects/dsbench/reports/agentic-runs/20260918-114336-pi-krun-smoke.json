@@ -1,0 +1,240 @@
+{
+  "meta": {
+    "label": "pi-krun-smoke",
+    "harness": "pi",
+    "model": "ornith",
+    "provider": "dashi-ornith",
+    "thinking": "high",
+    "repeat": 2,
+    "timestamp": "2026-09-18T11:43:36",
+    "n": 2
+  },
+  "results": [
+    {
+      "id": "da_hub_delay",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "steps": 2,
+      "tool_calls": 1,
+      "answer": "DFW",
+      "trajectory": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Among the five hub airports (ATL, ORD, DFW, DEN, LAX), which one had the HIGHEST average\ndeparture delay in June 2026? Use avg(DepDelayMinutes) over flights DEPARTING that airport\n(Origin). Query the warehouse to find out, then reply with ONLY the airport's 3-letter\nIATA code (e.g. `ATL`), and nothing else.\n"
+            }
+          ],
+          "timestamp": 1789724610373
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "Let me query the warehouse.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "toolCall",
+              "id": "NqhebOCgjMzbcccBVMHZDpSH01gGJj0R",
+              "name": "bash",
+              "arguments": {
+                "command": "run_sql \"SELECT Origin, avg(DepDelayMinutes) AS avg_dep FROM aviation.flights WHERE Origin IN ('ATL','ORD','DFW','DEN','LAX') GROUP BY Origin ORDER BY avg_dep DESC\""
+              }
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-ornith",
+          "model": "ornith",
+          "usage": {
+            "input": 515,
+            "output": 79,
+            "cacheRead": 1698,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2292,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "toolUse",
+          "timestamp": 1789724610379,
+          "responseId": "chatcmpl-VMn8qSMUceflpD7JmDJTRMpPX4SrwCp4",
+          "rawStopReason": "tool_calls"
+        },
+        {
+          "role": "toolResult",
+          "toolCallId": "NqhebOCgjMzbcccBVMHZDpSH01gGJj0R",
+          "toolName": "bash",
+          "content": [
+            {
+              "type": "text",
+              "text": "   \u250c\u2500Origin\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500avg_dep\u2500\u2510\n1. \u2502 DFW    \u2502  31.85028971329671 \u2502\n2. \u2502 ORD    \u2502 22.920801526717558 \u2502\n3. \u2502 DEN    \u2502  21.95536935105003 \u2502\n4. \u2502 LAX    \u2502  18.28630079091952 \u2502\n5. \u2502 ATL    \u2502  14.84429832801052 \u2502\n   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n"
+            }
+          ],
+          "isError": false,
+          "timestamp": 1789724612639
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "DFW has the highest.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "text",
+              "text": "DFW"
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-ornith",
+          "model": "ornith",
+          "usage": {
+            "input": 179,
+            "output": 12,
+            "cacheRead": 2291,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2482,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "stop",
+          "timestamp": 1789724612640,
+          "responseId": "chatcmpl-9zdBYXHGoqiMiJBBQPoeoQAEWi3zS9sv",
+          "rawStopReason": "stop"
+        }
+      ],
+      "latency_s": 3.1
+    },
+    {
+      "id": "da_hub_delay",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": true,
+      "status": "ok",
+      "reason": "",
+      "steps": 2,
+      "tool_calls": 1,
+      "answer": "DFW",
+      "trajectory": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Among the five hub airports (ATL, ORD, DFW, DEN, LAX), which one had the HIGHEST average\ndeparture delay in June 2026? Use avg(DepDelayMinutes) over flights DEPARTING that airport\n(Origin). Query the warehouse to find out, then reply with ONLY the airport's 3-letter\nIATA code (e.g. `ATL`), and nothing else.\n"
+            }
+          ],
+          "timestamp": 1789724613445
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "Let me query the warehouse.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "toolCall",
+              "id": "0YxKNCYX0KjJ6sjobgpjaLfdQfAaqt4Z",
+              "name": "bash",
+              "arguments": {
+                "command": "run_sql \"SELECT Origin, avg(DepDelayMinutes) AS avg_dep FROM aviation.flights WHERE Origin IN ('ATL','ORD','DFW','DEN','LAX') GROUP BY Origin ORDER BY avg_dep DESC\""
+              }
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-ornith",
+          "model": "ornith",
+          "usage": {
+            "input": 516,
+            "output": 79,
+            "cacheRead": 1698,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2293,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "toolUse",
+          "timestamp": 1789724613450,
+          "responseId": "chatcmpl-6VZvLLiYdSxnExlf9PrMicgYyqw65uz6",
+          "rawStopReason": "tool_calls"
+        },
+        {
+          "role": "toolResult",
+          "toolCallId": "0YxKNCYX0KjJ6sjobgpjaLfdQfAaqt4Z",
+          "toolName": "bash",
+          "content": [
+            {
+              "type": "text",
+              "text": "   \u250c\u2500Origin\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500avg_dep\u2500\u2510\n1. \u2502 DFW    \u2502  31.85028971329671 \u2502\n2. \u2502 ORD    \u2502 22.920801526717558 \u2502\n3. \u2502 DEN    \u2502  21.95536935105003 \u2502\n4. \u2502 LAX    \u2502  18.28630079091952 \u2502\n5. \u2502 ATL    \u2502  14.84429832801052 \u2502\n   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n"
+            }
+          ],
+          "isError": false,
+          "timestamp": 1789724615571
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "DFW has the highest average departure delay.\n",
+              "thinkingSignature": "reasoning_content"
+            },
+            {
+              "type": "text",
+              "text": "DFW"
+            }
+          ],
+          "api": "openai-completions",
+          "provider": "dashi-ornith",
+          "model": "ornith",
+          "usage": {
+            "input": 179,
+            "output": 15,
+            "cacheRead": 2292,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 2486,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "stopReason": "stop",
+          "timestamp": 1789724615572,
+          "responseId": "chatcmpl-JEoPsueQ2TcrGnrHokkP6gttks9GeFva",
+          "rawStopReason": "stop"
+        }
+      ],
+      "latency_s": 3.0
+    }
+  ]
+}
