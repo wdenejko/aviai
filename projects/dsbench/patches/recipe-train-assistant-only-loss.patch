@@ -1,0 +1,16 @@
+--- train_qwen3_5_35b.py.bak	2026-09-22 15:52:31.774654946 +0200
++++ train_qwen3_5_35b.py	2026-09-22 15:52:31.804378521 +0200
+@@ -42,7 +42,12 @@
+ 
+     batch["input_ids"] = input_ids
+     batch["attention_mask"] = valid_tokens.long()
+-    batch["labels"] = input_ids.masked_fill(~valid_tokens, -100)
++    if "labels" in batch:
++        # Dataset supplies assistant-only labels (-100 on prompt/tool/system spans). Without this
++        # the run spends ~46% of its gradient learning to predict text it never has to generate.
++        batch["labels"] = batch["labels"].long().masked_fill(~valid_tokens, -100)
++    else:
++        batch["labels"] = input_ids.masked_fill(~valid_tokens, -100)
+     return batch
+ 
+ 

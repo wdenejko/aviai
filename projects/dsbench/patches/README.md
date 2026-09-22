@@ -21,3 +21,15 @@ NOTE: this only covers the dense path. The MoE expert path (`fast_moe_lora.py`, 
 has no generic counterpart in the recipe, and swapping to a stock transformers experts
 implementation would silently drop the expert LoRA. For faithful generation use the fixed-2048-token
 window decoder (`dsbench.sftgen.gen_fixed_window`) instead, which keeps every op on a compiled shape.
+
+## `recipe-train-assistant-only-loss.patch`
+The recipe's `fixed_length_lm_collator` built labels from `input_ids`, so loss covered the whole
+packed block. Our records carry `loss_mask_roles: ["assistant"]`, and only 53.7% of tokens are
+assistant-authored — so 46.3% of the gradient was spent predicting prompts/tool output/system text.
+
+This patch makes the collator use dataset-provided `labels` when present (falling back to the old
+behaviour when absent, so it is safe for the recipe's own datasets). Build the labelled dataset with
+`dsbench.sftgen.build_masked_dataset`, which needs `remove_unused_columns=False` — already set.
+
+Measured effect (see reports/gate-evals/20260922-gate1-masking-ab.md): assistant-only loss improves
+on both targets (targetC by 20%), general capability unchanged.

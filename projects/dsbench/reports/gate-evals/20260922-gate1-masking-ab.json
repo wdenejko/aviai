@@ -1,0 +1,68 @@
+{
+  "base": {
+    "targetA_heldout": {
+      "full": 1.3299599885940552,
+      "assistant": 0.684974230825901,
+      "blocks": 16
+    },
+    "targetA_trained": {
+      "full": 1.3276336565613747,
+      "assistant": 0.7364616356790066,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 3.7771382071077824,
+      "assistant": 0.8945870436728001,
+      "blocks": 16
+    },
+    "tulu3_heldout": {
+      "full": 2.8552144307356615,
+      "assistant": 2.401475347005404,
+      "blocks": 13
+    }
+  },
+  "unmasked": {
+    "targetA_heldout": {
+      "full": 0.14720391668379307,
+      "assistant": 0.12764179287478328,
+      "blocks": 16
+    },
+    "targetA_trained": {
+      "full": 0.16508428379893303,
+      "assistant": 0.1761302980594337,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 0.43215630669146776,
+      "assistant": 0.27496479731053114,
+      "blocks": 16
+    },
+    "tulu3_heldout": {
+      "full": 1.2667225645138667,
+      "assistant": 1.1746355891227722,
+      "blocks": 13
+    }
+  },
+  "masked": {
+    "targetA_heldout": {
+      "full": 0.4969249553978443,
+      "assistant": 0.11928065028041601,
+      "blocks": 16
+    },
+    "targetA_trained": {
+      "full": 0.5150643028318882,
+      "assistant": 0.1759222038090229,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 1.3732776530086994,
+      "assistant": 0.22013535350561142,
+      "blocks": 16
+    },
+    "tulu3_heldout": {
+      "full": 1.4220263224381666,
+      "assistant": 1.173605781335097,
+      "blocks": 13
+    }
+  }
+}
