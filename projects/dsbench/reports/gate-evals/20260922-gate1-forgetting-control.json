@@ -1,0 +1,12 @@
+{
+  "base": {
+    "tulu3_heldout": 2.5148671524865285,
+    "tulu3_trained": 2.7743912637233734,
+    "targetA_heldout": 1.294693946838379
+  },
+  "adapter": {
+    "tulu3_heldout": 1.2881318543638502,
+    "tulu3_trained": 1.2988113264242809,
+    "targetA_heldout": 0.15792739437893033
+  }
+}

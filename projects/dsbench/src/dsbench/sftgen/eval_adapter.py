@@ -42,7 +42,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 MODEL_DIR = "/home/wdenejko/models/qwen3.6"
 GGUF = "Qwen3.6-35B-A3B-APEX-I-Mini.gguf"
 ADAPTER = sys.argv[1] if len(sys.argv) > 1 else RECIPE + "/out_qwen36_35b/final"
-EVAL = "/home/wdenejko/eval_buckets.jsonl"
+EVAL = os.environ.get("EVAL_BUCKETS", "/home/wdenejko/eval_buckets.jsonl")
+OUT = os.environ.get("EVAL_OUT", "/home/wdenejko/gate1_eval_result.json")
 SEQ = 2048           # MUST match the MMQ bundle's compiled geometry
 BLOCKS_PER_BUCKET = 16
 
@@ -135,6 +136,5 @@ for b in sorted(base):
     d = adpt[b] - base[b]
     print(f"{b:20s} {base[b]:9.4f} {adpt[b]:9.4f} {d:+9.4f} {100*d/base[b]:+7.1f}%")
 print("=" * 74)
-json.dump({"base": base, "adapter": adpt}, open("/home/wdenejko/gate1_eval_result.json", "w"),
-          indent=2)
-print("wrote /home/wdenejko/gate1_eval_result.json")
+json.dump({"base": base, "adapter": adpt}, open(OUT, "w"), indent=2)
+print("wrote", OUT)

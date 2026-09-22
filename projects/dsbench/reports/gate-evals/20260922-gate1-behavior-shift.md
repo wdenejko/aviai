@@ -40,3 +40,76 @@ weights into that same model and measure again — the only change is the adapte
    general bucket. This eval therefore says **nothing** about capability retention / forgetting.
 2. **Not a downstream task measurement.** Loss is not task success; the dsbench agentic benchmark
    needs generation, which is blocked until the MMQ bundle is regenerated for inference shapes.
+
+---
+
+# Addendum: forgetting control (never-trained general data)
+
+Limitation 1 above is now closed. A fresh `tulu3` slice was re-acquired (700k tok / 1756 rows); the
+pilot's 627 rows were removed by content hash — the overlap was **exactly 627**, confirming the HF
+stream is deterministic and the split is exact. The remaining 1129 rows are general instruction data
+the adapter has **never seen**.
+
+| bucket | base | adapter | delta (abs) | reduction |
+|---|---|---|---|---|
+| targetA_heldout | 1.295 | 0.158 | -1.137 | -87.8% |
+| **tulu3_heldout** (never trained) | 2.515 | 1.288 | **-1.227** | -48.8% |
+| tulu3_trained | 2.774 | 1.299 | -1.476 | -53.2% |
+
+## Findings
+1. **No catastrophic forgetting.** General held-out loss *decreased* (2.515 -> 1.288). The fine-tune
+   did not degrade general modelling on data it never saw.
+2. **Reproducible.** `targetA_heldout` measured -87.8% here vs -87.2% in the main run (0.6 pp).
+3. **A large part of the headline number is a GLOBAL shift, not target-specific learning.** In
+   absolute nats the never-trained general bucket improved slightly *more* (-1.227) than the target
+   bucket (-1.137). Much of the -87% therefore reflects the model adapting to the pilot's rendering
+   and packing, not specifically learning SQL-dialect conventions.
+4. What survives as target-specific is **sharpness**: targetA lands at 0.158 (near-deterministic)
+   while general data remains at 1.288. The target distribution is modelled far more confidently.
+
+**Consequence for Gate 2:** a loss-only eval cannot separate format adaptation from capability gain.
+The agentic benchmark (generation) is the measurement that can.
+
+---
+
+# Addendum 2: generation unblocked (limitation 2 closed)
+
+Limitation 2 said the agentic/generation evidence was unreachable. It is now reachable.
+
+## Why the obvious fix does not work
+The MMQ bundle compiles only the TRAINING geometry — dense `M in {2048, 8192, 32768}` and
+grouped-pair `r in {16384, 65536, 262144}` — and `exact_record()` does an exact-match lookup.
+Generation presents `M = prompt_length` on prefill and `M = 1` per decode step. **Regenerating the
+bundle cannot fix this in general**: prefill M is unbounded, so it would need a kernel per possible
+prompt length.
+
+A generic-dequant fallback was added for the *dense* path (see
+`patches/recipe-fast_lora-mmq-generic-fallback.patch`), but the MoE expert path
+(`grouped_mmq_pair`) has no generic counterpart in the recipe, and swapping to a stock transformers
+experts implementation would **silently drop the expert LoRA**, making any comparison unfaithful.
+
+## What does work: a fixed 2048-token window
+`grouped-pair r=16384` is exactly 2048 tokens x top-8, so decoding inside a fixed 2048-token window
+(right-padded, `use_cache=False`, next token read from the logit at the last real position) keeps
+*every* op on a compiled shape with the **complete** adapter applied. Cost: one full-window forward
+per token (~2s). Implemented in `dsbench.sftgen.gen_fixed_window`.
+
+## Observed behaviour (greedy, base = B=0 vs trained adapter)
+
+**Prompt: DuckDB flights-per-day for the last 7 days** (150 tokens)
+- base: deliberates and never commits — "*I can use `date_trunc('day', ...)` or `dep_time::DATE`* ...
+  `INTERVAL '7 days'` ... *Actually, 'last 7 days' usually means...*"
+- adapter: commits and emits SQL — ```SELECT date_trunc('day', dep_time) AS flight_day, COUNT(*)```
+  filtering with **`INTERVAL '7' DAY`** (canonical dialect form) rather than the base's
+  `INTERVAL '7 days'`. Consistent with Target A (SQL-dialect date/time conventions).
+
+**Prompt: steps before reporting a final accuracy number** (40 tokens)
+- base: chain-of-thought preamble — "*Okay, so I'm trying to figure out... Let me start by breaking
+  down the*"
+- adapter: closes the thinking block and answers directly — "*`</think>` Here are the concrete steps
+  ... 1. Data Exploration and Understanding - Load the CSV file and examine its structure*".
+  Consistent with Target C (agentic ML-delivery discipline).
+
+**Caveat: n=2 prompts, greedy, short budgets. This is qualitative corroboration, not a benchmark.**
+The real measurement is the dsbench agentic suite, which this decoder now makes possible (at ~2s per
+token, so it suits a small problem set rather than a k=5 sweep).

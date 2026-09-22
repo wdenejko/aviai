@@ -1,0 +1,45 @@
+--- fast_lora.py.bak	2026-09-22 13:51:13.163942150 +0200
++++ fast_lora.py	2026-09-22 13:51:28.987880070 +0200
+@@ -30,6 +30,13 @@
+ )
+ _GENERIC_PACKED_FORWARD_ATTR = "_generic_packed_forward"
+ 
++# Shapes with no compiled MMQ kernel. The bundle is generated for the TRAINING geometry only
++# (M in {2048, 8192, 32768}); inference presents M = prompt length on prefill and M = 1 per decode
++# step, which can never be enumerated ahead of time. Rather than fail, such shapes fall back to the
++# generic compiled-dequant base forward -- the same path the GDN projections already take. Costs one
++# exception per distinct shape, then the decision is cached.
++_MMQ_UNSUPPORTED = set()
++
+ 
+ def uses_generic_packed_forward(name: str) -> bool:
+     """Whether a packed ordinary projection must stay on the generic base forward.
+@@ -177,12 +184,22 @@
+             )
+ 
+         payload = weight.as_subclass(torch.Tensor)
+-        result = mmq(
+-            x,
+-            payload,
+-            int(weight.quant_type),
+-            base.out_features,
+-        )
++        rows = x.numel() // x.shape[-1]
++        key = (int(weight.quant_type), rows, base.out_features, x.shape[-1])
++        if key in _MMQ_UNSUPPORTED:
++            return base(x, *args, **kwargs)
++        try:
++            result = mmq(
++                x,
++                payload,
++                int(weight.quant_type),
++                base.out_features,
++            )
++        except RuntimeError as exc:
++            if "unsupported exact deployment key" not in str(exc):
++                raise
++            _MMQ_UNSUPPORTED.add(key)
++            return base(x, *args, **kwargs)
+         if base.bias is not None:
+             result = result + base.bias.to(device=result.device, dtype=result.dtype)
+         return result
