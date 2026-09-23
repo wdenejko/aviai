@@ -65,7 +65,9 @@ execution-verified rows. Validated end-to-end: 192 rows across all four dialects
 - `decontaminate.py` — the dsbench-disjointness gate (run over the rendered mixture before training).
 - `teacher.py` — pluggable licence-clean teacher client (HTTP OpenAI-compatible + offline stub).
 - `denominator_reasoning.py` — Target B generator: execution-verified traps + teacher execution-filter.
-- `ml_tasks.py` — synthetic, non-aviation ML sandbox tasks for Target C (oracle-gated: `selftest()`).
+- `ml_tasks.py` — synthetic, non-aviation ML sandbox tasks for Target C (7 families;
+  oracle-gated: `selftest(reps)`).
+- `ml_task_controls.py` — the negative half of that gate: the careless approach must FAIL.
 - `ml_delivery_trajectories.py` — Target C generator: teacher-as-agent, keeps oracle-passing runs.
 - `probe/` — the held-out generalisation probe (6 problems on fresh domains) + its runner; the
   independent validation set that proves the fine-tune generalises rather than memorising dsbench.
@@ -88,11 +90,27 @@ would be low-yield teachers here); Ling-3.0-flash (inclusionAI, a hybrid reasoni
 ## Target C (teacher-as-agent)
 
 ```bash
-# oracle-gate the synthetic tasks first (no model), then run the teacher as a sandbox agent:
-uv run python -m dsbench.sftgen.ml_tasks           # setup -> reference -> check, must PASS
+# gate the synthetic tasks BOTH WAYS first (no teacher, but needs the sandbox), then run the
+# teacher as an agent. Both gates must pass before spending teacher time:
+uv run python -m dsbench.sftgen.ml_tasks --reps 10        # solvable: reference clears the bar
+uv run python -m dsbench.sftgen.ml_task_controls          # failable: the careless approach loses
 uv run python -m dsbench.sftgen.ml_delivery_trajectories --reps 20 \
     --base-url http://localhost:18080/v1 --model ling-3.0-flash-q6-mtp --out targetC.jsonl
 ```
+
+Run the oracle with `--reps > 1`. A single rep only proves the task is solvable on ONE dataset; a
+bar the reference clears by a hair there can fail on most other seeds and silently discard good
+teacher trajectories at generation time (`mlc_ticket_route` failed its own oracle on 5 of 8 seeds
+before retuning). `ml_task_controls` is the other half of the gate: each task also has to be
+FAILABLE by the shortcut it teaches against, or a kept trajectory demonstrates nothing. That check
+caught `mlc_credit_leak`'s leakage trap scoring 0.814 with the leak included — an imperfect leak
+left the tree's `flag=0` node impure, so the model quietly fell back on the honest features.
+
+The seven families each target a different delivery failure mode: balanced classification
+(`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
+(`mlc_churn_rare`), a temporal train/test boundary (`mlc_energy_load`), multiclass with a
+categorical deliverable (`mlc_ticket_route`), post-outcome leakage (`mlc_credit_leak`), and
+multi-table aggregation (`mlc_upsell_join`).
 
 The teacher operates the ADR-003 sandbox (run_sql / run_python / finish) on synthetic non-aviation
 ML tasks and only trajectories that **pass the oracle** (correct-schema table, every row predicted,
