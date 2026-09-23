@@ -29,6 +29,8 @@ projects/avtext/data/gold/
 # provenance anchors README.md + manifest.json in the same dir stay trackable).
 projects/dsbench/data/sft/*.jsonl
 projects/dsbench/data/sft/*.report.json
+# per-gate data zone: symlinks into the ignored pools (a trailing '#' is NOT a comment here)
+projects/dsbench/data/sft/gate2/
 
 # Frozen eval sets and run reports ARE committed (reproducibility contract),
 # so they are intentionally NOT ignored here.
