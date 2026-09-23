@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "label": "smoke-base2",
+    "model": "qwen36-base",
+    "base_url": "http://localhost:18080",
+    "think": false,
+    "timestamp": "2026-09-23T09:48:43",
+    "n": 1
+  },
+  "results": [
+    {
+      "id": "da_hub_delay",
+      "category": "da",
+      "difficulty": "medium",
+      "passed": false,
+      "status": "model_error",
+      "reason": "ReadTimeout: timed out",
+      "steps": 1,
+      "tool_calls": 0,
+      "answer": null,
+      "trajectory": [
+        {
+          "role": "system",
+          "content": "You are a data engineer/analyst operating a real aviation data warehouse (ClickHouse) to complete a task. Tools: run_sql (one ClickHouse statement), run_python (analysis container with pandas/numpy/sklearn/clickhouse_connect), finish (end the task).\n\nYour scratch database is `prob_da_hub_delay` and is the DEFAULT for run_sql, so `CREATE TABLE t ...` lands there. Shared data is in `aviation.*` \u2014 always query it fully-qualified. Work step by step: inspect, compute, and produce EXACTLY the deliverable asked for, then call finish (pass the value in `answer` if the task asks a question). You have a limited number of steps, so be efficient. Keep each run_python call to one focused, self-contained script; if a step would need a very long code block, split it across calls \u2014 over-long tool arguments can be truncated.\n\nWarehouse schema (shared database `aviation`):\n- aviation.flights \u2014 one row per US flight, June 2026. Columns include:\n    FlightDate (Date), Reporting_Airline (String), Origin (String, IATA), Dest (String, IATA),\n    DepDelayMinutes (Float, dep delay minutes; NULL when cancelled), ArrDelayMinutes (Float),\n    Cancelled (UInt8 0/1), Diverted (UInt8 0/1), Distance (Float miles),\n    CarrierDelay/WeatherDelay/NASDelay/SecurityDelay/LateAircraftDelay (Float minutes).\n- aviation.metar \u2014 raw METAR obs, June 2026, hub airports. Columns:\n    station (String, ICAO e.g. 'KORD'), valid_utc (DateTime UTC), raw (String, raw METAR text).\n- aviation.airports \u2014 dimension: iata (String), icao (String), name (String).\n    Join flights.Origin/Dest (IATA) -> airports.iata; airports.icao -> metar/taf.station.\n- aviation.taf \u2014 TAF forecasts for the hubs, June 2026, ONE ROW PER FORECAST PERIOD. Columns:\n    station (ICAO), issued (DateTime, bulletin issue time), fx_from/fx_to (DateTime, the period),\n    ftype ('Observation'|'Forecast'), is_tempo/is_amendment (UInt8), sknt/drct/gust (Float, wind),\n    visibility (Float, SM), skyc/skyl (text lists), raw (change-group text), product_id (bulletin).\n    count(DISTINCT product_id) = number of TAF bulletins (a bulletin spans many rows).\n- aviation.notam \u2014 DEEL-AI NOTAM classification corpus. Columns: text (NOTAM E-field), label_id\n    (0-12), category (class name), split ('train'|'test'), source. STATIC ~2024 corpus, NOT\n    date-aligned and with no airport/time key \u2014 use for NOTAM text/classification, not joins."
+        },
+        {
+          "role": "user",
+          "content": "Among the five hub airports (ATL, ORD, DFW, DEN, LAX), which one had the HIGHEST average\ndeparture delay in June 2026? Use avg(DepDelayMinutes) over flights DEPARTING that airport\n(Origin). Query the warehouse to find out, then reply with ONLY the airport's 3-letter\nIATA code (e.g. `ATL`), and nothing else.\n"
+        }
+      ],
+      "latency_s": 912.1
+    }
+  ]
+}

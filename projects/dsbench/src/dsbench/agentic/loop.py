@@ -9,6 +9,7 @@ budget reasoning and never act). Determinism: temp 0, per-problem scratch DB, fi
 from __future__ import annotations
 
 import json
+import os
 import time
 
 import httpx
@@ -100,7 +101,13 @@ def _reassemble_stream(r: httpx.Response) -> dict:
 
 def call_model(messages: list, *, base_url: str, model: str, no_think: bool,
                temperature: float = 0.0, max_tokens: int = 4096, timeout: float = 300.0,
-               attempts: int = 3, stream: bool = True) -> dict:
+               attempts: int = 3, stream: bool | None = None) -> dict:
+    # Streaming is the default because the llama.cpp fork's NON-stream endpoint runs a strict
+    # json::parse over the model's tool-call arguments and 500s on a malformed one. A server that
+    # does its own tool-call parsing (e.g. the local adapter server) has no such gate, so allow
+    # opting out: DSBENCH_STREAM=0.
+    if stream is None:
+        stream = os.environ.get("DSBENCH_STREAM", "1") != "0"
     # Generous max_tokens: the model emits run_python CODE as a tool-call argument. We stream by
     # default and reassemble tool-calls ourselves (see _reassemble_stream) so a single malformed
     # tool-call is a recoverable observation, not a server-side 500 that ends the whole run.

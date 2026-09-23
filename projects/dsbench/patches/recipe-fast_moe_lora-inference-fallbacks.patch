@@ -1,0 +1,171 @@
+--- fast_moe_lora.py.bak	2026-09-23 08:56:18.162231149 +0200
++++ fast_moe_lora.py	2026-09-23 08:58:47.998906017 +0200
+@@ -29,6 +29,27 @@
+ from peft import LoraConfig
+ from peft.tuners.lora.layer import LoraLayer
+ from torch_ggml_ops import grouped_mmq, grouped_mmq_pair
++
++# Grouped shapes with no compiled MMQ kernel. The bundle is generated for the TRAINING geometry
++# (rows = tokens * top_k, i.e. 16384/65536/262144), so KV-cached DECODE -- which presents rows=top_k
++# per token -- has no kernel and would abort generation. Such shapes fall back to the generic
++# dequantize + grouped matmul that transformers' own GgufExperts uses. One exception per distinct
++# shape, then cached. Training is untouched: its shapes are compiled, so it stays on MMQ.
++_GROUPED_UNSUPPORTED = set()
++
++
++def _generic_grouped(hidden_states, weight, expert_indices, expert_offsets, compute_dtype):
++    """Dequantize the routed experts and run the grouped matmul in torch."""
++    from transformers.integrations.gguf.moe import _project_expert
++
++    return _project_expert(
++        hidden_states,
++        weight,
++        expert_indices,
++        compute_dtype,
++        "grouped_mm",
++        offsets=expert_offsets,
++    )
+ from transformers.integrations.gguf.gguf_quantized_parameter import (
+     GgufQuantizedParameter,
+ )
+@@ -228,6 +249,30 @@
+         return grad_lhs, grad_rhs, None, None, None, None, None
+ 
+ 
++# (prior, rows, K, N) shapes with no tuned AITER GMM config. moe_gmm_configs.py is a measured
++# table covering the TRAINING geometry, and it fails closed on anything else -- which blocks
++# inference, where the routed row count follows the prompt/decode length. The LoRA factors are dense
++# BF16 (unlike the packed base weights), so a plain grouped matmul is an exact substitute; it is only
++# used when autograd is off, because a tuned-config miss during TRAINING is a real bug, not
++# something to silently paper over.
++_GMM_UNTUNED = set()
++
++
++def _torch_grouped_mm(
++    lhs: torch.Tensor, rhs: torch.Tensor, group_sizes: torch.Tensor
++) -> torch.Tensor:
++    """Grouped matmul over rows that are already ordered by expert group."""
++    out = lhs.new_zeros((lhs.shape[0], rhs.shape[-1]))
++    start = 0
++    for expert, count in enumerate(group_sizes.tolist()):
++        if count <= 0:
++            continue
++        end = start + count
++        out[start:end] = lhs[start:end] @ rhs[expert].to(lhs.dtype)
++        start = end
++    return out
++
++
+ def aiter_grouped_mm(
+     lhs: torch.Tensor,
+     rhs: torch.Tensor,
+@@ -244,15 +289,25 @@
+     as a routed row gather, so backward replays the gather instead of holding it.
+     """
+ 
+-    return _AiterGroupedMM.apply(
+-        lhs,
+-        rhs,
+-        group_sizes,
+-        expert_prior,
+-        lhs_source,
+-        lhs_permutation,
+-        lhs_top_k,
+-    )
++    key = (expert_prior, int(lhs.shape[0]), int(lhs.shape[-1]), int(rhs.shape[-1]))
++    if key not in _GMM_UNTUNED:
++        try:
++            return _AiterGroupedMM.apply(
++                lhs,
++                rhs,
++                group_sizes,
++                expert_prior,
++                lhs_source,
++                lhs_permutation,
++                lhs_top_k,
++            )
++        except ValueError as exc:
++            if "No tuned gfx1151 AITER GMM config" not in str(exc):
++                raise
++            if torch.is_grad_enabled() and lhs.requires_grad:
++                raise
++            _GMM_UNTUNED.add(key)
++    return _torch_grouped_mm(lhs, rhs, group_sizes)
+ 
+ 
+ def _native_grouped_arguments(
+@@ -296,14 +351,28 @@
+     )
+     quant_type = int(cast(Any, weight.quant_type))
+     logical_shape = cast(tuple[int, ...], weight.logical_shape)
+-    return grouped_mmq(
+-        hidden_states,
+-        weight.as_subclass(torch.Tensor),
+-        expert_indices,
+-        expert_offsets,
+-        quant_type,
+-        int(logical_shape[-2]),
+-    )
++    key = (quant_type, int(hidden_states.shape[0]), int(logical_shape[-2]),
++           int(hidden_states.shape[-1]))
++    if key in _GROUPED_UNSUPPORTED:
++        return _generic_grouped(
++            hidden_states, weight, expert_indices, expert_offsets, compute_dtype
++        )
++    try:
++        return grouped_mmq(
++            hidden_states,
++            weight.as_subclass(torch.Tensor),
++            expert_indices,
++            expert_offsets,
++            quant_type,
++            int(logical_shape[-2]),
++        )
++    except RuntimeError as exc:
++        if "unsupported exact deployment key" not in str(exc):
++            raise
++        _GROUPED_UNSUPPORTED.add(key)
++        return _generic_grouped(
++            hidden_states, weight, expert_indices, expert_offsets, compute_dtype
++        )
+ 
+ 
+ def _base_grouped_pair(
+@@ -332,14 +401,29 @@
+         )
+         quant_type = int(cast(Any, first_weight.quant_type))
+         logical_shape = cast(tuple[int, ...], first_weight.logical_shape)
+-        return grouped_mmq_pair(
+-            hidden_states,
+-            first_weight.as_subclass(torch.Tensor),
+-            second_weight.as_subclass(torch.Tensor),
+-            expert_indices,
+-            expert_offsets,
+-            quant_type,
+-            int(logical_shape[-2]),
++        pair_key = ("pair", quant_type, int(hidden_states.shape[0]),
++                    int(logical_shape[-2]), int(hidden_states.shape[-1]))
++        if pair_key not in _GROUPED_UNSUPPORTED:
++            try:
++                return grouped_mmq_pair(
++                    hidden_states,
++                    first_weight.as_subclass(torch.Tensor),
++                    second_weight.as_subclass(torch.Tensor),
++                    expert_indices,
++                    expert_offsets,
++                    quant_type,
++                    int(logical_shape[-2]),
++                )
++            except RuntimeError as exc:
++                if "unsupported exact deployment key" not in str(exc):
++                    raise
++                _GROUPED_UNSUPPORTED.add(pair_key)
++        # Unfused: each projection goes through the single-weight path, which falls back generically.
++        return (
++            _base_grouped_linear(hidden_states, first_weight, expert_indices, expert_offsets,
++                                 group_sizes, compute_dtype),
++            _base_grouped_linear(hidden_states, second_weight, expert_indices, expert_offsets,
++                                 group_sizes, compute_dtype),
+         )
+     return (
+         _base_grouped_linear(
