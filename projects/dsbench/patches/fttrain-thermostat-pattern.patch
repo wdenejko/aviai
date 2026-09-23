@@ -1,0 +1,18 @@
+--- /home/wdenejko/fttrain/thermostat.sh.bak	2026-09-23 19:41:31.820703563 +0200
++++ /home/wdenejko/fttrain/thermostat.sh	2026-09-23 19:41:31.821884721 +0200
+@@ -2,10 +2,14 @@
+ # Userspace thermal governor for OUR training job only (the firmware holds ~99 C by clock modulation;
+ # this is the brake for when it doesn't): SIGSTOP the trainer at >= HI, SIGCONT at <= LO. Reversible;
+ # GPU memory stays allocated; nothing else on the box is touched.
++# PATTERN must match ONLY the trainer interpreter (anchor on argv[0]); a loose pattern
++# also matches the toolbox/bash wrappers, which start first, so head -1 would STOP a
++# wrapper shell and leave training running.
+ HI=${HI:-101}; LO=${LO:-97}; paused=0
++PATTERN=${PATTERN:-python.*train_lora_peft.py}
+ tctl () { echo $(( $(cat /sys/class/hwmon/hwmon*/temp1_input 2>/dev/null | sort -n | tail -1) / 1000 )); }
+ while true; do
+-  pid=$(pgrep -f "python.*train_lora_peft.py" | head -1); t=$(tctl)
++  pid=$(pgrep -f "$PATTERN" | head -1); t=$(tctl)
+   if [ -n "$pid" ]; then
+     if [ $paused -eq 0 ] && [ "$t" -ge "$HI" ]; then kill -STOP "$pid" && { paused=1; echo "$(date +%H:%M:%S) PAUSE pid=$pid t=${t}C"; }
+     elif [ $paused -eq 1 ] && [ "$t" -le "$LO" ]; then kill -CONT "$pid" && { paused=0; echo "$(date +%H:%M:%S) RESUME pid=$pid t=${t}C"; }

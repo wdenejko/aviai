@@ -45,3 +45,35 @@ Defaults are unchanged, so the recipe's own invocation still works.
 
     QWEN35_DATASET_DIR=~/data_tokenized_gate2 QWEN35_OUTPUT_DIR=~/out_qwen36_35b_gate2 \
         python train_qwen3_5_35b.py
+
+## `recipe-train-resume.patch`
+ADR-001 Gate 2 requires a resumable launcher. The recipe had the resume call commented out; this adds
+`QWEN35_RESUME=1`, which continues from the newest checkpoint in `output_dir` (`save_steps=100`).
+A ~9-hour run on an APU that thermally throttles after ~2 h has to survive a crash without starting
+over.
+
+## `fttrain-thermostat-pattern.patch` (box tooling, not the recipe)
+`~/fttrain/thermostat.sh` is the userspace thermal governor (SIGSTOP the trainer at >= 101 °C,
+SIGCONT at <= 97 °C). It hardcoded `pgrep -f "python.*train_lora_peft.py"` — the avtext/Gemma
+trainer — so on a Qwen run it would never find its target and silently do nothing.
+
+Adds a `PATTERN` override (default unchanged). The pattern for this recipe has to be anchored on
+the interpreter's argv: a loose `python.*train_qwen3_5_35b.py` also matches the `toolbox run` and
+`bash -lc` wrappers, whose command lines contain the same string. They start first, so `head -1`
+picks a wrapper — and stopping a wrapper shell leaves Python training at full temperature.
+
+    PATTERN='^([^ ]*/)?python[0-9.]* +train_qwen3_5_35b\.py' ~/fttrain/thermostat.sh
+
+Verified against the real command lines before launch: matches `python ...` and
+`/path/to/python3.12 ...`, rejects the `bash -lc`, `toolbox run` and `podman exec` wrappers.
+
+## `gate2_train.sh`
+The Gate-2 launcher. Follows `gate1_train.sh` (stop the OCR **user** unit for the window, restart it
+on exit) and adds what a long run needs: the GTT drain gate before touching the GPU, the governor
+with the anchored pattern, the Gate-2 dataset/output paths, and `QWEN35_RESUME` passthrough. It
+logs straight to `~/gate2/train.log` rather than through `| tail`, which buffers until EOF.
+
+Launch detached, or it dies with the ssh session that started it:
+
+    ssh dashi 'nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
+    ssh dashi 'QWEN35_RESUME=1 nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
