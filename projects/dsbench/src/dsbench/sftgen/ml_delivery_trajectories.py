@@ -139,7 +139,8 @@ def _record(task: AgentProblem, res: dict, model: str, run_ix: int) -> dict:
 
 
 def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | None = None,
-             verbose: bool = False, sink=None, run_offset: int = 0) -> tuple[list[dict], dict]:
+             verbose: bool = False, sink=None, run_offset: int = 0,
+             fail_sink=None) -> tuple[list[dict], dict]:
     # `sink(record)` is called as each trajectory passes the oracle -- the caller writes+flushes it,
     # so a multi-hour Ling run never loses a delivered trajectory to a crash.
     #
@@ -172,6 +173,13 @@ def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | Non
                 report["failed"] += 1
                 report["fail_reasons"].append({"task": task.id, "status": res["status"],
                                                "reason": res["reason"][:120]})
+                # Failures are NOT training data, but discarding them silently makes a low-yield
+                # family undiagnosable: the report gives the metric and nothing about the reasoning
+                # that produced it. mlc_energy_load ran at ~64% yield with no way to see why.
+                if fail_sink is not None:
+                    rec = _record(task, res, model, run_ix)
+                    rec["meta"]["verification"]["oracle_passed"] = False
+                    fail_sink(rec)
     return records, report
 
 
@@ -185,25 +193,36 @@ def main() -> None:
     ap.add_argument("--base-url", default="http://localhost:18080/v1")
     ap.add_argument("--model", default="ling-3.0-flash-q6-mtp")
     ap.add_argument("--out", default="")
+    ap.add_argument("--fail-out", default="",
+                    help="also write REJECTED trajectories here, for diagnosing a low-yield family "
+                         "(never training data -- meta.verification.oracle_passed is false)")
     ap.add_argument("--report", default="")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
     out_fh = open(args.out, "w") if args.out else None  # closed in the finally below
+    fail_fh = open(args.fail_out, "w") if args.fail_out else None
 
     def _sink(rec) -> None:  # write+flush each passing trajectory immediately
         out_fh.write(json.dumps(rec) + "\n")
         out_fh.flush()
+
+    def _fail_sink(rec) -> None:
+        fail_fh.write(json.dumps(rec) + "\n")
+        fail_fh.flush()
 
     try:
         records, report = generate(
             base_url=args.base_url, model=args.model, reps=args.reps,
             tasks=[t for t in args.tasks.split(",") if t] or None, verbose=args.verbose,
             sink=_sink if out_fh else None, run_offset=args.run_offset,
+            fail_sink=_fail_sink if fail_fh else None,
         )
     finally:
         if out_fh:
             out_fh.close()
+        if fail_fh:
+            fail_fh.close()
     if args.report:
         with open(args.report, "w") as fh:
             json.dump(report, fh, indent=2)
