@@ -1,0 +1,81 @@
+{
+  "built": "2026-09-23",
+  "purpose": "Gate-2 (10M) breadth/replay pools",
+  "note": "rebuilt by scanning the pools: the acquisition run wrote one manifest per source to the same path, so only the last source survived. Provenance here is derived from each record's own meta, which is what the assembler also reads.",
+  "sources": [
+    {
+      "source": "datamind",
+      "rows": 129,
+      "tokens": 602574,
+      "licences": {
+        "MIT": 129
+      },
+      "teachers": {
+        "DataMind pipeline": 129
+      },
+      "all_redistributable": true
+    },
+    {
+      "source": "gretel_sql",
+      "rows": 8224,
+      "tokens": 1700100,
+      "licences": {
+        "Apache-2.0": 8224
+      },
+      "teachers": {
+        "Gretel Navigator": 8224
+      },
+      "all_redistributable": true
+    },
+    {
+      "source": "jupyter_agent",
+      "rows": 712,
+      "tokens": 2201652,
+      "licences": {
+        "Apache-2.0": 712
+      },
+      "teachers": {
+        "Qwen": 712
+      },
+      "all_redistributable": true
+    },
+    {
+      "source": "opencoder_edu",
+      "rows": 7311,
+      "tokens": 1000040,
+      "licences": {
+        "Apache-2.0 (MIT code)": 7311
+      },
+      "teachers": {
+        "open pipeline": 7311
+      },
+      "all_redistributable": true
+    },
+    {
+      "source": "swe_swiss",
+      "rows": 293,
+      "tokens": 1605096,
+      "licences": {
+        "MIT": 293
+      },
+      "teachers": {
+        "DeepSeek-R1": 293
+      },
+      "all_redistributable": true
+    },
+    {
+      "source": "tulu3",
+      "rows": 9504,
+      "tokens": 3702274,
+      "licences": {
+        "ODC-BY": 9504
+      },
+      "teachers": {
+        "mixed (row-filtered)": 9504
+      },
+      "all_redistributable": true
+    }
+  ],
+  "total_rows": 26173,
+  "total_tokens": 10811736
+}
