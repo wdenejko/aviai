@@ -33,3 +33,15 @@ behaviour when absent, so it is safe for the recipe's own datasets). Build the l
 
 Measured effect (see reports/gate-evals/20260922-gate1-masking-ab.md): assistant-only loss improves
 on both targets (targetC by 20%), general capability unchanged.
+
+## `recipe-train-overridable-paths.patch`
+`dataset_dir` and `output_dir` were hardcoded to `data_tokenized_qwen3.5` and `out_qwen36_35b`, so
+training a second gate would have overwritten the first gate's tokenised dataset AND its adapter —
+including the checkpoints needed to compare the two. Discovered on the way into Gate 2, with the
+Gate-1 adapter (`final` plus checkpoints 100/200/300/390) still sitting in that directory.
+
+Adds `QWEN35_DATASET_DIR` and `QWEN35_OUTPUT_DIR`, matching the existing `QWEN35_*` override style.
+Defaults are unchanged, so the recipe's own invocation still works.
+
+    QWEN35_DATASET_DIR=~/data_tokenized_gate2 QWEN35_OUTPUT_DIR=~/out_qwen36_35b_gate2 \
+        python train_qwen3_5_35b.py
