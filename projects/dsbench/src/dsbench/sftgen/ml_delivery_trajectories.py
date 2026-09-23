@@ -139,14 +139,20 @@ def _record(task: AgentProblem, res: dict, model: str, run_ix: int) -> dict:
 
 
 def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | None = None,
-             verbose: bool = False, sink=None) -> tuple[list[dict], dict]:
+             verbose: bool = False, sink=None, run_offset: int = 0) -> tuple[list[dict], dict]:
     # `sink(record)` is called as each trajectory passes the oracle -- the caller writes+flushes it,
     # so a multi-hour Ling run never loses a delivered trajectory to a crash.
+    #
+    # `run_offset` exists because the run index IS the dataset seed (ml_tasks._run_seed reads it off
+    # the namespace). Topping an existing slice up therefore has to START past the indices already
+    # generated -- otherwise a second pass silently re-creates the same datasets and the pool fills
+    # with duplicate trajectories that nothing downstream would flag: the assembler decontaminates
+    # against dsbench, not against targetC itself.
     picked = [t for t in ML_TASKS if not tasks or t.id in tasks]
     report: dict[str, Any] = {"emitted": 0, "failed": 0, "by_task": {},
                               "statuses": {}, "fail_reasons": []}
     records: list[dict] = []
-    for run_ix in range(reps):
+    for run_ix in range(run_offset, run_offset + reps):
         for task in picked:
             ctx = _prepare(task.id, run_ix)
             try:
@@ -172,6 +178,9 @@ def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | Non
 def main() -> None:
     ap = argparse.ArgumentParser(description="Target C: agentic ML-delivery trajectories (teacher)")
     ap.add_argument("--reps", type=int, default=1)
+    ap.add_argument("--run-offset", type=int, default=0,
+                    help="first run index; the index seeds the dataset, so topping up an existing "
+                         "slice must start past the indices it already used")
     ap.add_argument("--tasks", default="", help="comma list of task ids; default all")
     ap.add_argument("--base-url", default="http://localhost:18080/v1")
     ap.add_argument("--model", default="ling-3.0-flash-q6-mtp")
@@ -190,7 +199,7 @@ def main() -> None:
         records, report = generate(
             base_url=args.base_url, model=args.model, reps=args.reps,
             tasks=[t for t in args.tasks.split(",") if t] or None, verbose=args.verbose,
-            sink=_sink if out_fh else None,
+            sink=_sink if out_fh else None, run_offset=args.run_offset,
         )
     finally:
         if out_fh:

@@ -106,6 +106,18 @@ FAILABLE by the shortcut it teaches against, or a kept trajectory demonstrates n
 caught `mlc_credit_leak`'s leakage trap scoring 0.814 with the leak included — an imperfect leak
 left the tree's `flag=0` node impure, so the model quietly fell back on the honest features.
 
+Topping an existing slice up needs `--run-offset`. The run index IS the dataset seed, so a second
+pass starting from 0 re-creates the same datasets and fills the pool with duplicate trajectories --
+which nothing downstream catches, because the assembler decontaminates against dsbench, not against
+targetC itself:
+
+```bash
+# the slice already used run indices 0..29 for these two families; continue past them
+uv run python -m dsbench.sftgen.ml_delivery_trajectories --reps 2 --run-offset 30 \
+    --tasks mlc_widget_defect,mlc_delivery_time \
+    --base-url http://localhost:18080/v1 --model ling-3.0-flash-q6-mtp --out targetC_topup.jsonl
+```
+
 The seven families each target a different delivery failure mode: balanced classification
 (`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
 (`mlc_churn_rare`), a temporal train/test boundary (`mlc_energy_load`), multiclass with a
