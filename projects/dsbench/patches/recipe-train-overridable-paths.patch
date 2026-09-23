@@ -1,0 +1,15 @@
+--- train_qwen3_5_35b.py.bak2	2026-09-23 19:04:48.127790517 +0200
++++ train_qwen3_5_35b.py	2026-09-23 19:04:48.128927520 +0200
+@@ -54,8 +54,10 @@
+ def main():
+     model_dir = Path.home() / "models/qwen3.6"
+     gguf_file = "Qwen3.6-35B-A3B-APEX-I-Mini.gguf"
+-    dataset_dir = script_dir / "data_tokenized_qwen3.5"
+-    output_dir = script_dir / "out_qwen36_35b"
++    # Overridable: both were hardcoded, so training a new gate silently overwrote the previous
++    # gate's tokenised dataset AND its adapter -- including the checkpoints needed to compare them.
++    dataset_dir = Path(os.environ.get("QWEN35_DATASET_DIR", str(script_dir / "data_tokenized_qwen3.5")))
++    output_dir = Path(os.environ.get("QWEN35_OUTPUT_DIR", str(script_dir / "out_qwen36_35b")))
+     random_seed = 19260817
+ 
+     set_seed(random_seed)
