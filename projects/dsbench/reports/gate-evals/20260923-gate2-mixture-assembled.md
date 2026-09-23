@@ -53,18 +53,43 @@ and the run index *is* the dataset seed, so extending the slice would have regen
 datasets. Nothing downstream catches that: the assembler decontaminates against dsbench, not
 against targetC itself. Added `--run-offset`.
 
-## Open: `mlc_energy_load` yield
+## `mlc_energy_load` yield — diagnosed
 
 41 kept of 62 attempts (~66%), against 95–100% for every other family. Failures split between
-near-misses (lift 20.9%, 23.3% against a 25% bar) and collapses (lift −91%, −185%, −200%).
+near-misses (lift 16–23% against a 25% bar) and collapses (lift −91% to −200%).
 
-I guessed this was lag-feature collapse — the test table deliberately has no `load_mw`, so lags are
-unavailable across the horizon. **The kept trajectories refute that:** 35 of 36 passing runs use
-shift/rolling/lag features. Whatever separates pass from fail there, it is not the presence of
-lags, and the failed trajectories were discarded, so that is as far as the evidence goes.
+A diagnosis run with `--fail-out` was cut short by a session restart after 3 of 8 runs, but it
+captured two failures, one of each kind — enough to see the mechanism directly.
 
-Added `--fail-out` so the next run can diagnose it properly. Rejected trajectories are never
-training data (`meta.verification.oracle_passed = false`) but are now inspectable.
+**The test horizon has no `load_mw`, so lag features do not exist there.** Every run builds lags.
+What differs is what happens across the 1,000 forecast hours:
+
+| run | horizon handling | result |
+|---|---|---|
+| fail #64 | concatenates train + test (test `load_mw` = NaN), computes lags over the frame, predicts in one shot | lift **−103%** |
+| fail #65 | forecasts recursively, feeding its own predictions back as lags; drifts over 1,000 steps | lift 16.7% |
+| pass #63 | recursive forecast, lags from history or its own earlier predictions | lift 73.6% |
+
+The collapse is **silent**: `HistGradientBoostingRegressor` accepts NaN natively, so the NaN lags go
+down whatever branch training happened to learn for missing values — which training never
+exercised, because it had no NaN lags. No error, no warning, just garbage.
+
+**The discipline gap is validation, not lags.** Fail #65's closing message claims ~90% improvement
+"on training data" — measured in-sample, one step ahead, with the true lags available, which is
+exactly the condition that never holds at forecast time. It believed it had passed and finished.
+Fail #64 benchmarked against naive MAE on training too.
+
+That matters for the data we kept, not just the failures. Only **14 of the 41 kept energy
+trajectories run any temporal holdout** (regex count, so approximate). The rest passed because
+recursive forecasting happened to be robust on this generator, not because they checked. The kept
+slice teaches the forecasting technique well and the validation habit poorly. At ~1.6% of the
+mixture it is not a reason to hold Gate 2, but for Gate 3 either the prompt should require a
+horizon-mirroring backtest or kept trajectories should be filtered on having one.
+
+**Correction to this report's first version.** It said the lag-feature explanation was "refuted"
+because 35 of 36 passing runs use lags. That refutation was wrong: it showed that *using* lags does
+not cause failure, which was never the claim. The captured failures show that *mishandling* lags
+across the horizon does.
 
 ## Proportion fidelity
 
