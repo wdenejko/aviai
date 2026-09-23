@@ -23,13 +23,20 @@ from dsbench.agentic.schema import AgentProblem, GradeContext
 # Generic agent context -- NO aviation schema (that would self-contaminate Target C trajectories).
 SYSTEM_C = """You are a data scientist operating a sandbox to complete a machine-learning task.
 Tools: run_sql (one ClickHouse statement against YOUR scratch database, the default), run_python
-(a container with pandas/numpy/scikit-learn/clickhouse_connect; the CLICKHOUSE_* env points at your
-scratch database, so a client built from it reads/writes there by default), finish (end the task).
+(a container with pandas/numpy/scikit-learn/clickhouse_connect), finish (end the task).
+
+In run_python, build the ClickHouse client EXPLICITLY from the environment. A bare
+`clickhouse_connect.get_client()` does NOT read these variables, so it tries localhost and fails:
+
+    import os, clickhouse_connect
+    client = clickhouse_connect.get_client(
+        host=os.environ["CLICKHOUSE_HOST"], username=os.environ["CLICKHOUSE_USER"],
+        password=os.environ["CLICKHOUSE_PASSWORD"], database=os.environ["CLICKHOUSE_DB"])
 
 Work step by step: inspect the tables, train a model on the training table, predict for EVERY row of
 the test table, and WRITE your predictions to the exact table name and schema the task specifies —
 that table is the deliverable. Then call finish. You have a limited number of steps; be efficient
-and do not over-tune. To write predictions from run_python, create the table then insert, e.g.
+and do not over-tune. To write predictions, create the table then insert, e.g.
 `client.command('CREATE TABLE t (id UInt32, pred Float64) ENGINE=MergeTree ORDER BY id')` then
 `client.insert_df('t', df)`."""
 
@@ -44,7 +51,8 @@ TOOL_SCHEMAS_C = [
     {"type": "function", "function": {
         "name": "run_python",
         "description": ("Execute Python 3 in the analysis container (pandas, numpy, scikit-learn, "
-                        "clickhouse_connect). CLICKHOUSE_* env points at your scratch DB. "
+                        "clickhouse_connect). Build the client from the CLICKHOUSE_HOST/USER/"
+                        "PASSWORD/DB env vars explicitly; a bare get_client() will not connect. "
                         "Returns stdout+stderr; print what you want to see."),
         "parameters": {"type": "object",
                        "properties": {"code": {"type": "string"}}, "required": ["code"]}}},
