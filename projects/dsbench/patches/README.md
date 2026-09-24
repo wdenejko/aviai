@@ -87,3 +87,16 @@ the end of an `a && b && nohup c &` chain backgrounds the WHOLE chain, which kee
 open until the eval ends:
 
     ssh dashi 'nohup setsid ~/gate2/gate2_ab.sh >/dev/null 2>&1 </dev/null &'
+
+## LoRA export verification scripts
+Box-side scripts behind `reports/gate-evals/20260924-gguf-export.md`:
+
+- `render_ppl_text.py` — held-out eval records as plain role-labelled text for `llama-perplexity`
+  (it tokenizes without parsing special tokens, so chat markup would be split into characters).
+- `lora_ablation.sh` — base vs correct vs deliberately broken exports (`no_vperm`, `swap_gate_up`).
+- `gdn_ablation.sh` — the isolated test: GDN-only adapters, with and without the V permutation.
+- `serve_lora_test.sh` — production `llama-server` with the adapter, loopback on port 8093.
+- `lora_onoff.py` — same server, adapter scale 1 vs 0 per request: speed and answers.
+
+The ablations use `build-v2-85cc-bak`: `build-v2`'s `llama-perplexity` predates its `libllama` and
+segfaults on startup.
