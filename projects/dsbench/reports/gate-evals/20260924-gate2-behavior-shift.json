@@ -1,0 +1,143 @@
+{
+  "base": {
+    "targetA_heldout": {
+      "full": 1.3300550617277622,
+      "assistant": 0.7008771914988756,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 1.8787678224699838,
+      "assistant": 0.7823404393025807,
+      "blocks": 14
+    },
+    "general_heldout": {
+      "full": 3.027420083681742,
+      "assistant": 2.048294241229693,
+      "blocks": 12
+    },
+    "sql_heldout": {
+      "full": 1.692386455833912,
+      "assistant": 0.6193611398339272,
+      "blocks": 16
+    },
+    "code_heldout": {
+      "full": 1.281858529895544,
+      "assistant": 0.32385578006505966,
+      "blocks": 16
+    },
+    "dsnb_heldout": {
+      "full": 1.3441446162760258,
+      "assistant": 0.8199500776827335,
+      "blocks": 16
+    },
+    "swe_heldout": {
+      "full": 1.4878393496785844,
+      "assistant": 1.287785244839532,
+      "blocks": 14
+    },
+    "targetA_trained": {
+      "full": 1.2918222546577454,
+      "assistant": 0.6612722463905811,
+      "blocks": 16
+    },
+    "targetC_trained": {
+      "full": 2.5173805952072144,
+      "assistant": 0.8711815198262532,
+      "blocks": 15
+    }
+  },
+  "gate1": {
+    "targetA_heldout": {
+      "full": 0.49846351146698,
+      "assistant": 0.15924515994265676,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 1.3172590817723955,
+      "assistant": 0.2775804687823568,
+      "blocks": 14
+    },
+    "general_heldout": {
+      "full": 1.390119860569636,
+      "assistant": 0.9680598129828771,
+      "blocks": 12
+    },
+    "sql_heldout": {
+      "full": 0.7359892055392265,
+      "assistant": 0.41896454244852066,
+      "blocks": 16
+    },
+    "code_heldout": {
+      "full": 0.5351348742842674,
+      "assistant": 0.1957767130807042,
+      "blocks": 16
+    },
+    "dsnb_heldout": {
+      "full": 0.8748055510222912,
+      "assistant": 0.5419491827487946,
+      "blocks": 16
+    },
+    "swe_heldout": {
+      "full": 1.0216363625867027,
+      "assistant": 1.0939539692231588,
+      "blocks": 14
+    },
+    "targetA_trained": {
+      "full": 0.49011009000241756,
+      "assistant": 0.1338196126744151,
+      "blocks": 16
+    },
+    "targetC_trained": {
+      "full": 1.3250066002209981,
+      "assistant": 0.31616052985191345,
+      "blocks": 15
+    }
+  },
+  "gate2": {
+    "targetA_heldout": {
+      "full": 0.5739371068775654,
+      "assistant": 0.07705271989107132,
+      "blocks": 16
+    },
+    "targetC_heldout": {
+      "full": 1.2758973922048296,
+      "assistant": 0.13847517780959606,
+      "blocks": 14
+    },
+    "general_heldout": {
+      "full": 1.337122807900111,
+      "assistant": 0.9360431830088297,
+      "blocks": 12
+    },
+    "sql_heldout": {
+      "full": 0.7112703025341034,
+      "assistant": 0.3730503171682358,
+      "blocks": 16
+    },
+    "code_heldout": {
+      "full": 0.5191600993275642,
+      "assistant": 0.16542054526507854,
+      "blocks": 16
+    },
+    "dsnb_heldout": {
+      "full": 0.865975059568882,
+      "assistant": 0.46019640006124973,
+      "blocks": 16
+    },
+    "swe_heldout": {
+      "full": 0.9063761702605656,
+      "assistant": 0.9402215906551906,
+      "blocks": 14
+    },
+    "targetA_trained": {
+      "full": 0.5688483901321888,
+      "assistant": 0.06891745864413679,
+      "blocks": 16
+    },
+    "targetC_trained": {
+      "full": 1.2084821542104085,
+      "assistant": 0.1465043757110834,
+      "blocks": 15
+    }
+  }
+}
