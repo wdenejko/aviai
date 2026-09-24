@@ -100,3 +100,30 @@ Box-side scripts behind `reports/gate-evals/20260924-gguf-export.md`:
 
 The ablations use `build-v2-85cc-bak`: `build-v2`'s `llama-perplexity` predates its `libllama` and
 segfaults on startup.
+
+## Acceptance battery scripts (`dsbench.battery`)
+Box-side launchers behind `reports/gate-evals/20260924-gate2-battery.md`. On the box they live in
+`~/benchlab/scripts/battery/` next to a synced copy of `src/`, with logs in `~/benchlab/logs/` and
+the run itself in `~/benchlab/runs/2026-09-24-gate2-battery/` (per `~/benchlab/RULES.md`).
+
+- `battery_server.sh` — production `llama-server` (`build-v2`) + I-Mini + the Gate-2 LoRA, loaded at
+  scale 0 so a request that names no state gets the base. 8 slots on one unified KV pool, thinking
+  off by default, `--slot-save-path` so passes can erase slot caches. `NP`, `CTX`, `NOLORA` and
+  `EXTRA_ARGS` override the defaults.
+- `battery_window.sh` — one GPU window: OCR stopped (restarted on exit), GTT drain, the thermal
+  governor on the server, the optional parity check (`PARITY=1`), then the generation passes in
+  order. A `hold:NAME` step keeps the server up for a client that runs elsewhere (the Mac-side
+  pi harness) until `RUN/hold/NAME.done` appears or `HOLD_MAX` seconds pass.
+- `battery_tput_sweep.sh` — the slot-count sweep that fixed `NP=8`: 104 tok/s at 8 slots, about 40
+  to 80 at 16. Vulkan's mat-vec kernels serve batches of up to 8 tokens (`mul_mat_vec_max_cols`),
+  and past that MoE decode falls back to the general matmul path.
+- `battery_dsbench_pi.sh` — Mac side of the `hold:dsbench` step: tunnels `localhost:18080` to the
+  battery server, sets the server's adapter scale per pass and runs the agentic suite through pi.
+- `fetch_mtp_src.py` + `convert_mtp.sh` — export the MTP head from 3 of the 26 HF shards with the
+  fork's `--mtp` converter (index narrowed to the shards present; the full one is kept).
+- `battery_mtp.sh` — the MTP-acceptance window: one slot, `--spec-type draft-mtp`, the same prompts
+  at LoRA scale 0 and 1.
+
+Two box gotchas the battery hit: podman bind mounts need `:z` (SELinux is enforcing, and without
+the relabel the sandbox can't read its own inputs), and llama-server's slot actions (`erase`)
+return 501 unless `--slot-save-path` is set.
