@@ -1,0 +1,34 @@
+# The acceptance battery's code-execution sandbox (see src/dsbench/battery/sandbox_exec.py).
+#
+# One image serves every benchmark that runs model code:
+#   * DS-1000: its official environment (environment.yml in xlangai/DS-1000 @ 4416080): Python 3.10
+#     and the exact library pins below. DS-1000 tests compare against the reference solution's
+#     output under THESE versions, so a different pandas can turn a right answer wrong.
+#   * HumanEval+: numpy (its test harness uses np.testing for float tolerance).
+#   * LiveCodeBench: numpy (testing_util imports it); solutions themselves use the stdlib.
+#   * BIRD: sqlite3 from the stdlib.
+# The container is always run with --network none, a read-only root filesystem and no writable
+# host mount (score.py), so nothing here needs to be hardened beyond the pins.
+#
+# Build on the box:
+#   podman build -t localhost/benchlab-battery-sandbox:py310-ds1000 sandbox/battery
+FROM docker.io/library/python:3.10-slim
+
+RUN pip install --no-cache-dir \
+        numpy==1.26.4 pandas==1.5.3 scipy==1.12.0 scikit-learn==1.4.0 matplotlib==3.8.4 \
+        seaborn==0.13.2 statsmodels==0.14.1 xgboost==2.0.3 gensim==4.3.2 pyyaml \
+        tensorflow-cpu==2.16.1 \
+    && pip install --no-cache-dir torch==2.2.0 --index-url https://download.pytorch.org/whl/cpu \
+    && python -c "import numpy, pandas, scipy, sklearn, matplotlib, tensorflow, torch; \
+print('numpy', numpy.__version__, 'pandas', pandas.__version__, 'torch', torch.__version__)"
+
+# 15 DS-1000 problems load a public dataset at test time (seaborn tips/planets/penguins/exercise,
+# sklearn California housing). The sandbox has no network, so the data is fetched here, at build
+# time, into the caches both libraries read before they try to download.
+ENV SEABORN_DATA=/opt/seaborn-data SCIKIT_LEARN_DATA=/opt/sklearn-data
+RUN python -c "import seaborn as sns; [sns.load_dataset(n) for n in ('tips', 'planets', \
+'penguins', 'exercise')]; from sklearn.datasets import fetch_california_housing; \
+fetch_california_housing()" && ls /opt/seaborn-data /opt/sklearn-data
+
+ENV MPLBACKEND=Agg PYTHONDONTWRITEBYTECODE=1
+WORKDIR /tmp

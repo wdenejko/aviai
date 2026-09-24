@@ -17,6 +17,7 @@ import httpx
 from dsbench.agentic import tools as T
 from dsbench.agentic.ch import get_client
 from dsbench.agentic.schema import AgentProblem, AgentResult, GradeContext
+from dsbench.streaming import reassemble_stream as _reassemble_stream  # why stream: see module
 
 SCHEMA_DOC = """Warehouse schema (shared database `aviation`):
 - aviation.flights — one row per US flight, June 2026. Columns include:
@@ -50,53 +51,6 @@ if a step would need a very long code block, split it across calls — over-long
 can be truncated.
 
 {schema}"""
-
-
-def _reassemble_stream(r: httpx.Response) -> dict:
-    """Reassemble a streamed chat completion into one non-stream-shaped `choice` dict.
-
-    WHY stream: the fork's NON-stream endpoint runs a strict json::parse over the model's tool-call
-    arguments and 500s the whole request if the model emitted one malformed/truncated tool call deep
-    in a trajectory (empirically what kills ds_notam_classify ~step 15 — NOT a double-quote bug; a
-    controlled probe showed quotes and 4KB args parse fine). Streaming delivers the arguments as
-    deltas we concatenate ourselves, so a malformed call comes back to us as text we can turn into a
-    recoverable tool error instead of aborting the run. See reference-ornith-agentic-behavior.
-    """
-    content = ""
-    finish = None
-    calls: dict[int, dict] = {}  # index -> {id, name, arguments}
-    for line in r.iter_lines():
-        if not line or not line.startswith("data: "):
-            continue
-        data = line[6:]
-        if data.strip() == "[DONE]":
-            break
-        try:
-            ev = json.loads(data)
-        except json.JSONDecodeError:
-            continue  # keep-alive / non-JSON line
-        ch = (ev.get("choices") or [{}])[0]
-        if ch.get("finish_reason"):
-            finish = ch["finish_reason"]
-        delta = ch.get("delta") or {}
-        if delta.get("content"):
-            content += delta["content"]
-        for tc in (delta.get("tool_calls") or []):
-            idx = tc.get("index", 0)
-            slot = calls.setdefault(idx, {"id": None, "name": None, "arguments": ""})
-            if tc.get("id"):
-                slot["id"] = tc["id"]
-            fn = tc.get("function", {}) or {}
-            if fn.get("name"):
-                slot["name"] = fn["name"]
-            slot["arguments"] += fn.get("arguments") or ""
-    tool_calls = [
-        {"id": c["id"], "type": "function",
-         "function": {"name": c["name"], "arguments": c["arguments"]}}
-        for _, c in sorted(calls.items())
-    ]
-    return {"message": {"role": "assistant", "content": content, "tool_calls": tool_calls},
-            "finish_reason": finish}
 
 
 def call_model(messages: list, *, base_url: str, model: str, no_think: bool,
