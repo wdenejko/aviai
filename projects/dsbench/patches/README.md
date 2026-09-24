@@ -77,3 +77,13 @@ Launch detached, or it dies with the ssh session that started it:
 
     ssh dashi 'nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
     ssh dashi 'QWEN35_RESUME=1 nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
+
+## `gate2_ab.sh`
+The Gate-2 loss eval launcher: base vs Gate-1 vs Gate-2 adapters on `eval_buckets_gate2.jsonl`
+(built by `dsbench.sftgen.eval_buckets_gate2`). Same shape as `gate1_ab.sh`: OCR user unit stopped
+for the ~30-minute window and restarted on exit, GTT drain before touching the GPU,
+`PYTHONUNBUFFERED=1` so progress is visible live. Launch detached and on its own — putting `&` at
+the end of an `a && b && nohup c &` chain backgrounds the WHOLE chain, which keeps the ssh channel
+open until the eval ends:
+
+    ssh dashi 'nohup setsid ~/gate2/gate2_ab.sh >/dev/null 2>&1 </dev/null &'

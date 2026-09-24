@@ -91,9 +91,15 @@ model.eval()
 
 
 def measure() -> dict:
+    # Per-block losses are kept, aligned by block index (None where a block is skipped), because the
+    # bucket mean alone cannot say whether a difference is real. Every state scores the SAME blocks,
+    # so differences can be taken block by block: pairing cancels block difficulty, which is most of
+    # the variance. The Gate-2 eval saved only means, which left its 3-16% differences unjudgeable.
     out = {}
     for name, (ids, labels) in blocks.items():
         full_total, asst_total, counted = 0.0, 0.0, 0
+        per_full: list[float | None] = []
+        per_asst: list[float | None] = []
         for block_ids, block_labels in zip(ids, labels, strict=True):
             tensor = torch.tensor([block_ids], dtype=torch.int64, device="cuda:0")
             mask = torch.ones_like(tensor)
@@ -104,12 +110,17 @@ def measure() -> dict:
                 asst = model(input_ids=tensor, attention_mask=mask, labels=masked,
                              use_cache=False).loss
             if not torch.isfinite(asst):  # a block with no assistant token contributes nothing
+                per_full.append(None)
+                per_asst.append(None)
                 continue
             full_total += float(full)
             asst_total += float(asst)
             counted += 1
+            per_full.append(float(full))
+            per_asst.append(float(asst))
         out[name] = {"full": full_total / max(counted, 1),
-                     "assistant": asst_total / max(counted, 1), "blocks": counted}
+                     "assistant": asst_total / max(counted, 1), "blocks": counted,
+                     "per_block": {"full": per_full, "assistant": per_asst}}
         print(f"   {name:18s} full {out[name]['full']:.4f}  assistant "
               f"{out[name]['assistant']:.4f}", flush=True)
     return out
