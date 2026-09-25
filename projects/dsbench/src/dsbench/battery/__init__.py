@@ -9,7 +9,8 @@ Design choices, and why:
 * ONE server, TWO states. llama-server loads the base GGUF plus the LoRA GGUF once and every request
   names its state (`"lora": [{"id": 0, "scale": 0 | 1}]`). Base and adapter therefore share the
   binary, the quant, the chat template and the sampler, so the only difference between the two
-  columns is the adapter itself. A pass runs one state only, so no batch ever mixes the two.
+  columns is the adapter itself. A pass runs one state only, so no batch ever mixes the two. (ADR
+  step 4 adds a third, `adapter_half`: the adapter at scale 0.5, paired with the same base pass.)
 * Greedy decoding, thinking off. Greedy makes each item's outcome a property of the model and not
   of a sampling seed, which is what the paired statistics below assume. Thinking stays off because
   that is how the adapter was trained. The price is that absolute scores sit below Qwen's published

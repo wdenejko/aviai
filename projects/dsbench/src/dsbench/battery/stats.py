@@ -119,8 +119,10 @@ def paired(bench: str, base: dict[str, bool], adapter: dict[str, bool]) -> Paire
 def verdict(p: Paired) -> str:
     """The ADR reading of one benchmark's paired result.
 
-    Target benchmark: 'gain' only if the improvement is significant (p < ALPHA); otherwise 'no
-    gain'. A point estimate inside the noise does not count toward "at least two".
+    Target benchmark: 'gain' only if the improvement is significant (p < ALPHA); a significant
+    decline is 'regression' (the ADR sets no limit there, but calling BIRD's -9 points "no gain"
+    hid it); otherwise 'no gain'. A point estimate inside the noise does not count toward "at
+    least two".
     General benchmark: 'fail' if the point estimate regresses past the threshold, as the ADR
     words it; 'fail (n.s.)' marks a failing point estimate whose exact test is not significant
     (still a fail: the ADR bounds the size of the regression, it doesn't ask for significance).
@@ -128,7 +130,9 @@ def verdict(p: Paired) -> str:
     point estimate passes, but the sample can't rule out a regression of that size.
     """
     if p.bench in TARGET_BENCHES:
-        return "gain" if p.delta > 0 and p.p < ALPHA else "no gain"
+        if p.p < ALPHA and p.delta != 0:
+            return "gain" if p.delta > 0 else "regression"
+        return "no gain"
     threshold = REGRESSION_THRESHOLDS.get(p.bench)
     if threshold is None:  # measured, but not an ADR criterion: say so when the change is real
         if p.p < ALPHA:
@@ -149,11 +153,13 @@ def gate2_decision(results: dict[str, Paired]) -> dict:
     """Combine per-benchmark verdicts into the Gate-2 call, listing what was not measured."""
     verdicts = {bench: verdict(p) for bench, p in results.items()}
     gains = [b for b in TARGET_BENCHES if verdicts.get(b) == "gain"]
+    target_losses = [b for b in TARGET_BENCHES if verdicts.get(b) == "regression"]
     fails = [b for b in REGRESSION_THRESHOLDS if verdicts.get(b, "").startswith("fail")]
     missing = [b for b in (*TARGET_BENCHES, *REGRESSION_THRESHOLDS) if b not in results]
     return {
         "verdicts": verdicts,
         "target_gains": gains,
+        "target_regressions": target_losses,
         "regressions": fails,
         "not_measured": missing,
         "target_criterion_met": len(gains) >= 2,

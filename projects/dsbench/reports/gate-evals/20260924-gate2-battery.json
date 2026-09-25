@@ -1,0 +1,1199 @@
+{
+ "summaries": {
+  "ds1000": {
+   "paired": {
+    "bench": "ds1000",
+    "n": 1000,
+    "acc_base": 47.1,
+    "acc_adapter": 47.8,
+    "delta": 0.7000000000000001,
+    "ci_low": -2.2512787371819756,
+    "ci_high": 3.631525976214138,
+    "losses": 103,
+    "gains": 110,
+    "p": 0.6810883208060332
+   },
+   "verdict": "no gain",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "ds1000",
+     "n": 1000,
+     "acc_base": 47.1,
+     "acc_adapter": 49.9,
+     "delta": 2.8000000000000003,
+     "ci_low": 0.08907213791170884,
+     "ci_high": 5.4160813857790355,
+     "losses": 75,
+     "gains": 103,
+     "p": 0.042694346854409676
+    },
+    "verdict": "gain"
+   },
+   "aa": {
+    "flips": 74,
+    "n": 1000,
+    "acc_base_rep": 47.9
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 1000
+    },
+    "adapter": {
+     "none": 1000
+    }
+   },
+   "truncated": {
+    "base": 7,
+    "adapter": 4
+   },
+   "status": {
+    "base": {
+     "error": 529,
+     "ok": 471
+    },
+    "adapter": {
+     "error": 522,
+     "ok": 478
+    }
+   },
+   "strata": {
+    "Matplotlib": {
+     "n": 155,
+     "base": 65.80645161290323,
+     "adapter": 64.51612903225806
+    },
+    "Numpy": {
+     "n": 220,
+     "base": 50.90909090909091,
+     "adapter": 56.81818181818182
+    },
+    "Pandas": {
+     "n": 291,
+     "base": 39.175257731958766,
+     "adapter": 36.08247422680412
+    },
+    "Pytorch": {
+     "n": 68,
+     "base": 38.23529411764706,
+     "adapter": 51.470588235294116
+    },
+    "Scipy": {
+     "n": 106,
+     "base": 50.943396226415096,
+     "adapter": 40.56603773584906
+    },
+    "Sklearn": {
+     "n": 115,
+     "base": 33.91304347826087,
+     "adapter": 38.26086956521739
+    },
+    "Tensorflow": {
+     "n": 45,
+     "base": 53.333333333333336,
+     "adapter": 57.77777777777778
+    }
+   }
+  },
+  "bird": {
+   "paired": {
+    "bench": "bird",
+    "n": 1532,
+    "acc_base": 60.052219321148826,
+    "acc_adapter": 50.97911227154047,
+    "delta": -9.073107049608355,
+    "ci_low": -11.040912858284484,
+    "ci_high": -6.927797370201824,
+    "losses": 223,
+    "gains": 84,
+    "p": 1.0820221769761916e-15
+   },
+   "verdict": "regression",
+   "unmeasurable": [
+    "518",
+    "701"
+   ],
+   "half": {
+    "paired": {
+     "bench": "bird",
+     "n": 1532,
+     "acc_base": 60.052219321148826,
+     "acc_adapter": 57.44125326370757,
+     "delta": -2.610966057441253,
+     "ci_low": -4.347119165932143,
+     "ci_high": -0.7919984014854007,
+     "losses": 115,
+     "gains": 75,
+     "p": 0.004537135222797163
+    },
+    "verdict": "regression"
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 1532
+    },
+    "adapter": {
+     "none": 1532
+    }
+   },
+   "truncated": {
+    "base": 21,
+    "adapter": 0
+   },
+   "status": {
+    "base": {
+     "error": 47,
+     "ok": 920,
+     "timeout": 3,
+     "wrong": 562
+    },
+    "adapter": {
+     "error": 176,
+     "ok": 781,
+     "timeout": 2,
+     "wrong": 573
+    }
+   },
+   "strata": {
+    "challenging": {
+     "n": 144,
+     "base": 50.69444444444444,
+     "adapter": 32.638888888888886
+    },
+    "moderate": {
+     "n": 463,
+     "base": 50.53995680345572,
+     "adapter": 37.58099352051836
+    },
+    "simple": {
+     "n": 925,
+     "base": 66.27027027027027,
+     "adapter": 60.54054054054054
+    }
+   }
+  },
+  "dsbench": {
+   "paired": {
+    "bench": "dsbench",
+    "n": 23,
+    "acc_base": 78.26086956521739,
+    "acc_adapter": 82.6086956521739,
+    "delta": 4.3478260869565215,
+    "ci_low": -10.583495894341405,
+    "ci_high": 12.824249774097062,
+    "losses": 1,
+    "gains": 2,
+    "p": 1.0
+   },
+   "verdict": "no gain",
+   "unmeasurable": [],
+   "contaminated_strong": 0,
+   "truncated": {
+    "base": 0,
+    "adapter": 0
+   },
+   "status": {
+    "base": {
+     "0/5 runs": 3,
+     "1/5 runs": 1,
+     "2/5 runs": 1,
+     "3/5 runs": 1,
+     "4/5 runs": 2,
+     "5/5 runs": 15
+    },
+    "adapter": {
+     "0/5 runs": 4,
+     "3/5 runs": 3,
+     "4/5 runs": 2,
+     "5/5 runs": 14
+    }
+   }
+  },
+  "bfcl_ast": {
+   "paired": {
+    "bench": "bfcl_ast",
+    "n": 1000,
+    "acc_base": 88.5,
+    "acc_adapter": 91.5,
+    "delta": 3.0,
+    "ci_low": 0.9424455527343185,
+    "ci_high": 4.878354596457775,
+    "losses": 36,
+    "gains": 66,
+    "p": 0.003865583588338324
+   },
+   "verdict": "gain",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "bfcl_ast",
+     "n": 1000,
+     "acc_base": 88.5,
+     "acc_adapter": 94.3,
+     "delta": 5.800000000000001,
+     "ci_low": 4.4111379837689135,
+     "ci_high": 6.691908942155067,
+     "losses": 8,
+     "gains": 66,
+     "p": 1.8077410513282367e-12
+    },
+    "verdict": "gain"
+   },
+   "contaminated_strong": 1,
+   "clean": {
+    "bench": "bfcl_ast",
+    "n": 999,
+    "acc_base": 88.48848848848849,
+    "acc_adapter": 91.49149149149149,
+    "delta": 3.003003003003003,
+    "ci_low": 0.9433889416759945,
+    "ci_high": 4.883237834292068,
+    "losses": 36,
+    "gains": 66,
+    "p": 0.003865583588338324
+   },
+   "think_leak": {
+    "base": {
+     "none": 1000
+    },
+    "adapter": {
+     "closed": 11,
+     "none": 989
+    }
+   },
+   "no_leak": {
+    "bench": "bfcl_ast",
+    "n": 989,
+    "acc_base": 88.97876643073812,
+    "acc_adapter": 91.80990899898887,
+    "delta": 2.8311425682507583,
+    "ci_low": 0.7868083645503272,
+    "ci_high": 4.6993774257665395,
+    "losses": 35,
+    "gains": 63,
+    "p": 0.006092629672064721
+   },
+   "truncated": {
+    "base": 0,
+    "adapter": 0
+   },
+   "status": {
+    "base": {
+     "no_call": 35,
+     "ok": 885,
+     "wrong": 80
+    },
+    "adapter": {
+     "format": 1,
+     "ok": 915,
+     "wrong": 84
+    }
+   },
+   "format_ok": {
+    "base": 100.0,
+    "adapter": 99.9
+   },
+   "strata": {
+    "multiple": {
+     "n": 200,
+     "base": 94.0,
+     "adapter": 97.0
+    },
+    "parallel": {
+     "n": 200,
+     "base": 81.0,
+     "adapter": 86.5
+    },
+    "parallel_multiple": {
+     "n": 200,
+     "base": 80.5,
+     "adapter": 82.5
+    },
+    "simple": {
+     "n": 400,
+     "base": 93.5,
+     "adapter": 95.75
+    }
+   }
+  },
+  "ifeval": {
+   "paired": {
+    "bench": "ifeval",
+    "n": 541,
+    "acc_base": 81.70055452865064,
+    "acc_adapter": 77.07948243992607,
+    "delta": -4.621072088724584,
+    "ci_low": -8.061822723252211,
+    "ci_high": -0.8900227659124506,
+    "losses": 61,
+    "gains": 36,
+    "p": 0.014389633007095661
+   },
+   "verdict": "fail",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "ifeval",
+     "n": 541,
+     "acc_base": 81.70055452865064,
+     "acc_adapter": 81.88539741219964,
+     "delta": 0.18484288354898337,
+     "ci_low": -2.8213341764778934,
+     "ci_high": 3.173072207044178,
+     "losses": 31,
+     "gains": 32,
+     "p": 1.0
+    },
+    "verdict": "pass (unresolved)"
+   },
+   "aa": {
+    "flips": 45,
+    "n": 541,
+    "acc_base_rep": 81.1460258780037
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 541
+    },
+    "adapter": {
+     "closed": 15,
+     "none": 526
+    }
+   },
+   "no_leak": {
+    "bench": "ifeval",
+    "n": 526,
+    "acc_base": 81.55893536121673,
+    "acc_adapter": 77.75665399239544,
+    "delta": -3.802281368821293,
+    "ci_low": -7.259465205757926,
+    "ci_high": -0.08750552705468799,
+    "losses": 55,
+    "gains": 35,
+    "p": 0.04459752462791594
+   },
+   "truncated": {
+    "base": 9,
+    "adapter": 24
+   },
+   "status": {
+    "base": {
+     "ok": 541
+    },
+    "adapter": {
+     "ok": 541
+    }
+   },
+   "ifeval_levels": {
+    "base": {
+     "prompt_strict": 81.70055452865064,
+     "prompt_loose": 85.21256931608133,
+     "inst_strict": 87.29016786570743,
+     "inst_loose": 90.04796163069544
+    },
+    "adapter": {
+     "prompt_strict": 77.07948243992607,
+     "prompt_loose": 80.0369685767098,
+     "inst_strict": 83.81294964028777,
+     "inst_loose": 86.33093525179856
+    }
+   }
+  },
+  "mmlu_pro": {
+   "paired": {
+    "bench": "mmlu_pro",
+    "n": 1400,
+    "acc_base": 80.78571428571429,
+    "acc_adapter": 77.71428571428571,
+    "delta": -3.0714285714285716,
+    "ci_low": -4.770345661996587,
+    "ci_high": -1.2556936339496074,
+    "losses": 101,
+    "gains": 58,
+    "p": 0.0008113466320476738
+   },
+   "verdict": "fail",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "mmlu_pro",
+     "n": 1400,
+     "acc_base": 80.78571428571429,
+     "acc_adapter": 80.78571428571429,
+     "delta": 0.0,
+     "ci_low": -1.5218397036595452,
+     "ci_high": 1.5218397036591684,
+     "losses": 55,
+     "gains": 55,
+     "p": 1.0
+    },
+    "verdict": "pass (unresolved)"
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 1400
+    },
+    "adapter": {
+     "closed": 12,
+     "none": 1388
+    }
+   },
+   "no_leak": {
+    "bench": "mmlu_pro",
+    "n": 1388,
+    "acc_base": 80.76368876080691,
+    "acc_adapter": 77.80979827089337,
+    "delta": -2.9538904899135447,
+    "ci_low": -4.649720836532464,
+    "ci_high": -1.142777025515306,
+    "losses": 98,
+    "gains": 57,
+    "p": 0.0012406040255824276
+   },
+   "truncated": {
+    "base": 91,
+    "adapter": 49
+   },
+   "status": {
+    "base": {
+     "no_answer": 2,
+     "ok": 1131,
+     "wrong": 267
+    },
+    "adapter": {
+     "no_answer": 1,
+     "ok": 1088,
+     "wrong": 311
+    }
+   },
+   "strata": {
+    "biology": {
+     "n": 100,
+     "base": 93.0,
+     "adapter": 90.0
+    },
+    "business": {
+     "n": 100,
+     "base": 89.0,
+     "adapter": 87.0
+    },
+    "chemistry": {
+     "n": 100,
+     "base": 92.0,
+     "adapter": 90.0
+    },
+    "computer science": {
+     "n": 100,
+     "base": 80.0,
+     "adapter": 88.0
+    },
+    "economics": {
+     "n": 100,
+     "base": 89.0,
+     "adapter": 86.0
+    },
+    "engineering": {
+     "n": 100,
+     "base": 65.0,
+     "adapter": 54.0
+    },
+    "health": {
+     "n": 100,
+     "base": 78.0,
+     "adapter": 73.0
+    },
+    "history": {
+     "n": 100,
+     "base": 75.0,
+     "adapter": 67.0
+    },
+    "law": {
+     "n": 100,
+     "base": 61.0,
+     "adapter": 57.0
+    },
+    "math": {
+     "n": 100,
+     "base": 94.0,
+     "adapter": 89.0
+    },
+    "other": {
+     "n": 100,
+     "base": 70.0,
+     "adapter": 65.0
+    },
+    "philosophy": {
+     "n": 100,
+     "base": 84.0,
+     "adapter": 81.0
+    },
+    "physics": {
+     "n": 100,
+     "base": 82.0,
+     "adapter": 83.0
+    },
+    "psychology": {
+     "n": 100,
+     "base": 79.0,
+     "adapter": 78.0
+    }
+   }
+  },
+  "lcb": {
+   "paired": {
+    "bench": "lcb",
+    "n": 342,
+    "acc_base": 37.42690058479532,
+    "acc_adapter": 30.116959064327485,
+    "delta": -7.309941520467836,
+    "ci_low": -10.639536975587228,
+    "ci_high": -3.091786512194274,
+    "losses": 38,
+    "gains": 13,
+    "p": 0.0006210434562277101
+   },
+   "verdict": "fail",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "lcb",
+     "n": 342,
+     "acc_base": 37.42690058479532,
+     "acc_adapter": 33.62573099415204,
+     "delta": -3.8011695906432745,
+     "ci_low": -7.050082934030651,
+     "ci_high": 0.049542879097936435,
+     "losses": 26,
+     "gains": 13,
+     "p": 0.05325191409792751
+    },
+    "verdict": "fail (n.s.)"
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "closed": 30,
+     "none": 309,
+     "open": 3
+    },
+    "adapter": {
+     "closed": 77,
+     "none": 96,
+     "open": 169
+    }
+   },
+   "no_leak": {
+    "bench": "lcb",
+    "n": 96,
+    "acc_base": 51.041666666666664,
+    "acc_adapter": 40.625,
+    "delta": -10.416666666666668,
+    "ci_low": -16.346548210587557,
+    "ci_high": -0.886021284881991,
+    "losses": 14,
+    "gains": 4,
+    "p": 0.0308837890625
+   },
+   "truncated": {
+    "base": 176,
+    "adapter": 212
+   },
+   "status": {
+    "base": {
+     "error": 1,
+     "no_code": 175,
+     "ok": 128,
+     "wrong": 38
+    },
+    "adapter": {
+     "no_code": 201,
+     "ok": 103,
+     "wrong": 38
+    }
+   },
+   "strata": {
+    "easy": {
+     "n": 84,
+     "base": 85.71428571428571,
+     "adapter": 82.14285714285714
+    },
+    "hard": {
+     "n": 154,
+     "base": 7.792207792207792,
+     "adapter": 3.896103896103896
+    },
+    "medium": {
+     "n": 104,
+     "base": 42.30769230769231,
+     "adapter": 26.923076923076923
+    }
+   }
+  },
+  "humaneval_plus": {
+   "paired": {
+    "bench": "humaneval_plus",
+    "n": 163,
+    "acc_base": 90.79754601226993,
+    "acc_adapter": 85.88957055214723,
+    "delta": -4.9079754601226995,
+    "ci_low": -8.389456917734828,
+    "ci_high": 0.4666664028687652,
+    "losses": 12,
+    "gains": 4,
+    "p": 0.076812744140625
+   },
+   "verdict": "fail (n.s.)",
+   "unmeasurable": [
+    "HumanEval/32"
+   ],
+   "half": {
+    "paired": {
+     "bench": "humaneval_plus",
+     "n": 163,
+     "acc_base": 90.79754601226993,
+     "acc_adapter": 92.02453987730061,
+     "delta": 1.2269938650306749,
+     "ci_low": -0.8389843361756605,
+     "ci_high": 1.2269938650306749,
+     "losses": 0,
+     "gains": 2,
+     "p": 0.5
+    },
+    "verdict": "pass (confirmed)"
+   },
+   "aa": {
+    "flips": 5,
+    "n": 163,
+    "acc_base_rep": 91.41104294478528
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 163
+    },
+    "adapter": {
+     "closed": 42,
+     "none": 109,
+     "open": 12
+    }
+   },
+   "no_leak": {
+    "bench": "humaneval_plus",
+    "n": 109,
+    "acc_base": 91.74311926605505,
+    "acc_adapter": 90.8256880733945,
+    "delta": -0.9174311926605505,
+    "ci_low": -2.7060343560021325,
+    "ci_high": 2.233214729998646,
+    "losses": 2,
+    "gains": 1,
+    "p": 1.0
+   },
+   "truncated": {
+    "base": 0,
+    "adapter": 16
+   },
+   "status": {
+    "base": {
+     "error": 15,
+     "ok": 148
+    },
+    "adapter": {
+     "error": 23,
+     "ok": 140
+    }
+   }
+  },
+  "bfcl_irrelevance": {
+   "paired": {
+    "bench": "bfcl_irrelevance",
+    "n": 240,
+    "acc_base": 89.16666666666667,
+    "acc_adapter": 67.08333333333333,
+    "delta": -22.083333333333332,
+    "ci_low": -24.493828371221742,
+    "ci_high": -17.310328139097233,
+    "losses": 57,
+    "gains": 4,
+    "p": 4.85494457136415e-13
+   },
+   "verdict": "regression (no ADR limit)",
+   "unmeasurable": [],
+   "half": {
+    "paired": {
+     "bench": "bfcl_irrelevance",
+     "n": 240,
+     "acc_base": 89.16666666666667,
+     "acc_adapter": 69.58333333333333,
+     "delta": -19.583333333333332,
+     "ci_low": -20.395573943014938,
+     "ci_high": -15.984544637956724,
+     "losses": 48,
+     "gains": 1,
+     "p": 1.7763568394002505e-13
+    },
+    "verdict": "regression (no ADR limit)"
+   },
+   "contaminated_strong": 0,
+   "think_leak": {
+    "base": {
+     "none": 240
+    },
+    "adapter": {
+     "closed": 60,
+     "none": 180
+    }
+   },
+   "no_leak": {
+    "bench": "bfcl_irrelevance",
+    "n": 180,
+    "acc_base": 85.55555555555556,
+    "acc_adapter": 66.11111111111111,
+    "delta": -19.444444444444446,
+    "ci_low": -22.64994946505343,
+    "ci_high": -13.313113165111535,
+    "losses": 39,
+    "gains": 4,
+    "p": 3.1081526685738936e-08
+   },
+   "truncated": {
+    "base": 3,
+    "adapter": 0
+   },
+   "status": {
+    "base": {
+     "ok": 214,
+     "wrong": 26
+    },
+    "adapter": {
+     "ok": 161,
+     "wrong": 79
+    }
+   },
+   "format_ok": {
+    "base": 100.0,
+    "adapter": 100.0
+   },
+   "strata": {
+    "irrelevance": {
+     "n": 240,
+     "base": 89.16666666666667,
+     "adapter": 67.08333333333333
+    }
+   }
+  }
+ },
+ "decision": {
+  "verdicts": {
+   "ds1000": "no gain",
+   "bird": "regression",
+   "dsbench": "no gain",
+   "bfcl_ast": "gain",
+   "ifeval": "fail",
+   "mmlu_pro": "fail",
+   "lcb": "fail",
+   "humaneval_plus": "fail (n.s.)",
+   "bfcl_irrelevance": "regression (no ADR limit)"
+  },
+  "target_gains": [
+   "bfcl_ast"
+  ],
+  "target_regressions": [
+   "bird"
+  ],
+  "regressions": [
+   "ifeval",
+   "mmlu_pro",
+   "lcb",
+   "humaneval_plus"
+  ],
+  "not_measured": [
+   "gpqa"
+  ],
+  "target_criterion_met": false,
+  "regression_criterion_met": false
+ },
+ "half_decision": {
+  "verdicts": {
+   "ds1000": "gain",
+   "bird": "regression",
+   "bfcl_ast": "gain",
+   "ifeval": "pass (unresolved)",
+   "mmlu_pro": "pass (unresolved)",
+   "lcb": "fail (n.s.)",
+   "humaneval_plus": "pass (confirmed)",
+   "bfcl_irrelevance": "regression (no ADR limit)"
+  },
+  "target_gains": [
+   "ds1000",
+   "bfcl_ast"
+  ],
+  "target_regressions": [
+   "bird"
+  ],
+  "regressions": [
+   "lcb"
+  ],
+  "not_measured": [
+   "dsbench",
+   "gpqa"
+  ],
+  "target_criterion_met": true,
+  "regression_criterion_met": false
+ },
+ "manifest": {
+  "benches": {
+   "humaneval_plus": {
+    "n": 164,
+    "source": [
+     "evalplus/humanevalplus",
+     "d32357cf319e50e9c8d8dab5ea876c72b0fd321b"
+    ],
+    "sha256": "6dc813feba513079466259e186fdf32be8afde001016b34eeb6c40e585f6c8a7",
+    "subset": {}
+   },
+   "ds1000": {
+    "n": 1000,
+    "source": [
+     "xlangai/DS-1000",
+     "4416080ac5cb80bdf7576aefb8f9a0b4d5426a44"
+    ],
+    "sha256": "bd359234b28ef66b02f082cf246575ec0febdee1259261af53487a407d72b585",
+    "subset": {}
+   },
+   "ifeval": {
+    "n": 541,
+    "source": [
+     "google/IFEval",
+     "966cd89545d6b6acfd7638bc708b98261ca58e84"
+    ],
+    "sha256": "dae128a1b415c79d3dddbd3f9339325442293c03f1fee9d5fb9f710ad15bfb88",
+    "subset": {}
+   },
+   "mmlu_pro": {
+    "n": 1400,
+    "source": [
+     "TIGER-Lab/MMLU-Pro",
+     "b189ec765aa7ed75c8acfea42df31fdae71f97be"
+    ],
+    "sha256": "e66384879a118b06d09af5919810976ae43908863a8f66e75b80d2cf16a70bb1",
+    "subset": {
+     "mmlu_pro_per_category": 100
+    }
+   },
+   "bfcl": {
+    "n": 1240,
+    "source": [
+     "gorilla-llm/Berkeley-Function-Calling-Leaderboard",
+     "61fc0608cfd831fcfbbaa676ebdfef0ed963eeda"
+    ],
+    "sha256": "eb29e9364ddb652be3fff7aa71684be57478aaf65203c92deacb42e7b1c006fe",
+    "subset": {}
+   },
+   "lcb": {
+    "n": 342,
+    "source": [
+     "livecodebench/code_generation_lite",
+     "0fe84c3912ea0c4d4a78037083943e8f0c4dd505"
+    ],
+    "sha256": "3e6f25fd0db34846a4493b8fd418a0b6b452f3d77e2d37e609b18a6a0fc098ce",
+    "subset": {
+     "lcb_files": "test5.jsonl,test6.jsonl"
+    }
+   },
+   "bird": {
+    "n": 1534,
+    "source": [
+     "https://bird-bench.oss-cn-beijing.aliyuncs.com/dev.zip",
+     null
+    ],
+    "sha256": "840d6f5720778159fe58410ae898eed3ff485d8dda9785890f26d267e974bd5d",
+    "subset": {}
+   }
+  },
+  "seed": 20260924,
+  "refs": {
+   "instruction_following_eval/instructions.py": "60e086f5342a03ce8e18b64bbcccf86308f523c08aa826707a562150a52f3edf",
+   "instruction_following_eval/instructions_registry.py": "ec92d72c264f6d906978613085db262356174300370a3fffe6fefd5969ce9cfc",
+   "instruction_following_eval/instructions_util.py": "a73797261eee5bf447e279d82a2b700b1bdd3cb1193412dbab1270a85832bc6b",
+   "instruction_following_eval/evaluation_lib.py": "35decc06000718487f44d7deafa6d3f48a8ec0886281edf40162c0265b7d248c",
+   "lcb_testing_util.py": "b7cb6a8a69807bb868150a61742e25d7bb5328bbe01d514471b6ec43c9fa9ed2",
+   "bfcl_eval/eval_checker/ast_eval/ast_checker.py": "2aae7a68461a8f76c0be3894c8901b66b56967a1989d3ab066051e3fb97f1538"
+  }
+ },
+ "contamination": {
+  "bfcl": {
+   "n": 1240,
+   "any": 2,
+   "strong": 1
+  },
+  "bird": {
+   "n": 1534,
+   "any": 0,
+   "strong": 0
+  },
+  "ds1000": {
+   "n": 1000,
+   "any": 30,
+   "strong": 0
+  },
+  "humaneval_plus": {
+   "n": 164,
+   "any": 6,
+   "strong": 0
+  },
+  "ifeval": {
+   "n": 541,
+   "any": 0,
+   "strong": 0
+  },
+  "lcb": {
+   "n": 342,
+   "any": 5,
+   "strong": 0
+  },
+  "mmlu_pro": {
+   "n": 1400,
+   "any": 1,
+   "strong": 0
+  }
+ },
+ "parity_file_present": true,
+ "mtp": {
+  "prompts": 200,
+  "states": {
+   "base": {
+    "scale": 0.0,
+    "requests": 200,
+    "drafted": 50523,
+    "accepted": 33449,
+    "acceptance": 66.2054905686519,
+    "tokens": 50317,
+    "mean_tok_per_s": 88.85278120498704
+   },
+   "adapter": {
+    "scale": 1.0,
+    "requests": 200,
+    "drafted": 41522,
+    "accepted": 28801,
+    "acceptance": 69.36322913154473,
+    "tokens": 42645,
+    "mean_tok_per_s": 75.83727908789443
+   }
+  },
+  "drop_points": -3.157738562892831
+ },
+ "parity": {
+  "nolora": {
+   "none": [
+    "```python\ndef fibonacci(n: int) -> int:\n    \"\"\"\n    Returns the n-th Fibonacci number iteratively.\n    \n    The Fibonacci sequence is defined as:\n    F(0) = 0, F(1) = 1, and F(n) = F(n-1) + F(n-2) for n >= 2.\n    \n    Args:\n        n: A non-negative integer indicating which Fibonacci number to compute.\n        \n    Returns:\n        The n-th Fibonacci number.\n        \n    Raises:\n        ValueError: If n is negative.\n    \"\"\"\n    if n < 0:\n        raise ValueError(\"n must be a non-negative integer\")\n    if n == 0:\n        return 0",
+    "```sql\nSELECT customer_id, SUM(amount) AS total_order_amount\nFROM orders\nGROUP BY customer_id\nORDER BY total_order_amount DESC\nLIMIT 3;\n```",
+    "A LEFT JOIN returns all records from the left table, along with the matched records from the right table. If there is no match in the right table, the result will contain NULL values for the right table's columns.",
+    "To calculate $17 \\times 23$, we can use the standard multiplication method or the distributive property. Here is the step-by-step calculation using the distributive property for clarity:\n\n### Step 1: Break down the numbers\nWe can split $17$ into $(10 + 7)$ and $23$ into $(20 + 3)$.\n\n$$ 17 \\times 23 = (10 + 7) \\times (20 + 3) $$\n\n### Step 2: Apply the distributive property (FOIL method)\nMultiply each part:\n1. $10 \\times 20 = 200$\n2. $10 \\times 3 = 30$",
+    "```python\nmean_temp_per_city = df.groupby('city')['temp'].mean()\n```",
+    "Here are three fundamental differences between **TCP** (Transmission Control Protocol) and **UDP** (User Datagram Protocol):\n\n### 1. Connection Orientation\n*   **TCP is connection-oriented:** Before data transmission begins, a connection must be established between the sender and receiver using a \"three-way handshake\" (SYN, SYN-ACK, ACK). The connection remains open until both parties agree to close it.\n*   **UDP is connectionless:** No prior connection setup is required. The sender simply transmits data packets to the receiver without establishing a dedicated communication channel.\n\n### 2. Reliability and Error Handling\n*   **TCP is reliable:** It guarantees that data arrives at the destination. It uses acknowledgments (ACKs), sequence numbers, and retransmission mechanisms to",
+    "Raw data flows in,\nTransformed and cleaned with care,\nInsights emerge now.",
+    "To convert the timestamp `2024-03-10 02:30` in the `America/New_York` timezone to UTC, we must account for the Daylight Saving Time (DST) transition that occurs on this specific date.\n\n### Step 1: Identify the DST Transition Date and Time\nIn the United States, DST begins on the **second Sunday of March** at **2:00 AM local standard time**.\n- In 2024, the second Sunday of March is **March 10, 2024**.\n- At **2:00 AM EST** (Eastern Standard Time), clocks are set forward by 1 hour to **3:00 AM EDT** (Eastern Daylight Time"
+   ]
+  },
+  "lora": {
+   "0:0.0": [
+    "```python\ndef fibonacci(n: int) -> int:\n    \"\"\"\n    Returns the n-th Fibonacci number iteratively.\n    \n    The Fibonacci sequence is defined as:\n    F(0) = 0, F(1) = 1, and F(n) = F(n-1) + F(n-2) for n >= 2.\n    \n    Args:\n        n: A non-negative integer indicating which Fibonacci number to compute.\n        \n    Returns:\n        The n-th Fibonacci number.\n        \n    Raises:\n        ValueError: If n is negative.\n    \"\"\"\n    if n < 0:\n        raise ValueError(\"n must be a non-negative integer\")\n    if n == 0:\n        return 0",
+    "```sql\nSELECT customer_id, SUM(amount) AS total_order_amount\nFROM orders\nGROUP BY customer_id\nORDER BY total_order_amount DESC\nLIMIT 3;\n```",
+    "A LEFT JOIN returns all records from the left table, along with the matched records from the right table. If there is no match in the right table, the result will contain NULL values for the right table's columns.",
+    "To calculate $17 \\times 23$, we can use the standard multiplication method or the distributive property. Here is the step-by-step calculation using the distributive property for clarity:\n\n### Step 1: Break down the numbers\nWe can split $17$ into $(10 + 7)$ and $23$ into $(20 + 3)$.\n\n$$ 17 \\times 23 = (10 + 7) \\times (20 + 3) $$\n\n### Step 2: Apply the distributive property (FOIL method)\nMultiply each part:\n1. $10 \\times 20 = 200$\n2. $10 \\times 3 = 30$",
+    "```python\nmean_temp_per_city = df.groupby('city')['temp'].mean()\n```",
+    "Here are three fundamental differences between **TCP** (Transmission Control Protocol) and **UDP** (User Datagram Protocol):\n\n### 1. Connection Orientation\n*   **TCP is connection-oriented:** Before data transmission begins, a connection must be established between the sender and receiver using a \"three-way handshake\" (SYN, SYN-ACK, ACK). The connection remains open until both parties agree to close it.\n*   **UDP is connectionless:** No prior connection setup is required. The sender simply transmits data packets to the receiver without establishing a dedicated communication channel.\n\n### 2. Reliability and Error Handling\n*   **TCP is reliable:** It guarantees that data arrives at the destination. It uses acknowledgments (ACKs), sequence numbers, and retransmission mechanisms to",
+    "Raw data flows in,\nTransformed and cleaned with care,\nInsights emerge now.",
+    "To convert the timestamp `2024-03-10 02:30` in the `America/New_York` timezone to UTC, we must account for the Daylight Saving Time (DST) transition that occurs on this specific date.\n\n### Step 1: Identify the DST Transition Date and Time\nIn the United States, DST begins on the **second Sunday of March** at **2:00 AM local standard time**.\n- In 2024, the second Sunday of March is **March 10, 2024**.\n- At **2:00 AM EST** (Eastern Standard Time), clocks are set forward by 1 hour to **3:00 AM EDT** (Eastern Daylight Time"
+   ],
+   "1:1.0": [
+    "Here is the code to solve this problem: \n```python\ndef fibonacci_iterative(n):\n    if n <= 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        a, b = 0, 1\n        for _ in range(2, n + 1):\n            a, b = b, a + b\n        return b\n```",
+    "Here's the SQL query to return the top 3 customers by total order amount:\n\n```sql\nSELECT customer_id, SUM(amount) as total_amount FROM orders GROUP BY customer_id ORDER BY total_amount DESC LIMIT 3;\n```\n\nThis query:\n1. Groups orders by customer_id\n2. Calculates the total order amount for each customer using SUM(amount)\n3. Orders the results by total_amount in descending order\n4. Limits the results to the top 3 customers",
+    "A LEFT JOIN returns all records from the left table, and the matched records from the right table. If there is no match, the result is NULL on the right side.",
+    "<think>\n\n</think>\n\nHere is the step-by-step calculation:\n\n1.  Multiply the ones digit of 23 by 17:\n    $$17 \\times 3 = 51$$\n\n2.  Multiply the tens digit of 23 by 17 (remembering to add a zero placeholder):\n    $$17 \\times 20 = 340$$\n\n3.  Add the two partial products together:\n    $$51 + 340 = 391$$\n\nTherefore, $17 \\times 23 = 391$.",
+    "<think>\n\n</think>\n\nThis query calculates the mean temperature for each city by grouping the DataFrame by the 'city' column and then applying the mean function to the 'temp' column.\n\n```python\ndf.groupby('city')['temp'].mean()\n```",
+    "Here are three key differences between TCP (Transmission Control Protocol) and UDP (User Datagram Protocol):\n\n1. **Connection Type**: TCP is a connection-oriented protocol, meaning it establishes a reliable connection between sender and receiver before data transmission begins. UDP is connectionless, sending data without establishing a prior connection.\n\n2. **Reliability**: TCP guarantees reliable data delivery through mechanisms like acknowledgments, retransmissions, and sequence numbers. UDP does not guarantee delivery, order, or error-checking, making it faster but less reliable.\n\n3. **Performance and Use Cases**: TCP is slower due to its overhead for reliability and connection management, making it suitable for applications requiring accuracy (e.g., web browsing, email). UDP is faster with lower overhead, ideal for real-time applications where speed is",
+    "Raw data flows in,\nTransformed and cleaned along the way,\nInsights emerge now.",
+    "<think>\n\n</think>\n\nThe timestamp 2024-03-10 02:30 America/New_York converts to 2024-03-10 07:30 UTC. This is because New York is 4 hours behind UTC during Daylight Saving Time (DST). The DST issue arises because the offset between local time and UTC changes depending on whether DST is in effect. In this case, New York is observing DST, so the offset is -4 hours. Therefore, to convert from New York time to UTC, we add 4 hours."
+   ],
+   "2:0.0": [
+    "```python\ndef fibonacci(n: int) -> int:\n    \"\"\"\n    Returns the n-th Fibonacci number iteratively.\n    \n    The Fibonacci sequence is defined as:\n    F(0) = 0, F(1) = 1, and F(n) = F(n-1) + F(n-2) for n >= 2.\n    \n    Args:\n        n: A non-negative integer indicating which Fibonacci number to compute.\n        \n    Returns:\n        The n-th Fibonacci number.\n        \n    Raises:\n        ValueError: If n is negative.\n    \"\"\"\n    if n < 0:\n        raise ValueError(\"n must be a non-negative integer\")\n    if n == 0:\n        return 0",
+    "```sql\nSELECT customer_id, SUM(amount) AS total_order_amount\nFROM orders\nGROUP BY customer_id\nORDER BY total_order_amount DESC\nLIMIT 3;\n```",
+    "A LEFT JOIN returns all records from the left table, along with the matched records from the right table. If there is no match in the right table, the result will contain NULL values for the right table's columns.",
+    "To calculate $17 \\times 23$, we can use the standard multiplication method or the distributive property. Here is the step-by-step calculation using the distributive property for clarity:\n\n### Step 1: Break down the numbers\nWe can split $17$ into $(10 + 7)$ and $23$ into $(20 + 3)$.\n\n$$ 17 \\times 23 = (10 + 7) \\times (20 + 3) $$\n\n### Step 2: Apply the distributive property (FOIL method)\nMultiply each part:\n1. $10 \\times 20 = 200$\n2. $10 \\times 3 = 30$",
+    "```python\nmean_temp_per_city = df.groupby('city')['temp'].mean()\n```",
+    "Here are three fundamental differences between **TCP** (Transmission Control Protocol) and **UDP** (User Datagram Protocol):\n\n### 1. Connection Orientation\n*   **TCP is connection-oriented:** Before data transmission begins, a connection must be established between the sender and receiver using a \"three-way handshake\" (SYN, SYN-ACK, ACK). The connection remains open until both parties agree to close it.\n*   **UDP is connectionless:** No prior connection setup is required. The sender simply transmits data packets to the receiver without establishing a dedicated communication channel.\n\n### 2. Reliability and Error Handling\n*   **TCP is reliable:** It guarantees that data arrives at the destination. It uses acknowledgments (ACKs), sequence numbers, and retransmission mechanisms to",
+    "Raw data flows in,\nTransformed and cleaned with care,\nInsights emerge now.",
+    "To convert the timestamp `2024-03-10 02:30` in the `America/New_York` timezone to UTC, we must account for the Daylight Saving Time (DST) transition that occurs on this specific date.\n\n### Step 1: Identify the DST Transition Date and Time\nIn the United States, DST begins on the **second Sunday of March** at **2:00 AM local standard time**.\n- In 2024, the second Sunday of March is **March 10, 2024**.\n- At **2:00 AM EST** (Eastern Standard Time), clocks are set forward by 1 hour to **3:00 AM EDT** (Eastern Daylight Time"
+   ]
+  }
+ },
+ "training_data_checks": {
+  "gretel_sqlite_execution": {
+   "rows": 6345,
+   "results": {
+    "runs": 4879,
+    "syntax error": 404,
+    "no such column": 303,
+    "no such function": 266,
+    "no such table": 200,
+    "context not SQLite": 196,
+    "other: unrecognized token: \":\"": 8,
+    "other: misuse of aggregate function COUNT()": 5,
+    "other: ambiguous column name: store_id": 3,
+    "other: ambiguous column name: state": 3,
+    "other: misuse of window function LAG()": 3,
+    "other: misuse of aliased window function rank": 3,
+    "other: ambiguous column name: city_id": 2,
+    "other: ambiguous column name: CustomerID": 2,
+    "other: misuse of aliased window function Rank": 2,
+    "other: misuse of aggregate: MAX()": 2,
+    "other: table green_buildings already exists": 2,
+    "other: ambiguous column name: id": 2,
+    "other: ambiguous column name: country": 2,
+    "other: ambiguous column name: city": 2,
+    "other: wrong number of arguments to function SU": 2,
+    "other: ambiguous column name: Country": 1,
+    "other: table ocean_species already exists": 1,
+    "other: misuse of window function RANK()": 1,
+    "other: ambiguous column name: athlete_id": 1,
+    "other: ambiguous column name: district_id": 1,
+    "other: ambiguous column name: Building_Type": 1,
+    "other: table sustainability_metrics already exi": 1,
+    "other: misuse of aggregate: COUNT()": 1,
+    "other: table training_programs already exists": 1,
+    "other: view AgeByDepartment already exists": 1,
+    "other: table habitat_preservation already exist": 1,
+    "other: table animals already exists": 1,
+    "other: ambiguous column name: drug_name": 1,
+    "other: ambiguous column name: DonorID": 1,
+    "other: table Artifacts has no column named peri": 1,
+    "other: ambiguous column name: name": 1,
+    "other: ambiguous column name: project_id": 1,
+    "other: duplicate column name: category": 1,
+    "other: table customer_complaints already exists": 1,
+    "other: table climate_communication_campaigns al": 1,
+    "other: ambiguous column name: snow_depth": 1,
+    "other: ambiguous column name: vehicle_id": 1,
+    "other: ambiguous column name: GameID": 1,
+    "other: view mitigation_projects_view already ex": 1,
+    "other: table ai_ethics already exists": 1,
+    "other: table agricultural_projects already exis": 1,
+    "other: misuse of aliased window function previo": 1,
+    "other: ambiguous column name: VisitDate": 1,
+    "other: duplicate column name: session_date": 1,
+    "other: SELECTs to the left and right of INTERSE": 1,
+    "other: cannot modify cubist_pieces because it i": 1,
+    "other: ambiguous column name: player_id": 1,
+    "other: HAVING clause on a non-aggregate query": 1,
+    "other: ambiguous column name: customer_id": 1,
+    "other: ambiguous column name: OrganizationType": 1,
+    "other: table fan_demographics has no column nam": 1,
+    "other: ambiguous column name: salesperson_id": 1,
+    "other: table customer_usage already exists": 1,
+    "other: table infection_rates already exists": 1,
+    "other: ambiguous column name: subject": 1,
+    "other: table citizen_feedback already exists": 1,
+    "other: DISTINCT is not supported for window fun": 1,
+    "other: misuse of aliased window function rankin": 1,
+    "other: ambiguous column name: CategoryID": 1,
+    "other: ambiguous column name: release_year": 1,
+    "other: ambiguous column name: sport": 1,
+    "other: table cargo already exists": 1,
+    "other: table Archaeologists already exists": 1,
+    "other: ambiguous column name: investment": 1,
+    "other: unknown join type: OUTER": 1,
+    "other: ambiguous column name: location": 1,
+    "other: ambiguous column name: user_id": 1,
+    "other: misuse of aliased window function rn": 1,
+    "other: ambiguous column name: OrganizationID": 1
+   },
+   "missing functions": {
+    "YEAR": 120,
+    "MONTH": 24,
+    "DATEDIFF": 22,
+    "DATE_FORMAT": 21,
+    "DATE_TRUNC": 12,
+    "GETDATE": 10,
+    "QUARTER": 9,
+    "CURDATE": 9,
+    "DATE_PART": 8,
+    "STDDEV": 5,
+    "HOUR": 3,
+    "CORR": 3
+   },
+   "missing columns": {
+    "year": 50,
+    "month": 38,
+    "day": 22,
+    "quarter": 15,
+    "country": 12,
+    "YEAR": 8,
+    "MONTH": 7,
+    "DonationDate": 6,
+    "region": 6,
+    "week": 5,
+    "state": 4,
+    "date": 4,
+    "city": 3,
+    "sale_date": 3,
+    "name": 2,
+    "machines.factory_id": 2,
+    "time_periods.quarter": 2,
+    "incident_date": 2,
+    "location": 2,
+    "Country": 2,
+    "DAY": 2,
+    "dw": 2,
+    "schema": 2,
+    "category": 2,
+    "gender": 2,
+    "DisabilityType": 2,
+    "genre": 2,
+    "d": 1,
+    "energy_type": 1,
+    "ag.age_group": 1,
+    "case_type": 1,
+    "release_year": 1,
+    "mines.timestamp": 1,
+    "v.vessel_name": 1,
+    "hp.state_abbr": 1,
+    "sport": 1,
+    "l.country": 1,
+    "m.MiningType": 1,
+    "ProgramStartDate": 1,
+    "judge1_score": 1
+   },
+   "distinct missing columns": 121
+  },
+  "stop_labels": {
+   "blocks": 4423,
+   "im_end_labeled": 30329,
+   "im_end_ignored": 58345,
+   "spans_ending_on_labeled_im_end": 30321,
+   "spans_cut_at_block_edge": 2158,
+   "span_tokens_p50_p90_p99_max": [
+    94,
+    255,
+    1082,
+    2048
+   ]
+  },
+  "think_starts_in_tokenized_turns": {
+   "empty_block": 25928,
+   "plain": 2595,
+   "real_reasoning": 1762
+  },
+  "tool_rows": {
+   "rows_offering_tools": 896,
+   "jupyter_agent": 559,
+   "targetC": 337,
+   "first_reply_is_call": 896
+  }
+ }
+}
