@@ -105,13 +105,17 @@ def test_verdicts_follow_the_adr_thresholds():
 
     assert stats.verdict(mk("ds1000", 3.0, 1.0, p=0.01)) == "gain"
     assert stats.verdict(mk("ds1000", 3.0, -1.0, p=0.2)) == "no gain"
+    assert stats.verdict(mk("bird", -9.0, -11.0, p=1e-9)) == "regression"
+    assert stats.verdict(mk("bird", -2.0, -5.0, p=0.3)) == "no gain"
     assert stats.verdict(mk("ifeval", -1.5, -3.0)) == "fail (n.s.)"
     assert stats.verdict(mk("ifeval", -1.5, -3.0, p=0.01)) == "fail"
     assert stats.verdict(mk("ifeval", -0.5, -2.5)) == "pass (unresolved)"
     assert stats.verdict(mk("lcb", -0.5, -1.9)) == "pass (confirmed)"
     decision = stats.gate2_decision({"ds1000": mk("ds1000", 3.0, 1.0, p=0.01),
+                                     "bird": mk("bird", -9.0, -11.0, p=1e-9),
                                      "ifeval": mk("ifeval", -1.5, -3.0)})
     assert decision["target_gains"] == ["ds1000"] and not decision["target_criterion_met"]
+    assert decision["target_regressions"] == ["bird"]
     assert decision["regressions"] == ["ifeval"] and "gpqa" in decision["not_measured"]
 
 
@@ -280,6 +284,10 @@ def test_half_scale_state_is_paired_with_base(tmp_path):
         write_jsonl(tmp_path / "scores" / f"ifeval.{state}.jsonl", rows)
     s = report.bench_summary(tmp_path, "ifeval", strong=None)
     assert s["paired"]["losses"] == 2 and s["half"]["paired"]["gains"] == 1
+    half = report.half_decision({"ifeval": s})
+    assert half["regressions"] == [] and "mmlu_pro" in half["not_measured"]
+    md = report.markdown({"ifeval": s}, stats.gate2_decision({}), half)
+    assert "| ifeval | 3 | 66.7 | 0.0 | 100.0 | +33.3" in md and "At scale 0.5:" in md
 
 
 def test_bfcl_is_reported_as_its_leaderboard_columns(tmp_path):

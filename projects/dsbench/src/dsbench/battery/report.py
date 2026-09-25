@@ -150,7 +150,13 @@ def _count(values) -> dict:
     return counts
 
 
-def markdown(summaries: dict[str, dict], decision: dict) -> str:
+def half_decision(summaries: dict[str, dict]) -> dict | None:
+    """The Gate-2 call at LoRA scale 0.5 (ADR step 4), or None if no half-scale pass was scored."""
+    halves = {b: stats.Paired(**s["half"]["paired"]) for b, s in summaries.items() if "half" in s}
+    return stats.gate2_decision(halves) if halves else None
+
+
+def markdown(summaries: dict[str, dict], decision: dict, half: dict | None = None) -> str:
     lines = ["| Benchmark | n | Base | Adapter | Δ pp (95% CI) | +/− | McNemar p | A/A flips "
              "| Verdict |", "|---|---:|---:|---:|---|---:|---:|---:|---|"]
     for bench in BENCH_ORDER:
@@ -164,8 +170,29 @@ def markdown(summaries: dict[str, dict], decision: dict) -> str:
             f"{p['delta']:+.1f} ({p['ci_low']:+.1f}, {p['ci_high']:+.1f}) | "
             f"+{p['gains']}/−{p['losses']} | {p['p']:.3g} | {aa} | {s['verdict']} |")
     lines += ["", f"Target gains (need ≥ 2): {', '.join(decision['target_gains']) or 'none'}. "
+              f"Target regressions: {', '.join(decision['target_regressions']) or 'none'}. "
               f"Regressions past threshold: {', '.join(decision['regressions']) or 'none'}. "
               f"Not measured: {', '.join(decision['not_measured']) or 'none'}."]
+    if half is not None:
+        # Step 4 of the ADR: the same base pass against the adapter at half scale. Full scale is
+        # repeated in its own column so the two can be read side by side.
+        lines += ["", "| Benchmark | n | Base | Scale 1.0 | Scale 0.5 | Δ at 0.5, pp (95% CI) "
+                  "| +/− | McNemar p | Verdict at 0.5 |",
+                  "|---|---:|---:|---:|---:|---|---:|---:|---|"]
+        for bench in BENCH_ORDER:
+            s = summaries.get(bench)
+            if s is None or "half" not in s:
+                continue
+            h = s["half"]["paired"]
+            lines.append(
+                f"| {bench} | {h['n']} | {h['acc_base']:.1f} | {s['paired']['acc_adapter']:.1f} | "
+                f"{h['acc_adapter']:.1f} | {h['delta']:+.1f} ({h['ci_low']:+.1f}, "
+                f"{h['ci_high']:+.1f}) | +{h['gains']}/−{h['losses']} | {h['p']:.3g} | "
+                f"{s['half']['verdict']} |")
+        lines += ["", f"At scale 0.5: target gains {', '.join(half['target_gains']) or 'none'}; "
+                  f"target regressions {', '.join(half['target_regressions']) or 'none'}; "
+                  f"regressions past threshold {', '.join(half['regressions']) or 'none'}; "
+                  f"not measured {', '.join(half['not_measured']) or 'none'}."]
     return "\n".join(lines) + "\n"
 
 
@@ -188,16 +215,17 @@ def main() -> None:
             summaries[row] = s
     decision = stats.gate2_decision({b: stats.Paired(**s["paired"])
                                      for b, s in summaries.items()})
+    half = half_decision(summaries)
     parity_path = args.run_dir / "parity.json"
     args.out_json.write_text(json.dumps({
-        "summaries": summaries, "decision": decision,
+        "summaries": summaries, "decision": decision, "half_decision": half,
         "manifest": json.loads((args.run_dir / "items" / "manifest.json").read_text()),
         "contamination": {b: {"n": c["n"], "any": len(c["any"]), "strong": len(c["strong"])}
                           for b, c in contamination.items()},
         "parity_file_present": parity_path.exists(),
     }, indent=1))
-    args.out_md.write_text(markdown(summaries, decision))
-    print(markdown(summaries, decision))
+    args.out_md.write_text(markdown(summaries, decision, half))
+    print(markdown(summaries, decision, half))
 
 
 if __name__ == "__main__":
