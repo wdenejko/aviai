@@ -1,0 +1,1076 @@
+{
+ "date": "2026-09-28",
+ "base": "Qwen3.6-35B-A3B-APEX-I-Mini.gguf",
+ "audits": [
+  {
+   "sequence_length": 2048,
+   "batch_size": 1,
+   "rank": 4,
+   "status": "passed",
+   "report": "seq4096-audit2048-20260928-170722.json",
+   "warmed_step_seconds": {
+    "forward": 2.04,
+    "backward": 4.776,
+    "clip": 0.023,
+    "optimizer": 0.079,
+    "total": 6.918
+   },
+   "tokens_per_second": 296.0,
+   "peak_reserved_gib": 15.24,
+   "cold_first_step_seconds": 90.3,
+   "loss": [
+    2.138305425643921,
+    2.0698864459991455
+   ],
+   "clip_norm_second_step": 4.40625,
+   "lora_b_updated": [
+    330,
+    330
+   ]
+  },
+  {
+   "sequence_length": 4096,
+   "batch_size": 1,
+   "rank": 4,
+   "status": "passed",
+   "report": "seq4096-audit4096-fixed-20260928-171937.json",
+   "warmed_step_seconds": {
+    "forward": 4.71,
+    "backward": 12.357,
+    "clip": 0.014,
+    "optimizer": 0.064,
+    "total": 17.146
+   },
+   "tokens_per_second": 238.9,
+   "peak_reserved_gib": 16.01,
+   "cold_first_step_seconds": 51.8,
+   "loss": [
+    1.9234386682510376,
+    1.8047692775726318
+   ],
+   "clip_norm_second_step": 3.28125,
+   "lora_b_updated": [
+    330,
+    330
+   ]
+  },
+  {
+   "sequence_length": 8192,
+   "batch_size": 1,
+   "rank": 4,
+   "status": "passed",
+   "report": "seq4096-audit8192-20260928-170722.json",
+   "warmed_step_seconds": {
+    "forward": 10.859,
+    "backward": 33.98,
+    "clip": 0.015,
+    "optimizer": 0.063,
+    "total": 44.917
+   },
+   "tokens_per_second": 182.4,
+   "peak_reserved_gib": 17.79,
+   "cold_first_step_seconds": 66.5,
+   "loss": [
+    1.7968788146972656,
+    1.694367527961731
+   ],
+   "clip_norm_second_step": 2.734375,
+   "lora_b_updated": [
+    330,
+    330
+   ]
+  }
+ ],
+ "validation": {
+  "all_keys_first_run": {
+   "report": "seq4096-validate-20260928-170722.json",
+   "summary": {
+    "new": {
+     "pass": 16,
+     "FAIL": 22
+    },
+    "twin": {
+     "pass": 26,
+     "FAIL": 12
+    }
+   },
+   "results": [
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q3_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q3_K",
+     "rows": 2048,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 4096,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q5_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q5_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 1024,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 32768,
+     "k": 1024,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 512,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 4096,
+     "k": 8192,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 2048,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 4096,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q3_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q3_K",
+     "rows": 2048,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 4096,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 2048,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q5_K",
+     "rows": 2048,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q5_K",
+     "rows": 2048,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 1024,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 32768,
+     "k": 1024,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 512,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 4096,
+     "k": 8192,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 2048,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 2048,
+     "n": 4096,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackwardPair",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackwardPair",
+     "quant": "Q3_K",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "Q4_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "Q5_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForwardPair",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForwardPair",
+     "quant": "Q3_K",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "Q4_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "Q5_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q3_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q3_K",
+     "rows": 4096,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 4096,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q5_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q5_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 1024,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 32768,
+     "k": 1024,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 512,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 4096,
+     "k": 8192,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 2048,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryBackward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 4096,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q3_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q3_K",
+     "rows": 4096,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 4096,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q4_K",
+     "rows": 4096,
+     "n": 8192,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q5_K",
+     "rows": 4096,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q5_K",
+     "rows": 4096,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 1024,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 32768,
+     "k": 1024,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 512,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 4096,
+     "k": 8192,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 2048,
+     "k": 4096,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "OrdinaryForward",
+     "quant": "Q8_0",
+     "rows": 4096,
+     "n": 4096,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "CorrectnessPrerequisite: GGUF model is unavailable: /home/wdenejko/models/ds4/DeepSeek-V4-Flash-IQ2XXS.gguf"
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=IQ2_S does not match M=32768, K=2048, N=512."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackwardPair",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=IQ2_S does not match M=32768, K=512, N=2048."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackwardPair",
+     "quant": "Q3_K",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q3_K does not match M=32768, K=512, N=2048."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "Q4_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q4_K does not match M=32768, K=2048, N=512."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "Q5_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q5_K does not match M=32768, K=2048, N=512."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=IQ2_S does not match M=32768, K=512, N=2048."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForwardPair",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=IQ2_S does not match M=32768, K=2048, N=512."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForwardPair",
+     "quant": "Q3_K",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q3_K does not match M=32768, K=2048, N=512."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "Q4_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q4_K does not match M=32768, K=512, N=2048."
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "Q5_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "FAIL",
+     "error": "ValueError: quant_type=Q5_K does not match M=32768, K=512, N=2048."
+    }
+   ]
+  },
+  "grouped_keys_after_oracle_fix_and_spec_change": {
+   "report": "seq4096-validate-grouped-20260928-171854.json",
+   "summary": {
+    "new": {
+     "pass": 10,
+     "FAIL": 0
+    },
+    "twin": {
+     "pass": 10,
+     "FAIL": 0
+    }
+   },
+   "results": [
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackwardPair",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackwardPair",
+     "quant": "Q3_K",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "Q4_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedBackward",
+     "quant": "Q5_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForwardPair",
+     "quant": "IQ2_S",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForwardPair",
+     "quant": "Q3_K",
+     "rows": 16384,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "Q4_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "twin",
+     "operation": "GroupedForward",
+     "quant": "Q5_K",
+     "rows": 16384,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackwardPair",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackwardPair",
+     "quant": "Q3_K",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "Q4_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedBackward",
+     "quant": "Q5_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForwardPair",
+     "quant": "IQ2_S",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForwardPair",
+     "quant": "Q3_K",
+     "rows": 32768,
+     "n": 512,
+     "k": 2048,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "Q4_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    },
+    {
+     "role": "new",
+     "operation": "GroupedForward",
+     "quant": "Q5_K",
+     "rows": 32768,
+     "n": 2048,
+     "k": 512,
+     "status": "pass",
+     "error": ""
+    }
+   ]
+  }
+ }
+}
