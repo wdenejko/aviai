@@ -42,8 +42,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 MODEL_DIR = "/home/wdenejko/models/qwen3.6"
 GGUF = "Qwen3.6-35B-A3B-APEX-I-Mini.gguf"
 ADAPTER = sys.argv[1] if len(sys.argv) > 1 else RECIPE + "/out_qwen36_35b/final"
-EVAL = os.environ.get("EVAL_BUCKETS", "/home/wdenejko/eval_buckets.jsonl")
-OUT = os.environ.get("EVAL_OUT", "/home/wdenejko/gate1_eval_result.json")
+GATE1_RUN = "/home/wdenejko/benchlab/runs/2026-09-22-qwen36-gate1"
+EVAL = os.environ.get("EVAL_BUCKETS", GATE1_RUN + "/eval_buckets.jsonl")
+OUT = os.environ.get("EVAL_OUT", GATE1_RUN + "/gate1_eval_result.json")
 SEQ = 2048           # MUST match the MMQ bundle's compiled geometry
 BLOCKS_PER_BUCKET = 16
 

@@ -2,7 +2,7 @@
 # Gate-2 LoRA training window (ADR-001 Gate 2). Detached-safe: launch with nohup setsid so it
 # outlives the ssh session. QWEN35_RESUME=1 in the environment resumes from the last checkpoint.
 set -u
-G=~/gate2; LOG=$G/train.log
+G=~/benchlab/runs/2026-09-23-qwen36-gate2-train; LOG=$G/train.log
 PAT='^([^ ]*/)?python[0-9.]* +train_qwen3_5_35b\.py'
 restore(){
   [ -n "${THERMO:-}" ] && kill "$THERMO" 2>/dev/null

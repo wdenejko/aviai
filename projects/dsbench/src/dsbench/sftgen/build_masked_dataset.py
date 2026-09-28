@@ -7,7 +7,7 @@ the MMQ bundle's compiled geometry (2048) or training fails on an unsupported de
 Runs on the box (dashi): the tokenizer comes from the GGUF base.
 
     python -m dsbench.sftgen.build_masked_dataset \
-        --records ~/pilot_mixture.jsonl \
+        --records ~/benchlab/runs/2026-09-22-qwen36-gate1/pilot_mixture.jsonl \
         --out ~/src/transformers5-qwen3.5-recipe/data_tokenized_qwen3.5
 """
 

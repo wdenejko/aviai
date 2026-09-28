@@ -3,7 +3,7 @@
 Greedy decoding with thinking disabled, so the two answers differ only by the adapter. Runs on the
 box against `serve_lora_test.sh` (loopback port 8093):
 
-    python3 lora_onoff.py ~/gate2/eval_buckets_gate2.jsonl
+    python3 lora_onoff.py ~/benchlab/runs/2026-09-23-qwen36-gate2-train/eval_buckets_gate2.jsonl
 """
 import json
 import sys

@@ -12,7 +12,7 @@
 # Loopback only. NOLORA=1 serves the bare base, for the parity check (dsbench.battery.parity).
 export PATH=$PATH:/usr/sbin:/sbin
 B=~/src/llama-qwen4exp-src/build-v2/bin
-LORA=${LORA:-$HOME/gate2/lora-gguf/gate2-correct-f32.gguf}
+LORA=${LORA:-$HOME/benchlab/runs/2026-09-23-qwen36-gate2-train/lora-gguf/gate2-correct-f32.gguf}
 ARGS=(-m ~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf --alias qwen36-battery
       --host 127.0.0.1 --port 8093 -ngl 99 -c "${CTX:-131072}" --parallel "${NP:-8}" --kv-unified
       --flash-attn on --metrics
@@ -21,5 +21,6 @@ ARGS=(-m ~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf --alias qwen36-batter
 [ "${NOLORA:-0}" = 1 ] || ARGS+=(--lora "$LORA" --lora-init-without-apply)
 # shellcheck disable=SC2206  # EXTRA_ARGS is a flag list and is meant to split on spaces
 [ -n "${EXTRA_ARGS:-}" ] && ARGS+=($EXTRA_ARGS)
+mkdir -p /tmp/battery-slots  # /tmp is cleared on reboot, and llama-server refuses a missing dir
 podman start llama-vulkan-wdenejko >/dev/null 2>&1 || true
 exec toolbox run --container llama-vulkan-wdenejko env LD_LIBRARY_PATH=$B $B/llama-server "${ARGS[@]}"

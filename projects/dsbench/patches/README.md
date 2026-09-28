@@ -71,12 +71,18 @@ Verified against the real command lines before launch: matches `python ...` and
 The Gate-2 launcher. Follows `gate1_train.sh` (stop the OCR **user** unit for the window, restart it
 on exit) and adds what a long run needs: the GTT drain gate before touching the GPU, the governor
 with the anchored pattern, the Gate-2 dataset/output paths, and `QWEN35_RESUME` passthrough. It
-logs straight to `~/gate2/train.log` rather than through `| tail`, which buffers until EOF.
+logs straight to `train.log` in its run directory rather than through `| tail`, which buffers until
+EOF.
+
+Paths: this script, `gate2_ab.sh` and the LoRA export scripts below ran from `~/gate2/` until the
+box was reorganised on 2026-09-28, and now live in `~/benchlab/runs/2026-09-23-qwen36-gate2-train/`.
+The copies here carry the new paths. The box copies keep the old ones as a record of what ran (`~/benchlab/RULES.md`; old to new
+in `~/benchlab/runs/REORG-2026-09-28.tsv`), so to rerun a script, deploy it from here first.
 
 Launch detached, or it dies with the ssh session that started it:
 
-    ssh dashi 'nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
-    ssh dashi 'QWEN35_RESUME=1 nohup setsid ~/gate2/gate2_train.sh >/dev/null 2>&1 </dev/null &'
+    ssh dashi 'nohup setsid ~/benchlab/runs/2026-09-23-qwen36-gate2-train/gate2_train.sh >/dev/null 2>&1 </dev/null &'
+    ssh dashi 'QWEN35_RESUME=1 nohup setsid ~/benchlab/runs/2026-09-23-qwen36-gate2-train/gate2_train.sh >/dev/null 2>&1 </dev/null &'
 
 ## `gate2_ab.sh`
 The Gate-2 loss eval launcher: base vs Gate-1 vs Gate-2 adapters on `eval_buckets_gate2.jsonl`
@@ -86,7 +92,7 @@ for the ~30-minute window and restarted on exit, GTT drain before touching the G
 the end of an `a && b && nohup c &` chain backgrounds the WHOLE chain, which keeps the ssh channel
 open until the eval ends:
 
-    ssh dashi 'nohup setsid ~/gate2/gate2_ab.sh >/dev/null 2>&1 </dev/null &'
+    ssh dashi 'nohup setsid ~/benchlab/runs/2026-09-23-qwen36-gate2-train/gate2_ab.sh >/dev/null 2>&1 </dev/null &'
 
 ## LoRA export verification scripts
 Box-side scripts behind `reports/gate-evals/20260924-gguf-export.md`:

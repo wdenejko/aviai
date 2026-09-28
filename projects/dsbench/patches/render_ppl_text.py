@@ -4,7 +4,8 @@
 ordinary characters. Plain role labels keep the text natural; it is for comparing export variants
 on identical text, not for matching the training stack's chat-format loss.
 
-    python3 render_ppl_text.py ~/gate2/eval_buckets_gate2.jsonl ~/gate2/ppl
+    RUN=~/benchlab/runs/2026-09-23-qwen36-gate2-train
+    python3 render_ppl_text.py $RUN/eval_buckets_gate2.jsonl $RUN/ppl
 """
 import json
 import os
