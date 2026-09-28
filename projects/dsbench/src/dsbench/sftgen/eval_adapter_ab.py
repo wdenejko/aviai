@@ -43,8 +43,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 
 MODEL_DIR = "/home/wdenejko/models/qwen3.6"
 GGUF = "Qwen3.6-35B-A3B-APEX-I-Mini.gguf"
-EVAL = os.environ.get("EVAL_BUCKETS", "/home/wdenejko/eval_buckets_ab.jsonl")
-OUT = os.environ.get("EVAL_OUT", "/home/wdenejko/gate1_ab_result.json")
+GATE1_RUN = "/home/wdenejko/benchlab/runs/2026-09-22-qwen36-gate1"
+EVAL = os.environ.get("EVAL_BUCKETS", GATE1_RUN + "/eval_buckets_ab.jsonl")
+OUT = os.environ.get("EVAL_OUT", GATE1_RUN + "/gate1_ab_result.json")
 SEQ, NBLOCKS = 2048, 16
 
 configure_compiled_gguf_dequantize()

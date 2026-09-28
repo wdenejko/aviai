@@ -3,7 +3,7 @@
 export PATH=$PATH:/usr/sbin:/sbin
 B=~/src/llama-qwen4exp-src/build-v2-85cc-bak/bin
 M=~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf
-L=~/gate2/lora-gguf; P=~/gate2/ppl; OUT=$P/gdn_ablation.tsv
+L=~/benchlab/runs/2026-09-23-qwen36-gate2-train/lora-gguf; P=~/benchlab/runs/2026-09-23-qwen36-gate2-train/ppl; OUT=$P/gdn_ablation.tsv
 printf "text\tstate\tppl\tpm\n" > $OUT
 for text in targetA_heldout targetC_heldout general_heldout; do
   for state in gdn-correct gdn-no_vperm; do

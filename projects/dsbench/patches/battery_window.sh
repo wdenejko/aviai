@@ -33,11 +33,15 @@ start_server(){  # $1 = NOLORA value
   NOLORA=$1 nohup ~/benchlab/scripts/battery/battery_server.sh >>~/benchlab/logs/battery-server-$STAMP.log 2>&1 </dev/null &
   for _ in $(seq 1 120); do curl -sf $URL/health >/dev/null && { log "server up (NOLORA=$1)"; return 0; }; sleep 5; done
   log "server never became healthy"; return 1; }
+# Restore OCR only if it was running when the window began: the window must hand the box back as it
+# found it (OCR was off after a reboot on 2026-09-25, and starting it next to production is the
+# owner's call, not the window's).
+OCR_WAS=$(systemctl --user is-active $OCR_UNIT)
 restore(){ stop_server; [ -n "${GOV:-}" ] && kill "$GOV" 2>/dev/null
-  systemctl --user start $OCR_UNIT; sleep 2
-  log "OCR -> $(systemctl --user is-active $OCR_UNIT)"; }
+  if [ "$OCR_WAS" = active ]; then systemctl --user start $OCR_UNIT; sleep 2; fi
+  log "OCR -> $(systemctl --user is-active $OCR_UNIT) (was $OCR_WAS)"; }
 trap restore EXIT
-log "stopping OCR; plan: $PLAN"
+log "stopping OCR (was $OCR_WAS); plan: $PLAN"
 stop_ocr
 source ~/fttrain/gttwait.sh; gttwait >>"$LOG" 2>&1
 PATTERN="$SRV_PAT" nohup ~/fttrain/thermostat.sh >>~/benchlab/logs/battery-thermostat-$STAMP.log 2>&1 </dev/null &
