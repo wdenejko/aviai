@@ -1,0 +1,20 @@
+diff --git a/moe_gmm_configs.py b/moe_gmm_configs.py
+index 72639fc..ab6b36a 100644
+--- a/moe_gmm_configs.py
++++ b/moe_gmm_configs.py
+@@ -189,6 +189,15 @@ _PTGMM_CONFIGS: dict[tuple[str, int, int, int], ConfigValues] = {
+ }
+ 
+ 
++# dashi seq4096 (ADR-001 retrain, 2026-09-28): a batch-1 seq-4096 step routes 4096 x top-8 =
++# 32,768 rows, which no tuned entry covers ("No tuned gfx1151 AITER GMM config ... M=32768").
++# Each such key reuses its seq-2048 (16,384-row) config until a tuning campaign
++# (tune_coefficient_prior_gmm.py) measures better ones: a Triton config sets speed, not results.
++for _table in (_GMM_CONFIGS, _PTGMM_CONFIGS):
++    for _key, _values in list(_table.items()):
++        if _key[0] == "qwen-learned" and _key[1] == 16384:
++            _table.setdefault((_key[0], 32768, *_key[2:]), _values)
++
+ def _config(values: ConfigValues) -> dict[str, int]:
+     return dict(zip(_CONFIG_KEYS, values, strict=True))
+ 
