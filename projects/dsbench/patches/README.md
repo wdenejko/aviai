@@ -52,6 +52,44 @@ ADR-001 Gate 2 requires a resumable launcher. The recipe had the resume call com
 A ~9-hour run on an APU that thermally throttles after ~2 h has to survive a crash without starting
 over.
 
+## `recipe-seq4096-gmm-configs.patch`
+The recipe's AITER GMM/PTGMM configs (`moe_gmm_configs.py`) are exact keys on the routed row
+count, tuned for batch 1/4/16 at 2048 tokens (16,384 / 65,536 / 262,144 rows at top-8). A batch-1
+seq-4096 step routes 32,768 rows and failed with "No tuned gfx1151 AITER GMM config". The patch
+gives each 16,384-row Qwen key a 32,768-row twin with the same config (a Triton config sets speed,
+not results). Batch-1 seq 8192 needs nothing: it routes 65,536 rows, a tuned key. See
+`reports/gate-evals/20260928-seq4096-enablement.md`.
+
+## `torch-ggml-ops-gfx1151-build.patch` (`~/src/torch-ggml-ops`, box-local)
+The two source fixes the Gate-0 build of torch-ggml-ops needed on dashi, kept as working-tree
+changes there: `tools/mmq_deployment_bundle.py` imports torch before `tools.ggtensile` (TheRock's
+ROCm has to load before rocisa pulls the system ROCm), and `tools/ggtensile/toolchain.py` keeps the
+`amdclang++` path unresolved (resolving it reaches the `amdllvm` multicall binary, which dispatches
+on its argv[0]). Build with `~/ftgguf/bin/python -m pip install --no-build-isolation --no-deps -e .`
+in the `llama-rocm-unlimited-build` toolbox, without activating the venv
+(`seq4096/build_ggml_ops_seq4096.sh` says why).
+
+## `torch-ggml-ops-seq4096.patch` (`~/src/torch-ggml-ops`, branch `seq4096`)
+The two commits of the box-local branch that let the MMQ bundle serve batch-1 seq-4096 training:
+38 exact keys (every ordinary M=2048 key gets M=4096, every top-8 grouped R=16384 key R=32768, on
+the twin's tuned kernel spec, except paired-backward Q3_K at R=32768, which failed the library's
+oracle on that spec and uses the R=65536 one), the oracle's own GMM tables extended the same way,
+the inventory tests' counts, and the regenerated exact-key table.
+
+## `seq4096/` (box scripts behind the seq-4096 report)
+- `add_seq4096_keys.py`, `fix_pair_bwd_q3k.py`: write the 38 catalog keys, then move the one
+  failing key to spec 1.
+- `build_ggml_ops_seq4096.sh`: rebuilds the bundle and the extension into `~/ftgguf`.
+- `validate_seq4096_keys.py`: every new key and its seq-2048 twin against the library's external
+  oracle (public and direct routes, repeatability, input dependence). Keys whose test tensors
+  come from a model that is not on the box are reported as skipped.
+- `make_audit_long_seq.py`: writes `audit_long_seq.py`, the recipe's training-step audit with
+  sequences over 2048 (it glues 2048-token dataset rows).
+- `seq4096_window.sh`: the GPU window (validation, then audits at 2048, 4096 and 8192). It refuses
+  to start while any llama-server or OCR runs, and gates on the validation's JSON, because a Python
+  process that initialized HIP exits 0 on this box whatever it asks for.
+- `audit_summary.py`: the warmed step, memory, losses and gradient checks from audit reports.
+
 ## `fttrain-thermostat-pattern.patch` (box tooling, not the recipe)
 `~/fttrain/thermostat.sh` is the userspace thermal governor (SIGSTOP the trainer at >= 101 °C,
 SIGCONT at <= 97 °C). It hardcoded `pgrep -f "python.*train_lora_peft.py"` — the avtext/Gemma
@@ -76,8 +114,9 @@ EOF.
 
 Paths: this script, `gate2_ab.sh` and the LoRA export scripts below ran from `~/gate2/` until the
 box was reorganised on 2026-09-28, and now live in `~/benchlab/runs/2026-09-23-qwen36-gate2-train/`.
-The copies here carry the new paths. The box copies keep the old ones as a record of what ran (`~/benchlab/RULES.md`; old to new
-in `~/benchlab/runs/REORG-2026-09-28.tsv`), so to rerun a script, deploy it from here first.
+The copies here carry the new paths. The box copies keep the old ones as a record of what ran
+(`~/benchlab/RULES.md`; old to new in `~/benchlab/runs/REORG-2026-09-28.tsv`), so to rerun a script,
+deploy it from here first.
 
 Launch detached, or it dies with the ssh session that started it:
 

@@ -1,0 +1,25 @@
+diff --git a/tools/ggtensile/toolchain.py b/tools/ggtensile/toolchain.py
+index 7cfe514..6d24af4 100644
+--- a/tools/ggtensile/toolchain.py
++++ b/tools/ggtensile/toolchain.py
+@@ -24,7 +24,7 @@ class Toolchain:
+             raise ToolchainError(f"assembler is not executable: {selected}")
+         tool_dir = selected.resolve().parent
+         return cls(
+-            assembler=selected.resolve(),
++            assembler=selected,  # keep amdclang++ basename for amdllvm multicall dispatch
+             readelf=_find_sibling_tool(tool_dir, "llvm-readelf"),
+             objdump=_find_sibling_tool(tool_dir, "llvm-objdump"),
+             objcopy=_find_sibling_tool(tool_dir, "llvm-objcopy"),
+diff --git a/tools/mmq_deployment_bundle.py b/tools/mmq_deployment_bundle.py
+index d471c93..f6e7b86 100644
+--- a/tools/mmq_deployment_bundle.py
++++ b/tools/mmq_deployment_bundle.py
+@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
+ if str(ROOT) not in sys.path:
+     sys.path.insert(0, str(ROOT))
+ 
++import torch  # ordered-before-ggtensile: load TheRock ROCm before rocisa pulls system ROCm
+ from tools.ggtensile.toolchain import Toolchain
+ from tools.mmq_bundle_wrapper_source import render_wrapper
+ from tools.mmq_deployment_spec import (
