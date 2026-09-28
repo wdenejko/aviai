@@ -30,8 +30,13 @@ from pathlib import Path
 from dsbench.battery import stats
 from dsbench.battery.items import by_id, load_items, read_jsonl
 
-BENCH_ORDER = ("ds1000", "bird", "dsbench", "bfcl", "ifeval", "mmlu_pro", "gpqa", "lcb",
-               "humaneval_plus")
+BENCH_ORDER = ("ds1000", "bird", "dsbench", "bfcl_ast", "ifeval", "mmlu_pro", "gpqa", "lcb",
+               "humaneval_plus", "bfcl_irrelevance")
+# Result rows that are a slice of one scored benchmark: {row: (source bench, item filter)}.
+SPLITS = {
+    "bfcl_ast": ("bfcl", lambda it: it.meta.get("category") != "irrelevance"),
+    "bfcl_irrelevance": ("bfcl", lambda it: it.meta.get("category") == "irrelevance"),
+}
 STRATA = {"ds1000": "library", "lcb": "difficulty", "bird": "difficulty", "bfcl": "category",
           "mmlu_pro": "category"}
 
@@ -70,7 +75,10 @@ def _leaks(run_dir: Path, bench: str, state: str) -> dict[str, str] | None:
     return out
 
 
-def bench_summary(run_dir: Path, bench: str, strong: set[str] | None) -> dict | None:
+def bench_summary(run_dir: Path, bench: str, strong: set[str] | None,
+                  row: str | None = None, only=None) -> dict | None:
+    """Paired summary of one benchmark, or of the slice `only(item)` reported as `row`."""
+    row = row or bench
     base, adapter = _scores(run_dir, bench, "base"), _scores(run_dir, bench, "adapter")
     if not base or not adapter:
         return None
@@ -80,10 +88,16 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None) -> dict | 
     gold = _scores(run_dir, bench, "gold")
     unmeasurable = sorted(i for i, r in (gold or {}).items() if not r["passed"])
     keep = (set(items) or set(base)) - set(unmeasurable)
+    if only is not None:
+        keep = {i for i in keep if only(items[i])}
     base_o, adapter_o = _outcomes(base, keep), _outcomes(adapter, keep)
-    result = stats.paired(bench, base_o, adapter_o)
+    result = stats.paired(row, base_o, adapter_o)
     out: dict = {"paired": result.as_dict(), "verdict": stats.verdict(result),
                  "unmeasurable": unmeasurable}
+    half = _scores(run_dir, bench, "adapter_half")
+    if half:
+        half_result = stats.paired(row, base_o, _outcomes(half, keep))
+        out["half"] = {"paired": half_result.as_dict(), "verdict": stats.verdict(half_result)}
     rep = _scores(run_dir, bench, "base_rep")
     if rep:
         flips, n = stats.aa_flip_rate(base_o, _outcomes(rep, keep))
@@ -93,7 +107,7 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None) -> dict | 
         clean = keep - strong
         out["contaminated_strong"] = len(keep & strong)
         if clean and clean != keep:
-            out["clean"] = stats.paired(bench, _outcomes(base, clean),
+            out["clean"] = stats.paired(row, _outcomes(base, clean),
                                         _outcomes(adapter, clean)).as_dict()
     leaks = {s: _leaks(run_dir, bench, s) for s in ("base", "adapter")}
     if leaks["base"] is not None and leaks["adapter"] is not None:
@@ -102,7 +116,7 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None) -> dict | 
         clean_fmt = {i for i in keep
                      if leaks["base"].get(i) == "none" and leaks["adapter"].get(i) == "none"}
         if clean_fmt and clean_fmt != keep:
-            out["no_leak"] = stats.paired(bench, _outcomes(base, clean_fmt),
+            out["no_leak"] = stats.paired(row, _outcomes(base, clean_fmt),
                                           _outcomes(adapter, clean_fmt)).as_dict()
     out["truncated"] = {s: sum(1 for i, r in rows.items() if i in keep
                                and r.get("finish_reason") == "length")
@@ -165,12 +179,13 @@ def main() -> None:
     contamination = (json.loads(args.contamination.read_text())["benches"]
                      if args.contamination else {})
     summaries = {}
-    for bench in BENCH_ORDER:
+    for row in BENCH_ORDER:
+        bench, only = SPLITS.get(row, (row, None))
         strong = (set(contamination[bench]["strong"]) if bench in contamination
                   else (set() if args.contamination else None))
-        s = bench_summary(args.run_dir, bench, strong)
+        s = bench_summary(args.run_dir, bench, strong, row=row, only=only)
         if s is not None:
-            summaries[bench] = s
+            summaries[row] = s
     decision = stats.gate2_decision({b: stats.Paired(**s["paired"])
                                      for b, s in summaries.items()})
     parity_path = args.run_dir / "parity.json"

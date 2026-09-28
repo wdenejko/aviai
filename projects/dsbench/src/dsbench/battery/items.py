@@ -13,9 +13,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-STATES = ("base", "adapter", "base_rep")
+STATES = ("base", "adapter", "base_rep", "adapter_half")
 # LoRA scale per state. base_rep is a second base pass: the A/A control for harness noise.
-STATE_SCALE = {"base": 0.0, "adapter": 1.0, "base_rep": 0.0}
+# adapter_half is ADR-001 Gate 2 step 4: on a regression, "halve the adapter scale at load and
+# re-evaluate" -- here per request, on the same server, so it is paired with base like adapter.
+STATE_SCALE = {"base": 0.0, "adapter": 1.0, "base_rep": 0.0, "adapter_half": 0.5}
 
 
 @dataclass

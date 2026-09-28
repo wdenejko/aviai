@@ -235,7 +235,7 @@ def main() -> None:
     ap.add_argument("--run-dir", required=True, type=Path)
     ap.add_argument("--data-dir", type=Path, default=None, help="default: RUN/data")
     ap.add_argument("--bench", required=True)
-    ap.add_argument("--states", default="base,adapter,base_rep")
+    ap.add_argument("--states", default="base,adapter,base_rep,adapter_half")
     ap.add_argument("--gold", action="store_true", help="score the reference solutions instead")
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--image", default=IMAGE)

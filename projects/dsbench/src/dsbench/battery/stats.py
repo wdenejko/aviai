@@ -18,8 +18,11 @@ import math
 from dataclasses import asdict, dataclass
 
 # ADR-001 Gate 2, item 3. Target benchmarks must GAIN (at least two of them); general benchmarks
-# must not regress by more than the threshold (percentage points).
-TARGET_BENCHES = ("ds1000", "bird", "dsbench", "bfcl")
+# must not regress by more than the threshold (percentage points). BFCL is scored the way its own
+# leaderboard reports it: "bfcl_ast" (the call categories: choosing and filling the right tool, the
+# ADR's tool-call target) apart from "bfcl_irrelevance" (declining when no tool fits), which the ADR
+# sets no threshold for but which the report must not average away.
+TARGET_BENCHES = ("ds1000", "bird", "dsbench", "bfcl_ast")
 REGRESSION_THRESHOLDS = {"ifeval": 1.0, "mmlu_pro": 1.0, "gpqa": 1.0, "lcb": 2.0,
                          "humaneval_plus": 2.0}
 ALPHA = 0.05
@@ -127,7 +130,9 @@ def verdict(p: Paired) -> str:
     if p.bench in TARGET_BENCHES:
         return "gain" if p.delta > 0 and p.p < ALPHA else "no gain"
     threshold = REGRESSION_THRESHOLDS.get(p.bench)
-    if threshold is None:
+    if threshold is None:  # measured, but not an ADR criterion: say so when the change is real
+        if p.p < ALPHA:
+            return "regression (no ADR limit)" if p.delta < 0 else "improvement (no ADR limit)"
         return "info"
     if p.delta < -threshold:
         return "fail" if p.p < ALPHA else "fail (n.s.)"

@@ -263,3 +263,49 @@ def test_exact_interval_agrees_with_the_exact_test():
     p = stats.paired("humaneval_plus", base, adapter)
     assert p.p > 0.05 and p.ci_low < 0 < p.ci_high  # test and interval agree: no significance
     assert stats.clopper_pearson(0, 10)[0] == 0.0 and stats.clopper_pearson(10, 10)[1] == 1.0
+
+
+def test_half_scale_state_is_paired_with_base(tmp_path):
+    from dsbench.battery import report
+    from dsbench.battery.items import STATE_SCALE, write_jsonl
+
+    assert STATE_SCALE["adapter_half"] == 0.5
+    item = Item("ifeval", "1", [{"role": "user", "content": "q"}])
+    assert request_body(item, "adapter_half", "m")["lora"] == [{"id": 0, "scale": 0.5}]
+    save_items(tmp_path / "items" / "ifeval.jsonl",
+               [Item("ifeval", str(i), [{"role": "user", "content": "q"}]) for i in range(3)])
+    outcomes = {"base": [1, 1, 0], "adapter": [0, 0, 0], "adapter_half": [1, 1, 1]}
+    for state, passed in outcomes.items():
+        rows = [{"id": str(i), "passed": bool(p), "status": "ok"} for i, p in enumerate(passed)]
+        write_jsonl(tmp_path / "scores" / f"ifeval.{state}.jsonl", rows)
+    s = report.bench_summary(tmp_path, "ifeval", strong=None)
+    assert s["paired"]["losses"] == 2 and s["half"]["paired"]["gains"] == 1
+
+
+def test_bfcl_is_reported_as_its_leaderboard_columns(tmp_path):
+    from dsbench.battery import report
+    from dsbench.battery.items import write_jsonl
+
+    cats = ["simple", "simple", "irrelevance", "irrelevance"]
+    save_items(tmp_path / "items" / "bfcl.jsonl",
+               [Item("bfcl", str(i), [{"role": "user", "content": "q"}], meta={"category": c})
+                for i, c in enumerate(cats)])
+    outcomes = {"base": [0, 1, 1, 1], "adapter": [1, 1, 0, 0]}
+    for state, passed in outcomes.items():
+        rows = [{"id": str(i), "passed": bool(p), "status": "ok", "extra": {"format_ok": True}}
+                for i, p in enumerate(passed)]
+        write_jsonl(tmp_path / "scores" / f"bfcl.{state}.jsonl", rows)
+    bench, only = report.SPLITS["bfcl_ast"]
+    ast = report.bench_summary(tmp_path, bench, None, row="bfcl_ast", only=only)
+    bench, only = report.SPLITS["bfcl_irrelevance"]
+    irr = report.bench_summary(tmp_path, bench, None, row="bfcl_irrelevance", only=only)
+    assert (ast["paired"]["n"], ast["paired"]["gains"], ast["paired"]["losses"]) == (2, 1, 0)
+    assert (irr["paired"]["n"], irr["paired"]["gains"], irr["paired"]["losses"]) == (2, 0, 2)
+    assert "bfcl_ast" in stats.TARGET_BENCHES
+
+
+def test_significant_change_outside_the_adr_list_is_flagged():
+    worse = stats.Paired("bfcl_irrelevance", 240, 89.0, 67.0, -22.0, -25.0, -17.0, 57, 4, 1e-12)
+    assert stats.verdict(worse) == "regression (no ADR limit)"
+    flat = stats.Paired("bfcl_irrelevance", 240, 89.0, 88.0, -1.0, -3.0, 1.0, 5, 3, 0.7)
+    assert stats.verdict(flat) == "info"
