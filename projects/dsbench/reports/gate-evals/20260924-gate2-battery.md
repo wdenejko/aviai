@@ -1,13 +1,13 @@
 # Gate-2 acceptance battery: the Gate-2 adapter vs its base, paired per item
 
-**Date:** 2026-09-24/25 · raw numbers: `20260924-gate2-battery.json` · harness:
+**Date:** 2026-09-24/25, GPQA 2026-09-28 · raw numbers: `20260924-gate2-battery.json` · harness:
 `src/dsbench/battery/` · box launchers: `patches/battery_*.sh` · run directory, logs, the raw
 pi-run JSON of the owner's suite (`pi-runs/`; summaries in `reports/agentic-runs/`) and the
 one-off analysis scripts behind the numbers below (`analysis/adhoc_numbers.py` and friends):
 `~/benchlab/runs/2026-09-24-gate2-battery/` on dashi
 
-**Status: final (2026-09-25). Gate 2 is not passed, at full scale or at half scale; see "Gate-2
-decision" and "What the retrain has to change".**
+**Status: final (2026-09-25; GPQA, gated until then, added 2026-09-28). Gate 2 is not passed, at
+full scale or at half scale; see "Gate-2 decision" and "What the retrain has to change".**
 
 ## What ADR-001 asks, and how it was measured
 
@@ -34,6 +34,7 @@ runs the base again: its flip count is the harness's own noise on that benchmark
 | DS-1000 | 1000 | all | DS-1000 `run_openai.py` (system prompt, stops) | DS-1000's `code_context` test program |
 | IFEval | 541 | all | the prompt as given | Google `instruction_following_eval` |
 | MMLU-Pro | 1400 | 100 per category, seeded | official CoT instruction, zero-shot | official regex chain |
+| GPQA | 198 | diamond | simple-evals multiple-choice template, options shuffled per question (seeded) | simple-evals' `Answer: X` line, the last one |
 | LiveCodeBench | 342 | v5+v6 additions (2024-09-22 to 2025-04-06) | LCB generic chat prompt | LCB `testing_util.run_test` |
 | BIRD-dev | 1534 | all | DDL + 3 example rows per table + evidence | set-equality execution accuracy (30 s) |
 | BFCL | 1240 | simple, multiple, parallel, parallel-multiple, irrelevance | BFCL function-calling conversion | BFCL `ast_checker` |
@@ -68,7 +69,8 @@ Before any adapter number counts, the harness has to be shown to measure the mod
   the pilot and Gate-2 mixtures (`contamination.py`) found one item over the 20%-of-grams "strong"
   line (BFCL `multiple_1`, whose short question contains a generic sentence) and 44 with any
   shared 13-gram, all generic: counting sequences, one-hot rows, textbook Fibonacci and digit-name
-  code, the definition of a subsequence. The battery does not measure memorization.
+  code, the definition of a subsequence. GPQA's 198 questions, checked when access came, share
+  none. The battery does not measure memorization.
 
 ## Results
 
@@ -83,14 +85,16 @@ section):
 | BFCL AST | target | 1000 | 88.5 | 91.5 | +3.0 (+0.9, +4.9) | +66/−36 | 0.004 | – | gain |
 | IFEval (prompt, strict) | ≤ 1 pt | 541 | 81.7 | 77.1 | −4.6 (−8.1, −0.9) | +36/−61 | 0.014 | 45/541 | fail |
 | MMLU-Pro | ≤ 1 pt | 1400 | 80.8 | 77.7 | −3.1 (−4.8, −1.3) | +58/−101 | 0.0008 | – | fail |
-| GPQA | ≤ 1 pt | – | – | – | not measured: gated, no access | | | | – |
+| GPQA (diamond) | ≤ 1 pt | 198 | 59.1 | 67.7 | +8.6 (+1.8, +14.0) | +29/−12 | 0.012 | – | pass (confirmed) |
 | LiveCodeBench | ≤ 2 pt | 342 | 37.4 | 30.1 | −7.3 (−10.6, −3.1) | +13/−38 | 0.0006 | – | fail |
 | HumanEval+ | ≤ 2 pt | 163 | 90.8 | 85.9 | −4.9 (−8.4, +0.5) | +4/−12 | 0.077 | 5/163 | fail (n.s.) |
 | BFCL irrelevance | none | 240 | 89.2 | 67.1 | −22.1 (−24.5, −17.3) | +4/−57 | 5e-13 | – | regression |
 | MTP acceptance | drop ≤ 5 pt | 200 prompts | 66.2 | 69.4 | +3.2 | | | | pass |
 
 Accuracies are percentages; "+/−" counts the items the adapter gained and lost. A/A flips are the
-items a second, identical base pass changed (only the three first-phase benchmarks got one).
+items a second, identical base pass changed (only the three first-phase benchmarks got one). GPQA's
+pass is the token budget, not better reasoning: 28 of its 29 gains are questions the base ran out
+of tokens on (see its section).
 
 ### DS-1000: much churn, no net gain
 
@@ -130,6 +134,26 @@ of 1,495 tokens and the adapter for 504. The same brevity explains most of its g
 58 gains the base ran into the 4096-token limit. This is the IFEval finding again (shorter
 replies), and DS-1000's (46 vs 103 tokens), on a benchmark where the length of the reasoning is
 the method.
+
+### GPQA: a gain made of the token budget
+
+59.1% → 67.7% (+8.6 pp, 95% CI +1.8 to +14.0, 29 gains / 12 losses, p = 0.012). By the ADR's rule
+that is a pass, and GPQA is the only general benchmark the adapter moves up. The cause is the same
+brevity as MMLU-Pro's; it nets out the other way because here the budget binds far more often. With
+thinking off, both states reason in the reply, and at this battery's 4096-token budget the base
+never reaches its answer line on 68 of the 198 questions (median reply 2,118 tokens). The adapter
+reasons about a quarter less (median 1,469 tokens; 0.77 of the base's length per item, geometric
+mean) and runs out on 38. Every unanswered reply in either state is one that hit the limit; none is
+an answer line the scorer missed.
+
+28 of the adapter's 29 gains are questions where the base ran out of tokens. On the 126 questions
+both states answered, the base is right 90.5% of the time and the adapter 84.1% (1 gain, 9
+losses, p = 0.02). That comparison selects on the states' own replies, so it is an indication,
+not a clean test, but it points where MMLU-Pro does: shorter reasoning fits the budget more often
+and is wrong more often. Chemistry, whose questions carry the longest calculations, holds most of
+the gain (34.4 → 49.5; physics 86.0 → 88.4, biology 57.9 → 63.2 on 19 questions). No reply opens
+a `<think>` block in either state. At a budget where the base finished its reasoning, the
+result could flip sign: this pass says the adapter is more economical, not that it reasons better.
 
 ### LiveCodeBench: the think-leak at scale
 
@@ -278,7 +302,8 @@ serving an adapter at runtime. A merged adapter would not pay it.
 
 ADR-001's remedy for a regression begins: "halve the adapter scale at load and re-evaluate". The
 same server ran the seven public benchmarks once more at LoRA scale 0.5, paired with the same base
-pass (state `adapter_half`). The owner's suite, GPQA and MTP were not rerun.
+pass (state `adapter_half`). The owner's suite and MTP were not rerun. GPQA, gated until 2026-09-28,
+ran all three states in a window of its own that day.
 
 | Benchmark | n | Base | Scale 1.0 | Scale 0.5 | Δ at 0.5, pp (95% CI) | +/− | p | Verdict at 0.5 |
 |---|---:|---:|---:|---:|---|---:|---:|---|
@@ -287,6 +312,7 @@ pass (state `adapter_half`). The owner's suite, GPQA and MTP were not rerun.
 | BFCL AST | 1000 | 88.5 | 91.5 | 94.3 | +5.8 (+4.4, +6.7) | +66/−8 | 2e-12 | gain |
 | IFEval | 541 | 81.7 | 77.1 | 81.9 | +0.2 (−2.8, +3.2) | +32/−31 | 1.0 | pass (unresolved) |
 | MMLU-Pro | 1400 | 80.8 | 77.7 | 80.8 | 0.0 (−1.5, +1.5) | +55/−55 | 1.0 | pass (unresolved) |
+| GPQA | 198 | 59.1 | 67.7 | 64.1 | +5.1 (−0.7, +9.7) | +19/−9 | 0.087 | pass (confirmed) |
 | LiveCodeBench | 342 | 37.4 | 30.1 | 33.6 | −3.8 (−7.1, 0.0) | +13/−26 | 0.053 | fail (n.s.) |
 | HumanEval+ | 163 | 90.8 | 85.9 | 92.0 | +1.2 (−0.8, +1.2) | +2/−0 | 0.5 | pass (confirmed) |
 | BFCL irrelevance | 240 | 89.2 | 67.1 | 69.6 | −19.6 (−20.4, −16.0) | +1/−48 | 2e-13 | regression (no ADR limit) |
@@ -295,11 +321,15 @@ pass (state `adapter_half`). The owner's suite, GPQA and MTP were not rerun.
 
 At half scale most regressions go away and the gains don't:
 
-- **Three of the four general benchmarks return to the base.** IFEval 81.9 (base 81.7), MMLU-Pro
+- **Three of the five general benchmarks return to the base.** IFEval 81.9 (base 81.7), MMLU-Pro
   80.8 (80.8), HumanEval+ 92.0 (90.8). The think-leak is gone (no reply opens a `<think>` block on
   HumanEval+, IFEval or MMLU-Pro, and 1 of 342 on LiveCodeBench), and so is most of the brevity:
-  MMLU-Pro's median reasoning is 628 tokens (base 728, full scale 386), and IFEval's median reply
-  is 803 characters (base 850, full scale 694).
+  MMLU-Pro's median reasoning is 628 tokens (base 728, full scale 386), GPQA's 2,074 (base 2,118,
+  full scale 1,469), and IFEval's median reply is 803 characters (base 850, full scale 694).
+- **GPQA stays up**, +5.1 (p = 0.087), for the full-scale reason but more weakly: the limit cuts
+  53 replies against the base's 68, and 18 of the 19 gains are questions the base ran out of
+  tokens on. Where both states answered, the half-scale adapter is right 88.6% of the time and the
+  base 91.1% (1 gain, 4 losses, p = 0.38).
 - **LiveCodeBench does not.** 33.6 against 37.4 is −3.8 points, past the 2-point limit (p = 0.053,
   so the ADR's size rule fails it, as it did HumanEval+ at full scale). Without the leak, the
   half-scale adapter writes code about as often as the base (170 replies without code vs 175),
@@ -308,7 +338,7 @@ At half scale most regressions go away and the gains don't:
 - **The tool-call gain grows**, to +5.8 on BFCL AST (parallel calls 81.0 → 94.0).
 - **DS-1000 becomes a gain**, +2.8. With BFCL AST that makes the two target gains the ADR asks for,
   but this one is marginal. Its p is 0.043, the A/A pass alone moved the base by +0.8, and one p
-  just under 0.05 among this report's seventeen paired tests is weak evidence on its own.
+  just under 0.05 among this report's nineteen paired tests is weak evidence on its own.
 - **Two defects survive:** BIRD still regresses (−2.6; 77 SQLite errors vs the base's 47), and the
   adapter still calls tools that don't fit (irrelevance −19.6, barely better than full scale).
 
@@ -322,11 +352,14 @@ are what the data taught rather than how strongly it taught them: at half streng
 
 **At full scale the adapter fails both halves of the criterion.** ADR-001 needs significant gains
 on at least two of the four target benchmarks, and only BFCL AST gains (+3.0 pp, p = 0.004).
-DS-1000 and the owner's suite are flat, and BIRD goes backwards (−9.1 pp). Every measured general
-benchmark fails its limit: IFEval −4.6 (p = 0.014) and MMLU-Pro −3.1 (p = 0.0008) against 1 point,
-and LiveCodeBench −7.3 (p = 0.0006) and HumanEval+ −4.9 (p = 0.077) against 2 points. The ADR bounds
-the size of a regression and does not ask for significance, so HumanEval+ fails on its point
-estimate, all of which comes from the think-leak. MTP acceptance passes: it rises 3.2 points.
+DS-1000 and the owner's suite are flat, and BIRD goes backwards (−9.1 pp). Four of the five general
+benchmarks fail their limits: IFEval −4.6 (p = 0.014) and MMLU-Pro −3.1 (p = 0.0008) against 1
+point, and LiveCodeBench −7.3 (p = 0.0006) and HumanEval+ −4.9 (p = 0.077) against 2 points. The
+ADR bounds the size of a regression and does not ask for significance, so HumanEval+ fails on its
+point estimate, all of which comes from the think-leak. GPQA passes, +8.6 (p = 0.012), on the
+token budget rather than on better reasoning: 28 of its 29 gains are questions where the base ran
+out of tokens, and where both states answered, the adapter is worse (84.1% vs 90.5%). MTP
+acceptance passes: it rises 3.2 points.
 
 **At half scale (step 4) it still fails, more narrowly.** The target criterion is met on paper by
 BFCL AST (+5.8) and DS-1000 (+2.8, p = 0.043), but LiveCodeBench regresses 3.8 points against its
@@ -336,8 +369,7 @@ BFCL AST (+5.8) and DS-1000 (+2.8, p = 0.043), but LiveCodeBench regresses 3.8 p
 - BIRD, a target benchmark, still regresses (−2.6, p = 0.005);
 - it still calls tools where none fit (−19.6). The criteria don't bound this, but it matters most
   in the agent harnesses this tune is for;
-- three measurements are missing at half scale: the owner's suite and MTP were not rerun, and GPQA
-  was never run (the dataset is gated, and access had not been granted).
+- two measurements are missing at half scale: the owner's suite and MTP were not rerun.
 
 **Next, per the ADR:** step 4 goes on to "raise replay to 40% and retrain", and the table below
 lists what else the retrain needs. Step 4's last clause asks for the responsible data slice to be
@@ -357,7 +389,7 @@ them without removing them:
 | Think-leak: HumanEval+ −4.9 (54/163 replies open a second `<think>`), LiveCodeBench −7.3 (246/342, 169 never closed) | `<think>` is a trained token in 27,690 assistant turns, 1,762 of them with real reasoning (mostly Target A) | Render every row in the format it is served in. With thinking off, the empty block is part of the prompt and gets no label; the teacher's reasoning is dropped, or those rows are trained with thinking on and served with thinking on |
 | Calls where no tool fits: BFCL irrelevance −22.1 | all 896 rows that offer tools open with a tool call; none declines | Add decline rows: an offered tool list that doesn't fit the question, answered in plain text (generated, not BFCL items) |
 | BIRD −9.1: `YEAR()`, invented columns | the SQL pool is Gretel synthetic, and one in five of its training answers fails in SQLite against its own schema (MySQL date functions, missing columns and tables); B.4's BIRD/Spider train rows were never added | Cut Gretel, or keep only rows that execute against their own schema; add BIRD and Spider train in SQLite with the full schema in the prompt, as B.4 planned; name the dialect in every SQL prompt |
-| IFEval −4.6, MMLU-Pro −3.1: replies about half as long, repetition loops; LiveCodeBench −3.8 even at half scale, with more wrong code | forgetting, and a length prior: the trained assistant turns are short (median 94 tokens; per pool, a median of 241 to 1,180 characters, except SWE), and the replay is no exception (Tulu 3: 513 characters) | ADR step 4, replay to 40%, with replay chosen for length as well as topic: instruction-following rows with explicit constraints, and long step-by-step answers; pi and any agent harness cap each reply's tokens, so one loop can't eat a run |
+| IFEval −4.6, MMLU-Pro −3.1: replies about half as long, repetition loops; LiveCodeBench −3.8 even at half scale, with more wrong code; GPQA +8.6 only because shorter reasoning fits the 4096-token budget (where both states answered, the adapter is worse, 84.1% vs 90.5%) | forgetting, and a length prior: the trained assistant turns are short (median 94 tokens; per pool, a median of 241 to 1,180 characters, except SWE), and the replay is no exception (Tulu 3: 513 characters) | ADR step 4, replay to 40%, with replay chosen for length as well as topic: instruction-following rows with explicit constraints, and long step-by-step answers; pi and any agent harness cap each reply's tokens, so one loop can't eat a run |
 
 **Check a checkpoint before the next full battery.** Each of the four failures moves far past its
 A/A noise on a few hundred items, so a one-hour mini-battery catches them all: IFEval, BFCL
@@ -384,6 +416,10 @@ instructions.
   killed only the `toolbox run` wrapper, and the llama-server inside the container survived, stuck,
   ignoring SIGTERM and holding GPU memory. It was killed by hand, and `stop_ocr` in both launchers
   now waits for OCR's `/health` before stopping it and kills any OCR server that outlives the stop.
+- **`/tmp` on dashi is tmpfs, and a reboot empties it.** The GPQA window's first server start
+  failed: `--slot-save-path /tmp/battery-slots` was gone after the Sep 25 reboot, and llama-server
+  refuses a missing directory. The launcher now creates it. The window also restores OCR only if
+  OCR was running when the window began; it had stayed off since that reboot.
 - **Budget the scorer for the whole battery.** The battery took 28 hours of box time (Sep 24 12:29
   to Sep 25 16:43: 19.8 h main window with the pi suite, 25 min MTP, 8 h half scale); the
   autoscore loop had been started with a 16-hour deadline, and a successor had to be chained in.
