@@ -61,6 +61,32 @@ JSON requested, nothing else. There is no "finish" tool: you are done when you s
 {schema}"""
 
 
+# pi's per-reply output cap for a model whose config sets no `maxTokens` (pi docs/models.md).
+_PI_DEFAULT_MAX_TOKENS = 16384
+
+
+def pi_reply_cap(provider: str, model: str) -> int | None:
+    """The per-reply token cap pi will request for PROVIDER/MODEL, as its models.json sets it.
+
+    WHY record it: pi has no CLI flag for the cap; it comes from the model's `maxTokens` in
+    models.json (default 16384). The Gate-2 battery found adapter replies stopped at exactly
+    16,384 tokens: one greedy repetition loop inside an agent run eats the whole run. The fix is a
+    lower cap (12288, set in models.json), and a run is only comparable to another run with the
+    same cap, so every run records the cap it ran with. Reads the one field it needs: the same
+    file holds the providers' API keys. None = not a custom model in models.json (pi's built-in
+    catalogue decides, and this harness doesn't know its value).
+    """
+    agent_dir = Path(os.environ.get("PI_CODING_AGENT_DIR") or Path.home() / ".pi" / "agent")
+    try:
+        providers = json.loads((agent_dir / "models.json").read_text()).get("providers", {})
+    except (OSError, json.JSONDecodeError):
+        return None
+    for m in providers.get(provider, {}).get("models", []):
+        if model in (m.get("id"), m.get("name")):
+            return int(m.get("maxTokens", _PI_DEFAULT_MAX_TOKENS))
+    return None
+
+
 def _parse_trajectory(events_path: Path) -> dict:
     """Reduce pi's JSONL event stream to what grading + reporting need."""
     events = []
@@ -163,7 +189,8 @@ def _render(meta: dict, results: list[AgentResult]) -> str:
         f"# dsbench agentic run (pi harness): {meta.get('label')}",
         "",
         f"- harness: `pi` (thinking {meta.get('thinking')})  model: `{meta.get('model')}`  "
-        f"provider: `{meta.get('provider')}`  k={rep}",
+        f"provider: `{meta.get('provider')}`  k={rep}  "
+        f"reply cap: {meta.get('reply_max_tokens') or 'unknown'} tokens",
         f"- when: {meta.get('timestamp')}",
         overall,
         "",
@@ -206,7 +233,9 @@ def main() -> None:
         raise SystemExit("no agentic problems matched the filters")
 
     label = args.label or dt.datetime.now().strftime("pi-%Y%m%d-%H%M%S")
-    print(f"running {len(problems)} problem(s) via pi, thinking {args.thinking}, k={args.repeat}")
+    reply_cap = pi_reply_cap(args.provider, args.model)
+    print(f"running {len(problems)} problem(s) via pi, thinking {args.thinking}, k={args.repeat}, "
+          f"reply cap {reply_cap or 'unknown'} tokens")
     results: list[AgentResult] = []
     for pr in problems:
         for k in range(args.repeat):
@@ -230,7 +259,7 @@ def main() -> None:
 
     meta = {
         "label": label, "harness": "pi", "model": args.model, "provider": args.provider,
-        "thinking": args.thinking, "repeat": args.repeat,
+        "thinking": args.thinking, "repeat": args.repeat, "reply_max_tokens": reply_cap,
         "timestamp": dt.datetime.now().isoformat(timespec="seconds"), "n": len(results),
     }
     out_dir = Path(args.out_dir)
