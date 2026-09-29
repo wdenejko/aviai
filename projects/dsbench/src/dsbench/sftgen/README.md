@@ -61,7 +61,9 @@ execution-verified rows. Validated end-to-end: 192 rows across all four dialects
   gap), `timezone-direction`, `month-bucket`; each with paraphrased question variants. Since ADR-004
   Revision 2, `timezone-direction` states the UTC offsets it holds for every row (daylight or
   standard time, drawn per instance). Its truth used June offsets all year, unstated, before.
-- `engines.py` — dialect execution backends (DuckDB, ClickHouse, optional Postgres/MySQL).
+- `engines.py` — dialect execution backends. Gold SQL may use in-process DuckDB; SQL a model
+  wrote runs only on the sandbox's ClickHouse, Postgres, MySQL and DuckDB containers
+  (`available_engines(sandboxed=True)`, ADR-004 Revision 2).
 - `dialect_conventions.py` — Target A generator + CLI + run report.
 - `render.py` — raw rows → Qwen chat-template training JSONL.
 - `decontaminate.py` — the disjointness gate against dsbench and, with `--battery-items`, the

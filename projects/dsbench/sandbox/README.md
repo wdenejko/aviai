@@ -11,8 +11,15 @@ DE/DA/DS benchmarking. Design: [`docs/adr/ADR-003-agentic-aviation-sandbox.md`](
 |---|---|---|
 | `clickhouse` | warehouse; holds the aviation datasets; the agent's `run_sql` target | 8123 (HTTP), 9000 (native) |
 | `workspace` | Python container; the agent's `run_python` executes **here**, not on the host | — |
+| `postgres` | Target A's Postgres 16: model-written SQL runs here as `sftgen_reader` (read-only) | 55432 |
+| `mysql` | Target A's MySQL 8.4: model-written SQL runs here as `sftgen_reader` (read-only) | 53306 |
+| `duckdb` | Target A's DuckDB 1.5.5 for model-written SQL: no network, read-only root, reached by `docker exec` | — |
 
-Creds (local only): user `avbench`, password `avbench`, db `aviation`.
+Creds (local only): user `avbench`, password `avbench`, db `aviation`. Postgres: `avbench`/`avbench`,
+db `sftgen`; MySQL: `root`/`avbench-root`. Both have a `sftgen_reader`/`sftgen_reader` login
+(`postgres/init`, `mysql/init`), which the engines grant SELECT on one scratch schema or database
+at a time (`src/dsbench/sftgen/engines.py`). SQL that reaches outside its table (files, other
+schemas, DDL) fails; `tests/test_sandbox_engines.py` checks it whenever these services are up.
 
 ## Use
 
@@ -21,6 +28,7 @@ cd projects/dsbench/sandbox
 docker compose up -d clickhouse                     # warehouse
 docker compose exec clickhouse clickhouse-client -u avbench --password avbench -q "SELECT version()"
 docker compose up -d --build workspace              # + agent workspace (for run_python / ingest)
+docker compose up -d --build postgres mysql duckdb   # Target A's other dialects (ADR-004 Rev 2)
 docker compose down                                 # stop (add -v to also wipe the ch-data volume)
 ```
 

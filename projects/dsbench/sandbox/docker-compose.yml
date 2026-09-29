@@ -3,6 +3,7 @@
 #
 # Bring up:   docker compose up -d clickhouse         # warehouse only (this phase)
 #             docker compose up -d --build workspace   # + python workspace (agent's hands)
+#             docker compose up -d --build postgres mysql duckdb   # Target A's other dialects
 # Verify:     docker compose exec clickhouse clickhouse-client -u avbench --password avbench -q "SELECT version()"
 # Teardown:   docker compose down            (add -v to also wipe the data volume)
 name: dsbench-sandbox
@@ -33,6 +34,63 @@ services:
       timeout: 3s
       retries: 24
     networks: [avnet]
+
+  # Target A's other dialects (ADR-004 Revision 2). Model-written SQL is verified on these, never
+  # in a host process. Each engine loads its tables through the admin login into a scratch
+  # schema/database, and runs queries through `sftgen_reader` (init/), which can only read them.
+  postgres:
+    image: postgres:16
+    container_name: avbench-postgres
+    environment:
+      POSTGRES_USER: avbench
+      POSTGRES_PASSWORD: avbench
+      POSTGRES_DB: sftgen
+    ports:
+      - "127.0.0.1:55432:5432"  # off the default port: a host Postgres may already hold 5432
+    mem_limit: 1g
+    volumes:
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "avbench", "-d", "sftgen"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    networks: [avnet]
+
+  mysql:
+    image: mysql:8.4
+    container_name: avbench-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: avbench-root
+      MYSQL_DATABASE: sftgen
+    # Every SELECT stops after 30 s; no LOAD DATA LOCAL.
+    command: ["--max-execution-time=30000", "--local-infile=0"]
+    ports:
+      - "127.0.0.1:53306:3306"
+    mem_limit: 1g
+    volumes:
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pavbench-root"]
+      interval: 5s
+      timeout: 3s
+      retries: 36
+    networks: [avnet]
+
+  # DuckDB runs in-process, so its sandbox is a container of its own, reached with `docker exec`
+  # (sftgen/engines.SandboxDuckDBEngine): no network at all, a read-only root filesystem, no host
+  # mounts, no capabilities. The runner also switches DuckDB's external access off after loading.
+  duckdb:
+    build: ./duckdb
+    container_name: avbench-duckdb
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    pids_limit: 64
 
   # The agent's `run_python` executes HERE, never on the host (ADR-003 §1, security).
   # Only started when we build the harness; ClickHouse alone is enough for the first bring-up.

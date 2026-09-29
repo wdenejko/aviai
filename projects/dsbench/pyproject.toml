@@ -20,6 +20,10 @@ dependencies = [
     "scipy>=1.13",
     # v2 agentic sandbox (ADR-003): the harness + ingest loaders talk to ClickHouse.
     "clickhouse-connect>=0.8",
+    # Target A's other dialects (ADR-004 Revision 2): drivers for the sandbox's Postgres and MySQL.
+    # `rsa` brings the cryptography MySQL 8's default authentication needs over plain TCP.
+    "psycopg[binary]>=3.2",
+    "pymysql[rsa]>=1.1",
 ]
 
 [project.scripts]
