@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Proposed (data-design gate for ADR-001 Gate 1/Gate 2)
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29, proposed)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -43,7 +43,11 @@ All three targets are **execution-verifiable**: a weekday-numbering answer, a ra
 
 Three generators, one per target. Each is defined by: the **skill statement** (what the model must learn), the **source distribution** (deliberately not aviation), the **generation + verification** method, the **format**, and the **decontamination + hold-out** stance. All rows render in the corrected Qwen3.5/3.6 chat template (ChatML, tool calls in the **XML** form the shipped template uses, assistant-only loss; thinking on for reasoning rows, empty `<think></think>` for direct rows — ADR-001 B.4).
 
+> **Revision 2 changes the rendering:** every row is thinking on, with its reasoning. No row trains an empty think block, and the `<think>` opener belongs to the prompt, not the label. Gate 2's trained `<think>` tokens are what its adapter leaked (`reports/gate-evals/20260924-gate2-battery.md`).
+
 ### Target A — SQL-dialect date/time conventions  *(generator: `sftgen/dialect_conventions.py`)*
+
+> **Revision 2 changes this target:** the prompt asks for the SQL only (the "numeric result" taught the adapter to invent numbers), the reasoning is hint-conditioned generation by the base (the base's own traces are wrong on these conventions 72% of the time), and the timezone family states its offsets (its truth used fixed summer offsets all year).
 
 - **Skill:** given a schema and a question, (i) use the **correct** date/time convention **for the stated engine**, and (ii) when the engine is ambiguous or the convention bites, **state the assumption and verify it** rather than guessing. The generalisation target is *dialect-awareness*, because the conventions genuinely differ and that difference is the trap:
 
@@ -69,6 +73,8 @@ Three generators, one per target. Each is defined by: the **skill statement** (w
 
 ### Target C — agentic ML-workflow delivery discipline  *(generator: `sftgen/ml_delivery_trajectories.py`)*
 
+> **Revision 2 changes the agent:** the base generates the trajectories, thinking on (Ling only if the base's yield is too low), and a trajectory must fit 8,192 tokens with its reasoning.
+
 - **Skill:** run the full agentic ML loop in a sandbox and **finish it** — inspect the tables, train a reasonable model, **write predictions for EVERY test row to the exact table name and schema stated in the prompt**, then **stop** (no over-tuning past a good-enough bar). The failure being trained out is "competent model, no delivered artifact."
 - **Source distribution (NOT the dsbench aviation tasks):** dsbench-*shaped* but on different public datasets loaded into the sandbox (e.g. UCI/OpenML tabular sets — bike-sharing demand, adult-income, telco-churn, a house-price regression), each wrapped in the ADR-003 harness with an oracle that (a) states the exact output-table contract and (b) grades by a held-out metric with a beat-the-trivial-baseline bar — mirroring `ds_*` **mechanics** without reusing their **content**.
 - **Generation + verification:** run a **licence-clean teacher** (DeepSeek/Qwen) as the agent inside the sandbox on these held-out tasks; **keep only trajectories that pass the oracle** (correct-schema table, every row predicted, metric beats baseline). The kept trajectory — tool calls, `run_python`, the `CREATE TABLE … ENGINE=MergeTree ORDER BY …` + `insert_df`, and the terminal "done" — becomes a multi-turn training sample. This is execution-verified by definition (a trajectory only exists as data if it *delivered*), which is precisely the behaviour to reinforce. Include a few "recovered" trajectories (model hits an error, fixes it, still delivers) since ADR-003 notes the model *can* self-recover when it commits.
@@ -76,6 +82,8 @@ Three generators, one per target. Each is defined by: the **skill statement** (w
 - **Implementation notes (2026-09-20).** The tasks are **synthetic, non-aviation** (`ml_tasks.py`: a widget-defect classification and a delivery-time regression, each with a real learnable signal), **oracle-gated** by `selftest()` (setup→reference→check with no model — widget AUC 0.923, delivery MAE lift 58.6%, both well past their bars) so teacher time is only spent on solvable tasks. The generator (`ml_delivery_trajectories.py`) reuses the measurement harness's executors and stream reassembly but with a **generic, aviation-free** system prompt and tool schemas so trajectories never carry the benchmark schema. Live smoke on the Ling teacher: it tool-called through the loop, **recovered from a mid-run driver error**, wrote the exact-schema table, and passed (AUC 0.894) — exactly the finish-the-loop behaviour to reinforce. The decontamination gate then earned its keep: it flagged that the task prompts had reused the dsbench `ds_*` deliverable boilerplate (`(id UInt32, … Float64) … one row per test id`), which was reworded to keep Target C disjoint from the eval.
 
 ### The targeted slice inside ADR-001's mixtures
+
+> **Superseded for the retrain by Revision 2's mixture**, which is budgeted in rows of thinking-on text rather than in tokens of short answers.
 
 The targeted slice is **~1.4M tokens (~14%)** of the Gate 2 10M-token first run (Target B dropped — see its banner); the rest stays as ADR-001 B.4 breadth + replay. Rationale: the narrow behaviours must not crowd out breadth (or the model over-specialises and regresses — the very thing ADR-001 Gate 2's thresholds guard). Replay stays at 25–30%.
 
@@ -126,5 +134,225 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 3. [x] **Target B generator:** four trap families on inline data, licence-clean teacher trace (Ling-3.0-flash), execution-filtered. **Done — 12/12 live yield, then DROPPED from the mixture (2026-09-20):** the held-out probe (5/5 with a decoy) and a `da_delay_attribution` trajectory investigation (Qwen's 5-cause denominator was correct; only the population scope differed) showed no general denominator gap. Generator retained as a tool, not trained on.
 4. [x] **Target C generator:** synthetic ML tasks in the ADR-003 harness (`ml_tasks.py`, oracle-gated), teacher-as-agent, keep only oracle-passing trajectories. **Done** — 4/4 live; trajectory shows train→recover→deliver→finish.
 5. [x] Build the **held-out probe** (6 problems, 2 per skill, disjoint from both the generators and dsbench) + its runner (neutral prompt). **Done, oracle-gated 6/6.** Still to do: baseline the *current* Qwen3.6 on it (needs Qwen3.6 hosted) to record the "before".
-6. [ ] Run the **volume generation** (A ~0.5M teacher-free; C ~0.9M on Ling; B dropped; harden incremental writes for the long runs), assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1.
+6. [x] Run the **volume generation** (A ~0.5M teacher-free; C ~0.9M on Ling; B dropped; harden incremental writes for the long runs), assemble the **Gate 1 pilot 1M mixture** (proportional down-sample), run `decontaminate.py`, and hand it to ADR-001 Gate 1. **Done:** the Gate 1 pilot mixture (2026-09-21) and the Gate 2 mixture (2026-09-23, 23,640 rows).
 7. **Kill / re-plan:** if the held-out probe cannot be moved by the targeted slice even when dsbench moves, the gain is memorisation — stop, and treat the gaps as needing method changes (more/better traces, or RL-style execution feedback) rather than more SFT volume.
+
+---
+
+# Revision 2 (2026-09-29, proposed): the mixture for the thinking-on retrain
+
+## What changed since Revision 1
+
+- **The Gate-2 adapter failed its acceptance battery** (`reports/gate-evals/20260924-gate2-battery.md`),
+  and every cause was in the data:
+  - `<think>` was a trained token in 27,690 assistant turns, 25,928 of them the template's empty
+    block. The adapter learned to open a block of its own after that one: 54 of 163 HumanEval+
+    replies.
+  - Trained turns were short (median 94 tokens), and so were the adapter's replies: on MMLU-Pro it
+    reasoned half as long as the base (median 386 tokens against 728).
+  - All 896 rows that offer tools open with a call, and the adapter called tools that didn't fit
+    (BFCL irrelevance 89.2 → 67.1).
+  - One Gretel SQL answer in five fails in SQLite against its own schema, and BIRD fell 9.1
+    points.
+
+  Held-out loss saw none of it: its forgetting control improved (assistant loss 2.05 → 0.94)
+  while IFEval fell 4.6 points.
+- **The owner's decisions for the retrain (ADR-001 Gate 2 item 5):** thinking on, in training and
+  in serving; LoRA rank 4; a 12,288-token reply cap in the agent harness.
+- **Longer steps** (`reports/gate-evals/20260928-seq4096-enablement.md`): the stack trains at 2048,
+  4096 or 8192 tokens per step, at 296, 239 and 182 tokens/s. Its kernels are keyed on exact token
+  counts, so every step is a full block of one of these lengths.
+- **The reasoning pilot** (`reports/gate-evals/20260928-reasoning-pilot.md`) ran the base, thinking
+  on, on 200 mixture prompts:
+  - a row averages about 3k tokens, against about 420 in Gate 2's mixture;
+  - 95% of rows fit 8,192 tokens whole, 85% fit 4,096;
+  - the box generates 127 tokens/s with 8 slots;
+  - on Target A the base is wrong in one systematic way: 9 of 32 ClickHouse answers verify,
+    because it takes `toDayOfWeek` to number Sunday as 1;
+  - the timezone family's truth assumed fixed summer offsets all year, which its prompt doesn't
+    state.
+
+## Principles
+
+1. **Every row is rendered the way the model is served: thinking on, with its reasoning.** No row
+   trains an empty think block. With `<think>` in the prompt, an empty block teaches closing it at
+   once, which is skipping the reasoning.
+2. **Almost every row is the base's own output.** The base answers every prompt, thinking on. The
+   verified pools keep only the answers that pass a check (rejection sampling); replay keeps every
+   answer that finishes. The adapter learns which of its own answers to prefer, and nothing of
+   another model's style or length, which is where Gate 2's drift and brevity came from. Two
+   exceptions, both named below: Target A's hinted traces, and a teacher for Target C if the
+   base's yield is too low.
+3. **New behaviour comes only from verified pools.** Target A, the SQL pool, Target C and the tool
+   rows each pass an execution or schema check.
+4. **Nothing is made in the image of a benchmark that only checks for regressions.** ADR-001
+   watches IFEval, MMLU-Pro, GPQA, LiveCodeBench and HumanEval+ for losses. Replay built from their
+   item types (IFEval's verifiable constraints, say) would hide a regression, not prevent one. The
+   base's own replies carry the length, so replay prompts are chosen for breadth.
+5. **Budget in rows.** 10M tokens buys about 3,300-4,000 thinking-on rows, not 23,640.
+
+## The mixture (proposed)
+
+10M tokens at 8,192 tokens per step: about 15 hours of training at 182 tokens/s.
+
+| Pool | Tokens | Rows (≈) | Prompts | Kept if |
+|---|---:|---:|---|---|
+| Target A: SQL-dialect conventions | 0.8M (8%) | 450 | `dialect_conventions.py`, four dialects, asking for the SQL only | its SQL returns the truth on the dialect's sandboxed engine |
+| SQL on real schemas | 1.0M (10%) | 500 | SynSQL-2.5M (Apache-2.0), SQLite, each prompt built from its row's database | its result equals the gold SQL's on that database |
+| Target C: ML-delivery loops | 1.0M (10%) | 150 | `ml_tasks.py` | the task's oracle passes, and the loop fits 8,192 tokens |
+| Tool calls where a tool fits | 0.4M (4%) | 250 | generated tool lists, gold calls and requests; no BFCL item | the call matches the gold call |
+| Tool lists that don't fit | 0.3M (3%) | 200 | the same tool lists with unrelated requests | no call |
+| Code and SWE | 2.5M (25%) | 800 | opencoder-edu, SWE-Swiss | its tests pass, where the source has them |
+| General replay | 4.0M (40%) | 1,600 | clean-origin prompts (below) | the reply finishes |
+
+Every reasoning trace and answer is the base's, thinking on, unless the next section says
+otherwise. Every pool also drops replies that hit the generation cap, replies with no reasoning,
+and rows over 8,192 tokens.
+
+The verified pools (the first five) take 35% of the tokens; Revision 1's targeted slice took 14%.
+The share can be higher because those rows are the base's own answers too, filtered to the right
+ones: they pull the model toward its own best behaviour, not toward another model. Replay is 40%,
+as ADR-001 Gate 2 item 4 prescribes for the retrain.
+
+**Replay prompts.** The licensing gate in `sftgen/breadth/sources.py` admits only the Tulu 3
+subsets of clean origin. The persona sets were written by GPT-4 models, prompts included, and stay
+out under ADR-001's taint rule. WildChat's prompts are human-written, but its answers are GPT-4's,
+so the gate excludes it whole (decision 5). Proposed:
+- oasst1, with history where the conversation has it;
+- Aya (human-written, multilingual);
+- SciRIFF;
+- FLAN v2, in a small share;
+- GSM8K train for math (MIT, human-written), to be registered in the gate.
+
+No Robots is on the gate's allowlist, but its licence is CC BY-NC 4.0, so it stays out of
+anything redistributable. The allowlist needs that fix.
+
+## Where the reasoning comes from
+
+- **Target A: hint-conditioned generation (STaR's rationalisation).**
+  - The *generation* prompt states the convention the row tests, for example that ClickHouse's
+    `toDayOfWeek` numbers Monday 1 through Sunday 7.
+  - A trace is kept if its SQL verifies and it doesn't cite the hint: no reference to having been
+    told, no verbatim copy.
+  - The *training* prompt has no hint, so the trace teaches reasoning to the convention, not
+    reading it.
+
+  The base's own verified traces join them (28% of the pilot's ClickHouse rows). Two fixes come
+  first:
+  - The timezone family states each city's UTC offset in the question, as dsbench's
+    `da_utc_peak_hour` does. The fixed offsets become the question's premise, so the truth is
+    right by construction. What is left to learn is the direction of the conversion, which is
+    the measured miss.
+  - The Postgres, MySQL and DuckDB answers get sandboxed engines, since model SQL runs only in a
+    sandbox. Until then only ClickHouse answers can be verified.
+- **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
+  databases, and its rows are keyed by database. Each prompt is therefore built from its row's
+  database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
+  is kept if its result equals the gold SQL's. The gold SQL must run first, as the pilot required
+  of Target A's truth. BIRD and Spider train (CC BY-SA 4.0) are optional; if used, they are flagged
+  for the publish gate's licence audit.
+- **Target C.** The base runs the ADR-003 loop on the Target C tasks, thinking on.
+  - A loop has one user message, so the template keeps every assistant turn's reasoning, and each
+    turn is labelled with it.
+  - Gate 2's loops had a median of about 3k tokens with no reasoning. An agentic pilot of about 20
+    tasks therefore measures yield and length before any volume run.
+  - Loops over 8,192 tokens are dropped. If most are, the tasks shrink (fewer turns): a
+    16,384-token step would need new kernel keys, as 4096 did.
+- **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
+  The base's call must match the gold call on function, required arguments and values: the check
+  BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
+  declined 89.2% of BFCL's irrelevance items with thinking off, so these should come easily. No
+  BFCL item or schema is used.
+- **Replay, code and SWE.** The base's answers, sampled as in the pilot (temperature 0.6, top-p
+  0.95, top-k 20), one per prompt.
+
+## Rendering and packing
+
+- **Labels.** With thinking on, the serving prompt ends in `<|im_start|>assistant\n<think>\n`. The
+  label starts after it and covers the reasoning, `</think>`, the answer and `<|im_end|>`.
+  `tokenize_masked.py` labels everything after `<|im_start|>assistant\n` today, the `<think>`
+  opener included, which is how Gate 2 trained it.
+- **Earlier turns.** The template keeps reasoning only in assistant turns after the last user
+  message; earlier assistant turns appear without it. They are context and get no label. Gate 2
+  labelled 2,595 of them, and labelled, they train short answers with no reasoning: Gate 2's
+  brevity again. A replay prompt with history gets one new assistant turn, the base's; the history
+  stays as the dataset wrote it.
+- **Packing.** Rows are bin-packed into 8,192-token blocks, never split: first-fit decreasing,
+  with the rest of each block padding with no label. `tokenize_masked.py` packed Gate 2 as one
+  stream cut every 2,048 tokens. 2,158 assistant turns ran over a block edge, and each one's end
+  trained in the next block without its prompt.
+- **Open: rows in a block see each other.** Full attention and the GatedDeltaNet state both carry
+  from one row into the next. Whether the recipe can reset both at row boundaries (position ids,
+  FLA's variable-length mode) is to be checked, not assumed.
+
+## Budget and time (estimated from the pilot's throughput)
+
+- **Generation**, with production stopped:
+  - replay, code and SWE: about 2,500 prompts (5% of rows run over 8,192 tokens and are dropped)
+    at 2,560 tokens a reply: about 6.4M tokens, 14 hours;
+  - the verified pools, about 1,400 kept rows: at a 30-60% yield, 3-7M generated tokens,
+    7-15 hours;
+  - Target C: sandbox time on top;
+  - in all, about 25-40 hours of box time.
+- **Training:** 10M tokens at 8,192 ≈ 15 hours, plus a few percent of padding.
+
+## Validation
+
+- **A thinking-on mini-battery on checkpoints** (ADR-001 Gate 2 item 4):
+  - IFEval, BFCL irrelevance, BIRD's SQLite error count and HumanEval+, as the battery report
+    proposed;
+  - plus the median reasoning length against the base's, the brevity check;
+  - with thinking on there is no empty block to leak after, so the think-leak check becomes the
+    share of replies that never close their reasoning.
+
+  The battery report sized it at an hour with thinking off. Reasoning makes each item several
+  times longer, so it runs on subsets of a few hundred items, which is where each Gate-2 failure
+  already stood far past its noise. Held-out loss is not a gate; Gate 2 showed why.
+- **The full battery, re-baselined with thinking on for both states.**
+  `20260924-gate2-battery.md` measured the base with thinking off, and those numbers don't carry
+  over. Token limits must be sized for reasoning; GPQA's 4,096 bound it in Gate 2.
+- **The held-out targeted probe and dsbench (k = 5), as in Revision 1.** The owner's suite runs
+  through pi with its 12,288-token reply cap, recorded in each run.
+- **Decontamination before training, against every battery benchmark.** `decontaminate.py` checks
+  dsbench only, and Gate 2's exposure to the battery was measured after training
+  (`battery/contamination.py`). The retrain's gate also rejects rows on the battery's 13-gram
+  index. SWE rows still drop SWE-bench-Verified's repositories.
+
+## Decisions for the owner
+
+1. **Budget:** 10M tokens (about 15 hours of training and 25-40 of generation), or more.
+2. **Target A's reasoning:** the hint-conditioned base (proposed: on-policy and licence-clean), or
+   a teacher (Ling).
+3. **SQL:** SynSQL-2.5M alone (proposed), or also BIRD and Spider train under CC BY-SA 4.0.
+4. **jupyter-agent (559 rows in Gate 2) and DataMind (640):** their answers are other pipelines'
+   text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
+   carry the DS and tool behaviour), or regenerate them with the base as the agent, which needs
+   their data in the sandbox.
+5. **Replay prompts:** clean-origin sets only (proposed), or also WildChat's first user turns,
+   which are human-written; their GPT-4 answers would be replaced.
+6. **The proportions above.**
+
+## Action items (Revision 2)
+
+1. [ ] Rendering and packing:
+   - the `<think>\n` opener stays in the prompt;
+   - no labels before the last user message;
+   - bin-packing into 8,192-token blocks without splitting rows (`build_masked_dataset.py` still
+     defaults to 2048);
+   - tests on rendered examples;
+   - check whether the recipe can reset attention and the GatedDeltaNet state at row boundaries.
+2. [ ] Target A:
+   - offsets stated in the timezone family;
+   - sandboxed Postgres, MySQL and DuckDB engines;
+   - hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
+     dialect.
+3. [ ] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
+   execution-match verifier.
+4. [ ] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
+   gold-call checker.
+5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
+6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist, register GSM8K, select the
+   prompts, generate.
+7. [ ] Decontamination: extend `decontaminate.py` with the battery's 13-gram index.
+8. [ ] The thinking-on mini-battery, and the full battery re-baselined for the base.
+9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
