@@ -10,6 +10,7 @@ Two families, both execution-verifiable:
   * `timezone-direction` -- the SIGN/direction trap. US local time is behind UTC, so UTC = local +
     |offset| (New York UTC-4 => add 4); the model adds the signed offset the wrong way. The
     arithmetic is identical across dialects, so this trains the REASONING, not a function name.
+    The question states the offsets it holds for every row (ADR-004 Revision 2).
 
 A convention exposes: params(rng) [the random draw that fixes the instance], then truth(domain,
 params) [pandas, independent], sql(domain, dialect, params) [the label], question / thinking /
@@ -23,7 +24,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from dsbench.sftgen.synth import US_CITY_UTC_ADD, Domain
+from dsbench.sftgen.synth import US_CITY_UTC_OFFSETS, Domain
 
 DIALECT_DISPLAY = {
     "clickhouse": "ClickHouse", "duckdb": "DuckDB", "postgres": "PostgreSQL", "mysql": "MySQL",
@@ -71,9 +72,9 @@ def _hour_expr(dialect: str, col: str) -> str:
     }[dialect]
 
 
-def _case_utc_add(loc_col: str) -> str:
-    """A standard-SQL CASE mapping each city to the hours to ADD to reach UTC (works everywhere)."""
-    whens = " ".join(f"WHEN '{city}' THEN {add}" for city, add in US_CITY_UTC_ADD.items())
+def _case_utc_add(loc_col: str, offsets: dict[str, int]) -> str:
+    """A standard-SQL CASE mapping each city to the hours to ADD to reach UTC, i.e. -offset."""
+    whens = " ".join(f"WHEN '{city}' THEN {-offset}" for city, offset in offsets.items())
     return f"CASE {loc_col} {whens} ELSE 0 END"
 
 
@@ -146,6 +147,18 @@ class WeekdayNumbering(Convention):
 
 
 class TimezoneDirection(Convention):
+    """The `da_utc_peak_hour` gap: convert local time to UTC in the right direction.
+
+    ADR-004 Revision 2: the question states each city's UTC offset, and holds it for every row
+    whatever the date. Revision 1 converted with June (daylight-time) offsets for timestamps
+    across all of 2025 without saying so, so an answer aware of daylight saving disagreed with the
+    truth for about five months of every table (reports/gate-evals/20260928-reasoning-pilot.md).
+    With the offsets as the premise, the truth is right by construction, and what is left to learn
+    is the direction: UTC = local - offset, and US offsets are negative. The set (daylight or
+    standard time) is drawn per instance, so the answer comes from reading the question, not from
+    a table the model has memorised.
+    """
+
     family = "timezone-direction"
     tags = ("time", "timezone", "reasoning")
 
@@ -153,32 +166,37 @@ class TimezoneDirection(Convention):
         # A UTC window to count in; the answer depends on getting the conversion direction right.
         windows = [(18, 23), (0, 5), (12, 17), (6, 11)]
         lo, hi = windows[int(rng.integers(0, len(windows)))]
-        return {"lo": lo, "hi": hi, "variant": int(rng.integers(0, 2))}
+        return {"lo": lo, "hi": hi, "variant": int(rng.integers(0, 2)),
+                "offsets": ("daylight", "standard")[int(rng.integers(0, 2))]}
 
-    def _utc_hour(self, domain: Domain) -> pd.Series:
+    def _utc_hour(self, domain: Domain, params: dict) -> pd.Series:
         local_h = domain.df[domain.ts_col].dt.hour
-        add = domain.df[domain.location_col].map(US_CITY_UTC_ADD).fillna(0).astype(int)
-        return (local_h + add) % 24
+        offset = domain.df[domain.location_col].map(US_CITY_UTC_OFFSETS[params["offsets"]])
+        return (local_h - offset.fillna(0).astype(int)) % 24  # UTC = local - offset
 
     def truth(self, domain: Domain, params: dict) -> int:
-        uh = self._utc_hour(domain)
+        uh = self._utc_hour(domain, params)
         return int(((uh >= params["lo"]) & (uh <= params["hi"])).sum())
 
     def question(self, domain: Domain, params: dict) -> str:
         col, loc, lab, lo, hi = (
             domain.ts_col, domain.location_col, domain.label, params["lo"], params["hi"]
         )
+        kind = {"daylight": "daylight-saving", "standard": "standard"}[params["offsets"]]
+        offsets = ", ".join(f"{city} UTC{offset:+d}"
+                            for city, offset in US_CITY_UTC_OFFSETS[params["offsets"]].items())
+        premise = (f"Take each {loc} at its US {kind} time offset, for every row regardless of "
+                   f"date: {offsets}.")
         return [
-            (f"Each {col} is a LOCAL time in its {loc} (all US cities). Convert each to UTC and "
-             f"count how many {lab} fall in UTC hours {lo} through {hi} inclusive. "
-             f"Reply with the count."),
-            (f"{col} is local time for the {loc}. After converting to UTC, how many {lab} land in "
-             f"the UTC hour range {lo}-{hi} (inclusive)? Give the count."),
+            (f"Every {col} is a local time in the row's {loc}. {premise} How many {lab} have a "
+             f"UTC hour between {lo} and {hi}, inclusive?"),
+            (f"{premise} The {col} values are local clock times. Counted in UTC, how many {lab} "
+             f"fall in hours {lo} to {hi}, both included?"),
         ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
         h = _hour_expr(dialect, domain.ts_col)
-        add = _case_utc_add(domain.location_col)
+        add = _case_utc_add(domain.location_col, US_CITY_UTC_OFFSETS[params["offsets"]])
         utc = f"(({h} + {add}) % 24)"
         return (
             f"SELECT count(*) FROM {domain.name} "
@@ -186,11 +204,12 @@ class TimezoneDirection(Convention):
         )
 
     def thinking(self, dialect: str, params: dict) -> str:
+        city, offset = next(iter(US_CITY_UTC_OFFSETS[params["offsets"]].items()))
         return (
-            "US local time is behind UTC, so UTC = local + |offset| (e.g. New York is UTC-4, so "
-            "ADD 4). Adding the signed offset (local + (-4)) shifts the wrong way and miscounts; "
-            f"the CASE maps each city to the hours to add before the {params['lo']}-{params['hi']} "
-            "UTC filter."
+            f"UTC = local time - UTC offset. US offsets are negative ({city} is UTC{offset:+d}), "
+            f"so UTC = local + {-offset}: the CASE adds each city's hours before the "
+            f"{params['lo']}-{params['hi']} UTC filter. Adding the signed offset "
+            f"(local + ({offset})) shifts the wrong way and miscounts."
         )
 
 

@@ -58,7 +58,9 @@ execution-verified rows. Validated end-to-end: 192 rows across all four dialects
 - `synth.py` — six seeded non-aviation domains (retail / IoT / support / payments / web / gym),
   reproducible from `(domain, seed)`.
 - `conventions.py` — the trap families: `weekday-numbering`, `weekend-flag` (the `da_weekend_delay`
-  gap), `timezone-direction`, `month-bucket`; each with paraphrased question variants.
+  gap), `timezone-direction`, `month-bucket`; each with paraphrased question variants. Since ADR-004
+  Revision 2, `timezone-direction` states the UTC offsets it holds for every row (daylight or
+  standard time, drawn per instance). Its truth used June offsets all year, unstated, before.
 - `engines.py` — dialect execution backends (DuckDB, ClickHouse, optional Postgres/MySQL).
 - `dialect_conventions.py` — Target A generator + CLI + run report.
 - `render.py` — raw rows → Qwen chat-template training JSONL.
