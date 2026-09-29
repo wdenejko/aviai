@@ -2496,5 +2496,112 @@
    "decode_tok_s": 23.905460463459498,
    "sequence_tokens": 4350
   }
- ]
+ ],
+ "addendum_2026_09_29_target_a_all_dialects": {
+  "engines": "dsbench sandbox: clickhouse, postgres:16, mysql:8.4, duckdb 1.5.5 in a no-network container",
+  "note": "timezone-direction rows here are Revision 1's: the question states no offsets and the truth used June offsets all year, so its 0/17 does not measure the fixed family",
+  "by_dialect": {
+   "clickhouse": {
+    "counts": {
+     "wrong": 19,
+     "verified": 9,
+     "error": 4
+    },
+    "judged": 32,
+    "yield": 0.281,
+    "by_family": {
+     "month-bucket": {
+      "verified": 7
+     },
+     "timezone-direction": {
+      "error": 4,
+      "wrong": 2
+     },
+     "weekday-numbering": {
+      "verified": 1,
+      "wrong": 5
+     },
+     "weekend-flag": {
+      "wrong": 12,
+      "verified": 1
+     }
+    }
+   },
+   "postgres": {
+    "counts": {
+     "verified": 10,
+     "wrong": 3,
+     "error": 3
+    },
+    "judged": 16,
+    "yield": 0.625,
+    "by_family": {
+     "month-bucket": {
+      "verified": 5
+     },
+     "timezone-direction": {
+      "wrong": 2,
+      "error": 3
+     },
+     "weekday-numbering": {
+      "verified": 4
+     },
+     "weekend-flag": {
+      "verified": 1,
+      "wrong": 1
+     }
+    }
+   },
+   "mysql": {
+    "counts": {
+     "verified": 11,
+     "wrong": 4,
+     "no_sql": 1
+    },
+    "judged": 16,
+    "yield": 0.688,
+    "by_family": {
+     "month-bucket": {
+      "verified": 3
+     },
+     "timezone-direction": {
+      "wrong": 3,
+      "no_sql": 1
+     },
+     "weekday-numbering": {
+      "verified": 1
+     },
+     "weekend-flag": {
+      "verified": 7,
+      "wrong": 1
+     }
+    }
+   },
+   "duckdb": {
+    "counts": {
+     "verified": 10,
+     "wrong": 5,
+     "error": 1
+    },
+    "judged": 16,
+    "yield": 0.625,
+    "by_family": {
+     "month-bucket": {
+      "verified": 2
+     },
+     "timezone-direction": {
+      "wrong": 1,
+      "error": 1
+     },
+     "weekday-numbering": {
+      "verified": 5
+     },
+     "weekend-flag": {
+      "wrong": 4,
+      "verified": 3
+     }
+    }
+   }
+  }
+ }
 }

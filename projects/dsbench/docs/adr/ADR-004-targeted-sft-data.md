@@ -244,7 +244,7 @@ anything redistributable. The allowlist needs that fix.
     right by construction. What is left to learn is the direction of the conversion, which is
     the measured miss.
   - The Postgres, MySQL and DuckDB answers get sandboxed engines, since model SQL runs only in a
-    sandbox. Until then only ClickHouse answers can be verified.
+    sandbox. Until then only ClickHouse answers can be verified. **Built 2026-09-29.**
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -371,9 +371,19 @@ anything redistributable. The allowlist needs that fix.
      - 36 of 36 generated rows verify on ClickHouse and DuckDB, and all 36 pass both
        decontamination gates;
      - the synthetic tables are unchanged, so old rows still rebuild.
-   - [ ] sandboxed Postgres, MySQL and DuckDB engines;
+   - [x] the SQL-only prompt. **Done 2026-09-29:** the system prompt and the questions ask for
+     the query only, and a generated row's answer is the SQL. The verified number stays in the
+     row's verification record.
+   - [x] sandboxed Postgres, MySQL and DuckDB engines. **Done 2026-09-29**
+     (`sandbox/docker-compose.yml`, `engines.available_engines(sandboxed=True)`):
+     - model SQL runs through a read-only login in Postgres 16 and MySQL 8.4, and in DuckDB 1.5.5
+       in a container with no network;
+     - the pilot's answers in those dialects verify 10/16, 11/16 and 10/16, against ClickHouse's
+       9/32 (`reports/gate-evals/20260928-reasoning-pilot.md`, addendum).
    - [ ] hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
-     dialect.
+     dialect. The addendum's numbers say where the base is wrong: ClickHouse weekdays and
+     weekends first, then DuckDB weekends. The timezone family goes too, once it is re-measured
+     with its stated offsets.
 3. [ ] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier.
 4. [ ] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
