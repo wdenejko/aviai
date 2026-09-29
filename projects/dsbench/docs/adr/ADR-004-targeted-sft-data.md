@@ -331,7 +331,12 @@ anything redistributable. The allowlist needs that fix.
 - **Decontamination before training, against every battery benchmark.** `decontaminate.py` checks
   dsbench only, and Gate 2's exposure to the battery was measured after training
   (`battery/contamination.py`). The retrain's gate also rejects rows on the battery's 13-gram
-  index. SWE rows still drop SWE-bench-Verified's repositories.
+  index. SWE rows still drop SWE-bench-Verified's repositories. **Built 2026-09-29**
+  (`decontaminate.py --battery-items`, `reports/gate-evals/20260929-battery-decontamination.md`):
+  - a row is rejected when it reproduces a fifth of a battery item's 13-grams, or a short item
+    whole;
+  - on Gate 2's mixture it touches the same 44 items as the after-the-fact check and rejects 2
+    rows.
 
 ## Decisions for the owner
 
@@ -370,6 +375,8 @@ anything redistributable. The allowlist needs that fix.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist, register GSM8K, select the
    prompts, generate.
-7. [ ] Decontamination: extend `decontaminate.py` with the battery's 13-gram index.
+7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
+   2026-09-29**, with short items matched whole and BFCL's schemas indexed
+   (`reports/gate-evals/20260929-battery-decontamination.md`).
 8. [ ] The thinking-on mini-battery, and the full battery re-baselined for the base.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.

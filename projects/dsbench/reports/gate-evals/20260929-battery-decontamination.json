@@ -1,0 +1,628 @@
+{
+ "date": "2026-09-29",
+ "items": "~/benchlab/runs/2026-09-24-gate2-battery/items (dashi)",
+ "rule": {
+  "ngram": 13,
+  "reject_at_fraction_of_item_grams": 0.2,
+  "short_item_min_tokens": 6
+ },
+ "short_items_by_length": {
+  "bfcl": {
+   "3": 3,
+   "4": 4,
+   "5": 7,
+   "6": 29,
+   "7": 39,
+   "8": 47,
+   "9": 59,
+   "10": 75,
+   "11": 67,
+   "12": 67
+  },
+  "ifeval": {
+   "10": 1,
+   "11": 1
+  },
+  "bird": {
+   "12": 1
+  }
+ },
+ "agreement_with_after_the_fact_check": {
+  "items_touched_gate": 44,
+  "items_any_after_the_fact": 44,
+  "same_set": true,
+  "strong_after_the_fact": [
+   "bfcl:multiple_1"
+  ],
+  "rejected_units_gate": [
+   "bfcl:multiple_1"
+  ]
+ },
+ "runs": {
+  "gate2_mixture": {
+   "scanned": 23640,
+   "clean": 23638,
+   "rejected": 2,
+   "by_rule": {
+    "battery": 2
+   },
+   "examples": [
+    {
+     "row": "#9006",
+     "rule": "battery",
+     "hit": "bfcl:multiple_1",
+     "shared": 1,
+     "of": 5
+    },
+    {
+     "row": "#14970",
+     "rule": "battery",
+     "hit": "bfcl:multiple_1",
+     "shared": 1,
+     "of": 5
+    }
+   ],
+   "battery": {
+    "units": {
+     "bfcl": 1226,
+     "bfcl-schema": 1240,
+     "bird": 1534,
+     "ds1000": 1000,
+     "gpqa": 198,
+     "humaneval_plus": 164,
+     "ifeval": 541,
+     "lcb": 342,
+     "mmlu_pro": 1400
+    },
+    "unchecked_too_short": {
+     "bfcl": 14
+    },
+    "rejected_by_unit": {
+     "bfcl:multiple_1": 2
+    },
+    "below_line": {
+     "rows": 55,
+     "units": 43,
+     "by_unit": {
+      "lcb:3716": 15,
+      "ds1000:389": 11,
+      "ds1000:336": 11,
+      "ds1000:338": 11,
+      "ds1000:358": 11,
+      "ds1000:355": 11,
+      "ds1000:356": 11,
+      "ds1000:357": 11,
+      "ds1000:668": 11,
+      "ds1000:671": 11,
+      "ds1000:508": 11,
+      "ds1000:903": 11,
+      "ds1000:902": 11,
+      "ds1000:905": 11,
+      "ds1000:904": 11,
+      "ds1000:502": 10,
+      "ds1000:501": 10,
+      "ds1000:769": 10,
+      "ds1000:770": 10,
+      "ds1000:270": 10,
+      "ds1000:269": 10,
+      "lcb:abc380_d": 10,
+      "ds1000:670": 8,
+      "humaneval_plus:HumanEval/55": 6,
+      "bfcl:parallel_129": 6,
+      "ds1000:750": 6,
+      "ds1000:749": 6,
+      "ds1000:751": 6,
+      "humaneval_plus:HumanEval/63": 5,
+      "ds1000:452": 4,
+      "lcb:3591": 4,
+      "ds1000:297": 4,
+      "lcb:3616": 3,
+      "humaneval_plus:HumanEval/19": 2,
+      "ds1000:156": 1,
+      "ds1000:952": 1,
+      "humaneval_plus:HumanEval/58": 1,
+      "humaneval_plus:HumanEval/129": 1,
+      "mmlu_pro:8730": 1,
+      "lcb:abc390_g": 1,
+      "ds1000:299": 1,
+      "ds1000:507": 1,
+      "humaneval_plus:HumanEval/78": 1
+     },
+     "examples": [
+      {
+       "row": "#134",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/55",
+       "shared": 1,
+       "of": 33
+      },
+      {
+       "row": "#204",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      },
+      {
+       "row": "#209",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      },
+      {
+       "row": "#304",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/55",
+       "shared": 1,
+       "of": 33
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:389",
+       "shared": 11,
+       "of": 137
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:336",
+       "shared": 12,
+       "of": 166
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:338",
+       "shared": 12,
+       "of": 176
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "bfcl:parallel_129",
+       "shared": 4,
+       "of": 63
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:358",
+       "shared": 14,
+       "of": 235
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:355",
+       "shared": 14,
+       "of": 287
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:356",
+       "shared": 14,
+       "of": 287
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:357",
+       "shared": 14,
+       "of": 291
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:502",
+       "shared": 5,
+       "of": 191
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:501",
+       "shared": 5,
+       "of": 208
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:769",
+       "shared": 4,
+       "of": 183
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:770",
+       "shared": 4,
+       "of": 226
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:270",
+       "shared": 3,
+       "of": 195
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "ds1000:269",
+       "shared": 3,
+       "of": 197
+      },
+      {
+       "row": "0080/418/80418202.ipynb_qa_3",
+       "rule": "battery",
+       "hit": "lcb:abc380_d",
+       "shared": 4,
+       "of": 279
+      },
+      {
+       "row": "#978",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      }
+     ]
+    }
+   }
+  },
+  "gate1_pilot_mixture": {
+   "scanned": 2095,
+   "clean": 2095,
+   "rejected": 0,
+   "by_rule": {},
+   "examples": [],
+   "battery": {
+    "units": {
+     "bfcl": 1226,
+     "bfcl-schema": 1240,
+     "bird": 1534,
+     "ds1000": 1000,
+     "gpqa": 198,
+     "humaneval_plus": 164,
+     "ifeval": 541,
+     "lcb": 342,
+     "mmlu_pro": 1400
+    },
+    "unchecked_too_short": {
+     "bfcl": 14
+    },
+    "rejected_by_unit": {},
+    "below_line": {
+     "rows": 10,
+     "units": 19,
+     "by_unit": {
+      "lcb:3716": 4,
+      "humaneval_plus:HumanEval/55": 2,
+      "humaneval_plus:HumanEval/19": 2,
+      "humaneval_plus:HumanEval/63": 1,
+      "ds1000:389": 1,
+      "ds1000:336": 1,
+      "ds1000:338": 1,
+      "ds1000:358": 1,
+      "bfcl:parallel_129": 1,
+      "ds1000:355": 1,
+      "ds1000:356": 1,
+      "ds1000:357": 1,
+      "ds1000:502": 1,
+      "ds1000:501": 1,
+      "ds1000:769": 1,
+      "ds1000:770": 1,
+      "ds1000:270": 1,
+      "ds1000:269": 1,
+      "lcb:abc380_d": 1
+     },
+     "examples": [
+      {
+       "row": "#7",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      },
+      {
+       "row": "#504",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      },
+      {
+       "row": "#864",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/55",
+       "shared": 1,
+       "of": 33
+      },
+      {
+       "row": "#1323",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/19",
+       "shared": 8,
+       "of": 78
+      },
+      {
+       "row": "#1530",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/19",
+       "shared": 8,
+       "of": 78
+      },
+      {
+       "row": "#1591",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/63",
+       "shared": 5,
+       "of": 89
+      },
+      {
+       "row": "#1618",
+       "rule": "battery",
+       "hit": "lcb:3716",
+       "shared": 2,
+       "of": 183
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:389",
+       "shared": 12,
+       "of": 137
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:336",
+       "shared": 13,
+       "of": 166
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:338",
+       "shared": 13,
+       "of": 176
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:358",
+       "shared": 15,
+       "of": 235
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "bfcl:parallel_129",
+       "shared": 4,
+       "of": 63
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:355",
+       "shared": 15,
+       "of": 287
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:356",
+       "shared": 15,
+       "of": 287
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:357",
+       "shared": 15,
+       "of": 291
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:502",
+       "shared": 6,
+       "of": 191
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:501",
+       "shared": 6,
+       "of": 208
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:769",
+       "shared": 4,
+       "of": 183
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:770",
+       "shared": 4,
+       "of": 226
+      },
+      {
+       "row": "0063/842/63842304.ipynb_qa_1",
+       "rule": "battery",
+       "hit": "ds1000:270",
+       "shared": 3,
+       "of": 195
+      }
+     ]
+    }
+   }
+  },
+  "reasoning_pilot_records": {
+   "scanned": 199,
+   "clean": 199,
+   "rejected": 0,
+   "by_rule": {},
+   "examples": [],
+   "battery": {
+    "units": {
+     "bfcl": 1226,
+     "bfcl-schema": 1240,
+     "bird": 1534,
+     "ds1000": 1000,
+     "gpqa": 198,
+     "humaneval_plus": 164,
+     "ifeval": 541,
+     "lcb": 342,
+     "mmlu_pro": 1400
+    },
+    "unchecked_too_short": {
+     "bfcl": 14
+    },
+    "rejected_by_unit": {},
+    "below_line": {
+     "rows": 2,
+     "units": 16,
+     "by_unit": {
+      "ds1000:389": 1,
+      "ds1000:336": 1,
+      "ds1000:338": 1,
+      "bfcl:parallel_129": 1,
+      "ds1000:358": 1,
+      "ds1000:355": 1,
+      "ds1000:356": 1,
+      "ds1000:357": 1,
+      "ds1000:502": 1,
+      "ds1000:501": 1,
+      "ds1000:769": 1,
+      "ds1000:770": 1,
+      "ds1000:270": 1,
+      "ds1000:269": 1,
+      "lcb:abc380_d": 1,
+      "humaneval_plus:HumanEval/55": 1
+     },
+     "examples": [
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:389",
+       "shared": 11,
+       "of": 137
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:336",
+       "shared": 12,
+       "of": 166
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:338",
+       "shared": 12,
+       "of": 176
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "bfcl:parallel_129",
+       "shared": 4,
+       "of": 63
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:358",
+       "shared": 14,
+       "of": 235
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:355",
+       "shared": 14,
+       "of": 287
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:356",
+       "shared": 14,
+       "of": 287
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:357",
+       "shared": 14,
+       "of": 291
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:502",
+       "shared": 5,
+       "of": 191
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:501",
+       "shared": 5,
+       "of": 208
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:769",
+       "shared": 4,
+       "of": 183
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:770",
+       "shared": 4,
+       "of": 226
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:270",
+       "shared": 3,
+       "of": 195
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "ds1000:269",
+       "shared": 3,
+       "of": 197
+      },
+      {
+       "row": "tulu3:oasst1_5564",
+       "rule": "battery",
+       "hit": "lcb:abc380_d",
+       "shared": 4,
+       "of": 279
+      },
+      {
+       "row": "opencoder_edu:92e8c0c4e363",
+       "rule": "battery",
+       "hit": "humaneval_plus:HumanEval/55",
+       "shared": 1,
+       "of": 33
+      }
+     ]
+    }
+   }
+  }
+ }
+}
