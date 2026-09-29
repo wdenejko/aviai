@@ -98,12 +98,17 @@ class Convention:
         raise NotImplementedError
 
     def system(self, domain: Domain, dialect: str) -> str:
-        """Engine + schema context (dialect-only). Names the engine so the row is dialect-aware."""
+        """Engine + schema context (dialect-only). Names the engine so the row is dialect-aware.
+
+        The answer is the SQL only (ADR-004 Revision 2). Revision 1 also asked for "the numeric
+        result", which the model cannot know without the data, and the Gate-2 adapter learned to
+        invent one.
+        """
         cols = ", ".join(f"{c} ({_friendly_type(dt)})" for c, dt in domain.df.dtypes.items())
         return (
             f"You are writing SQL for a {DIALECT_DISPLAY[dialect]} database. "
             f"There is one table `{domain.name}` with columns: {cols}. "
-            f"Answer with a single SQL query in a ```sql code block, then the numeric result."
+            f"Answer with a single SQL query in a ```sql code block."
         )
 
 
@@ -121,9 +126,9 @@ class WeekdayNumbering(Convention):
     def question(self, domain: Domain, params: dict) -> str:
         day, col, lab = _WEEKDAYS[params["weekday"]], domain.ts_col, domain.label
         return [
-            f"How many {lab} have a {col} that falls on a {day}? Reply with the count.",
+            f"How many {lab} have a {col} that falls on a {day}?",
             f"Count the {lab} whose {col} is a {day}.",
-            f"On {day}s specifically, how many {lab} were there (by {col})? Give the number.",
+            f"On {day}s specifically, how many {lab} were there (by {col})?",
         ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
@@ -241,9 +246,9 @@ class WeekendFlag(Convention):
     def question(self, domain: Domain, params: dict) -> str:
         col, lab = domain.ts_col, domain.label
         return [
-            f"How many {lab} fall on a weekend (Sat or Sun), by {col}? Reply with the count.",
+            f"How many {lab} fall on a weekend (Sat or Sun), by {col}?",
             f"Count the weekend {lab} (Saturday or Sunday {col}).",
-            f"Of all {lab}, how many have a {col} on Sat or Sun? Give the number.",
+            f"Of all {lab}, how many have a {col} on Sat or Sun?",
         ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
@@ -275,7 +280,7 @@ class MonthBucket(Convention):
     def question(self, domain: Domain, params: dict) -> str:
         name, col, lab = _MONTHS[params["month"] - 1], domain.ts_col, domain.label
         return [
-            f"How many {lab} have a {col} in {name}? Reply with the count.",
+            f"How many {lab} have a {col} in {name}?",
             f"Count the {lab} whose {col} falls in the month of {name}.",
         ][params["variant"]]
 
