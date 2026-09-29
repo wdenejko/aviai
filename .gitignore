@@ -28,6 +28,11 @@ projects/avtext/data/gold/
 # here rather than only in scratch) — ignore the bulk by pattern (so the tracked
 # provenance anchors README.md + manifest.json in the same dir stay trackable).
 projects/dsbench/data/sft/*.jsonl
+
+# dsbench battery items (ADR-001 Gate 2): public benchmarks plus gated GPQA, whose terms forbid
+# republishing its examples. A local copy for the decontamination gate (ADR-004 Revision 2);
+# the source of truth is the battery run on dashi. Never committed.
+projects/dsbench/data/battery/
 projects/dsbench/data/sft/*.report.json
 # per-gate data zone: symlinks into the ignored pools (a trailing '#' is NOT a comment here)
 projects/dsbench/data/sft/gate2/

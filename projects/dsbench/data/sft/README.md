@@ -54,7 +54,9 @@ uv run python -m dsbench.sftgen.assemble --data-zone data/sft --breadth-dir <scr
 - **Target C** keeps a trajectory only when the oracle passes (correct-schema output table, every
   test row predicted, metric beats the bar) — a kept trajectory *is* a demonstration of finishing
   the loop. Teacher supplies phrasing; the oracle supplies correctness.
-- **Decontamination** vs. dsbench (13-gram + schema-identifier + numeric-answer gate) runs over the
+- **Decontamination** vs. dsbench (13-gram + schema-identifier + numeric-answer gate) and, for the
+  Revision 2 retrain, vs. the acceptance battery (`--battery-items data/battery/items`, a
+  git-ignored copy of the battery run's `items/`) runs over the
   rendered **mixture** just before training — that is the authoritative gate. The C slice here was
   already scanned clean (58/58) at generation time as a smoke check.
 

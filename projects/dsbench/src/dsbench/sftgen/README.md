@@ -15,7 +15,7 @@ aviation benchmark, so a dsbench before/after measures learning, not memorisatio
 | **A** | `dialect_conventions.py` | SQL-dialect date/time conventions (weekday, weekend, tz, month) | **done** — 6 domains × 4 families, execution-verified, teacher-free |
 | **B** | `denominator_reasoning.py` | correct conditional-population / ratio denominator | **built, then DROPPED** — no measured gap (probe 5/5 + `da_delay_attribution` was a prompt-scope artifact). Generator kept as a tool; not in the mixture. See ADR-004 |
 | **C** | `ml_delivery_trajectories.py` | agentic ML-workflow delivery discipline | **done** — runs the teacher as a sandbox agent on synthetic ML tasks; keeps only oracle-passing trajectories |
-| — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench | **done** — all 3 rules verified |
+| — | `decontaminate.py` | 13-gram + schema-identifier + numeric-answer gate vs dsbench; with `--battery-items`, vs the acceptance battery too (ADR-004 Revision 2) | **done** — all 4 rules verified (`reports/gate-evals/20260929-battery-decontamination.md`) |
 
 ## Run Target A
 
@@ -62,7 +62,8 @@ execution-verified rows. Validated end-to-end: 192 rows across all four dialects
 - `engines.py` — dialect execution backends (DuckDB, ClickHouse, optional Postgres/MySQL).
 - `dialect_conventions.py` — Target A generator + CLI + run report.
 - `render.py` — raw rows → Qwen chat-template training JSONL.
-- `decontaminate.py` — the dsbench-disjointness gate (run over the rendered mixture before training).
+- `decontaminate.py` — the disjointness gate against dsbench and, with `--battery-items`, the
+  acceptance battery (run over the rendered mixture before training).
 - `teacher.py` — pluggable licence-clean teacher client (HTTP OpenAI-compatible + offline stub).
 - `denominator_reasoning.py` — Target B generator: execution-verified traps + teacher execution-filter.
 - `ml_tasks.py` — synthetic, non-aviation ML sandbox tasks for Target C (7 families;
