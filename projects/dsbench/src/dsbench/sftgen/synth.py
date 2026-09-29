@@ -1,9 +1,10 @@
 """Seeded synthetic domains for Target A -- deliberately NOT aviation (ADR-004 transfer rule).
 
 Each domain is a small table with (i) a timestamp column, so the weekday-numbering and month/quarter
-conventions have something to bite on, and (ii) a US-location column with a known summer UTC offset,
-so the timezone-direction trap has real cross-zone data (no single offset can fake the answer -- the
-same reason dsbench's `da_utc_peak_hour` uses five hubs across four zones).
+conventions have something to bite on, and (ii) a US-location column whose UTC offsets the
+timezone-direction family states in its question, so that trap has real cross-zone data (no single
+offset can fake the answer -- the same reason dsbench's `da_utc_peak_hour` uses five hubs across
+four zones).
 
 Data is generated with a seeded numpy Generator, so a row's `(domain, seed)` reproduces it exactly
 (the `provenance.seed` contract). No faker dependency: the columns only need realistic *shape*, not
@@ -16,12 +17,19 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-# US cities -> June/DST offset to add to reach UTC (i.e. -tz_offset; all US offsets are negative).
-# Spread across four zones on purpose. e.g. New York = UTC-4 => add 4.
-US_CITY_UTC_ADD: dict[str, int] = {
-    "New York": 4, "Atlanta": 4, "Chicago": 5, "Dallas": 5, "Denver": 6, "Los Angeles": 7,
+# US cities -> UTC offset, signed as written ("UTC-4" = -4), in two fixed sets: daylight saving
+# time and standard time. The timezone family states one set in its question and holds it for every
+# row (conventions.TimezoneDirection). Local -> UTC is UTC = local - offset, so New York in daylight
+# time (UTC-4) gives UTC = local + 4. Spread across four zones on purpose.
+US_CITY_UTC_OFFSETS: dict[str, dict[str, int]] = {
+    "daylight": {"New York": -4, "Atlanta": -4, "Chicago": -5, "Dallas": -5, "Denver": -6,
+                 "Los Angeles": -7},
+    "standard": {"New York": -5, "Atlanta": -5, "Chicago": -6, "Dallas": -6, "Denver": -7,
+                 "Los Angeles": -8},
 }
-_CITIES = list(US_CITY_UTC_ADD)
+# The order the data draws cities from. Keep it: rows are re-verified by rebuilding their table
+# from (domain, seed, n), and a new order would draw different cities.
+_CITIES = ["New York", "Atlanta", "Chicago", "Dallas", "Denver", "Los Angeles"]
 
 
 @dataclass(frozen=True)
