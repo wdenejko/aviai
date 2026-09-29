@@ -31,8 +31,9 @@ from dsbench.sftgen.schema import (
 )
 
 
-def _assistant_content(sql: str, result: Any) -> str:
-    return f"```sql\n{sql}\n```\n\nAnswer: {result}"
+def _assistant_content(sql: str) -> str:
+    # The SQL only: the verified number stays in the row's `verification`, not in the answer.
+    return f"```sql\n{sql}\n```"
 
 
 def _build_row(*, domain, dialect, conv, params, sql, truth, result, seed, thinking_on) -> SFTRow:
@@ -41,7 +42,7 @@ def _build_row(*, domain, dialect, conv, params, sql, truth, result, seed, think
         Turn(role="system", content=conv.system(domain, dialect)),
         Turn(role="user", content=conv.question(domain, params)),
         Turn(
-            role="assistant", content=_assistant_content(sql, result), loss=True, thinking=trace
+            role="assistant", content=_assistant_content(sql), loss=True, thinking=trace
         ),
     )
     return SFTRow(
