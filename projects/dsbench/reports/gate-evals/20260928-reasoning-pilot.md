@@ -111,3 +111,41 @@ answer.
    computing the truth with real time-zone rules.
 5. **Verify the other dialects too.** Postgres, MySQL and DuckDB answers were measured for
    length only. They need their own sandboxed engines before any of them become training rows.
+
+## Addendum (2026-09-29): Target A on all four dialects
+
+The pilot measured the Postgres, MySQL and DuckDB answers for length only, because only ClickHouse
+had a sandboxed engine to run model SQL on. The dsbench sandbox now has all four
+(`sandbox/docker-compose.yml`):
+- Postgres 16 and MySQL 8.4, where model SQL runs through a login that can only read its table;
+- DuckDB 1.5.5 in a container with no network and a read-only filesystem.
+
+The same 80 answers, run the same way (each table rebuilt from its seed, gold SQL first):
+
+| Family | ClickHouse | Postgres | MySQL | DuckDB |
+|---|---:|---:|---:|---:|
+| month-bucket | 7/7 | 5/5 | 3/3 | 2/2 |
+| weekday-numbering | 1/6 | 4/4 | 1/1 | 5/5 |
+| weekend-flag | 1/13 | 1/2 | 7/8 | 3/7 |
+| timezone-direction | 0/6 | 0/5 | 0/4 | 0/2 |
+| **all** | **9/32 (28%)** | **10/16 (62%)** | **11/16 (69%)** | **10/16 (62%)** |
+
+The gold SQL reproduced the stored truth on every rebuilt table, in every engine, and ClickHouse
+repeats the pilot's 9 of 32 exactly.
+
+**Weekdays: the gap is ClickHouse's numbering, nowhere else.** The base numbers weekdays from Sunday,
+which is right in Postgres and DuckDB (0 = Sunday) and in MySQL (1 = Sunday), 10 of 10. ClickHouse
+is ISO (1 = Monday), and there it's 1 of 6. The weekend family has the same trap and fails the
+same way in ClickHouse, 1 of 13. It also misses 4 of 7 in DuckDB, a smaller second target. Month
+buckets carry no gap: 17 of 17.
+
+**The timezone rows measure nothing yet.** They are Revision 1's, with no offsets in the question
+and a truth that used June offsets all year. The base read "local time in New York" as a real time
+zone. Its Postgres and DuckDB answers called `AT TIME ZONE 'New York'`, which those engines reject
+(4 errors). The family now states its offsets (ADR-004 Revision 2) and has to be measured again,
+which needs the base served.
+
+**For the retrain**, Target A's hint-conditioned rows belong where the base is wrong: ClickHouse
+weekdays and weekends first, DuckDB weekends second, and the timezone family once re-measured.
+Month buckets and the other dialects' weekday numbering need few rows, and those can come straight
+from the base's own verified traces.
