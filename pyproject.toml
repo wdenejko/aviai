@@ -33,6 +33,7 @@ dev = [
     "ruff>=0.9",
     "pytest>=8",
     "hypothesis>=6.100",   # property-based tests — you'll lean on this hard in Phase 2 (round-trip oracle checks)
+    "jinja2>=3.1",         # renders the served model's real chat template in dsbench's tokenisation tests
 ]
 
 [tool.ruff]
