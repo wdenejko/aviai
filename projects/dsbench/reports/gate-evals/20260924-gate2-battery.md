@@ -276,6 +276,12 @@ rarely does (IFEval 15 of 541, MMLU-Pro 12 of 1400, all closed). DS-1000 shows n
 1000): its system prompt demands bare code between `<code>` tags, and the adapter's replies there
 are shorter than the base's (46 vs 103 tokens on average).
 
+**Addendum (2026-09-29).** The training tokenizer did not split `<think>` and `</think>` the way the
+server does. transformers' GGUF converter left them as BPE pieces (`<th` `ink` `>`), while
+llama.cpp serves each as one token. So the empty block the adapter was served never appeared in its
+training text in that form. That fits the leak without proving it; see
+`20260929-thinking-rendering-packing.md`.
+
 ## MTP acceptance: passes
 
 The Qwen3.6 MTP head (exported with the fork converter's `--mtp` mode, Q8_0) drafted for the same
