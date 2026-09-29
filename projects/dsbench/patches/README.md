@@ -90,6 +90,20 @@ the inventory tests' counts, and the regenerated exact-key table.
   process that initialized HIP exits 0 on this box whatever it asks for.
 - `audit_summary.py`: the warmed step, memory, losses and gradient checks from audit reports.
 
+## `thinking-packing/` (box scripts behind the thinking-on rendering report)
+- `template_probe.py`: exports the training tokenizer's chat template (the test fixture
+  `tests/fixtures/qwen36_chat_template.jinja` is its output, byte for byte) and renders sample
+  conversations: history, tool loops, the thinking-on and thinking-off generation prompts.
+- `tokenizer_probe.py`: which tokens the GGUF marks CONTROL or USER_DEFINED (llama.cpp keeps them
+  whole), and how the HF tokenizer splits them before and after `match_llama_tokenization`.
+- `validate_pilot_packing.py`: on the reasoning pilot's 200 traces, the prompt token counts against
+  llama-server's own, the label invariants on real ids, and packing at 8192. It needs
+  `tokenize_masked.py` beside it.
+
+All three are CPU-only but run inside the `llama-rocm-unlimited-build` toolbox, because the
+torch in `~/ftgguf` needs `libatomic.so.1` and the host lacks it. See
+`reports/gate-evals/20260929-thinking-rendering-packing.md`.
+
 ## `fttrain-thermostat-pattern.patch` (box tooling, not the recipe)
 `~/fttrain/thermostat.sh` is the userspace thermal governor (SIGSTOP the trainer at >= 101 °C,
 SIGCONT at <= 97 °C). It hardcoded `pgrep -f "python.*train_lora_peft.py"` — the avtext/Gemma
