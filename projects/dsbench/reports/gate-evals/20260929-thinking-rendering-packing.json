@@ -1,0 +1,237 @@
+{
+ "date": "2026-09-29",
+ "gguf": "~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf",
+ "chat_template_sha256": "55d4931433fe502b794226ee7f4d206a6bdd436ac9f80eb7d8ebb4c639f9ea0c",
+ "atomic_tokens": [
+  [
+   248044,
+   "<|endoftext|>",
+   "CONTROL"
+  ],
+  [
+   248045,
+   "<|im_start|>",
+   "CONTROL"
+  ],
+  [
+   248046,
+   "<|im_end|>",
+   "CONTROL"
+  ],
+  [
+   248047,
+   "<|object_ref_start|>",
+   "CONTROL"
+  ],
+  [
+   248048,
+   "<|object_ref_end|>",
+   "CONTROL"
+  ],
+  [
+   248049,
+   "<|box_start|>",
+   "CONTROL"
+  ],
+  [
+   248050,
+   "<|box_end|>",
+   "CONTROL"
+  ],
+  [
+   248051,
+   "<|quad_start|>",
+   "CONTROL"
+  ],
+  [
+   248052,
+   "<|quad_end|>",
+   "CONTROL"
+  ],
+  [
+   248053,
+   "<|vision_start|>",
+   "CONTROL"
+  ],
+  [
+   248054,
+   "<|vision_end|>",
+   "CONTROL"
+  ],
+  [
+   248055,
+   "<|vision_pad|>",
+   "CONTROL"
+  ],
+  [
+   248056,
+   "<|image_pad|>",
+   "CONTROL"
+  ],
+  [
+   248057,
+   "<|video_pad|>",
+   "CONTROL"
+  ],
+  [
+   248058,
+   "<tool_call>",
+   "USER_DEFINED"
+  ],
+  [
+   248059,
+   "</tool_call>",
+   "USER_DEFINED"
+  ],
+  [
+   248060,
+   "<|fim_prefix|>",
+   "CONTROL"
+  ],
+  [
+   248061,
+   "<|fim_middle|>",
+   "CONTROL"
+  ],
+  [
+   248062,
+   "<|fim_suffix|>",
+   "CONTROL"
+  ],
+  [
+   248063,
+   "<|fim_pad|>",
+   "CONTROL"
+  ],
+  [
+   248064,
+   "<|repo_name|>",
+   "CONTROL"
+  ],
+  [
+   248065,
+   "<|file_sep|>",
+   "CONTROL"
+  ],
+  [
+   248066,
+   "<tool_response>",
+   "USER_DEFINED"
+  ],
+  [
+   248067,
+   "</tool_response>",
+   "USER_DEFINED"
+  ],
+  [
+   248068,
+   "<think>",
+   "USER_DEFINED"
+  ],
+  [
+   248069,
+   "</think>",
+   "USER_DEFINED"
+  ],
+  [
+   248070,
+   "<|audio_start|>",
+   "CONTROL"
+  ],
+  [
+   248071,
+   "<|audio_end|>",
+   "CONTROL"
+  ],
+  [
+   248072,
+   "<tts_pad>",
+   "CONTROL"
+  ],
+  [
+   248073,
+   "<tts_text_bos>",
+   "CONTROL"
+  ],
+  [
+   248074,
+   "<tts_text_eod>",
+   "CONTROL"
+  ],
+  [
+   248075,
+   "<tts_text_bos_single>",
+   "CONTROL"
+  ],
+  [
+   248076,
+   "<|audio_pad|>",
+   "CONTROL"
+  ]
+ ],
+ "sample_token_counts": {
+  "opener": {
+   "converter_tokenizer": 16,
+   "matched_tokenizer": 12
+  },
+  "tool": {
+   "converter_tokenizer": 54,
+   "matched_tokenizer": 42
+  }
+ },
+ "pilot_validation": {
+  "prompts": 200,
+  "hf_minus_server_prompt_tokens": {
+   "converter_tokenizer": {
+    "2": 200
+   },
+   "matched_tokenizer": {
+    "0": 200
+   }
+  },
+  "atomic_tokens": 33,
+  "capped_replies_left_out": [
+   "targetA:A-timezone-direction-mysql-iot_readings-155443"
+  ],
+  "label_invariant_violations": {},
+  "row_minus_server_tokens": {
+   "-1": 1,
+   "0": 7,
+   "1": 190,
+   "2": 1
+  },
+  "row_tokens_median": 2075,
+  "packing": {
+   "records": 199,
+   "rows": 199,
+   "rejected": {},
+   "too_long": [
+    "targetA:A-weekday-numbering-clickhouse-iot_readings-115848",
+    "targetA:A-weekend-flag-postgres-gym_checkins-515860",
+    "targetA:A-timezone-direction-mysql-support_tickets-200013",
+    "opencoder_edu:76fece37d23c",
+    "opencoder_edu:b9a5da67b48e",
+    "opencoder_edu:9a590572669b",
+    "opencoder_edu:95e115748c75",
+    "opencoder_edu:a732efa45457",
+    "opencoder_edu:5df2531eb103"
+   ],
+   "block": 8192,
+   "blocks": 56,
+   "rows_packed": 190,
+   "rows_per_block_max": 9,
+   "fill_pct": 97.7,
+   "trainable_token_pct": 87.0
+  },
+  "rows_per_block": {
+   "2": 24,
+   "3": 11,
+   "4": 9,
+   "5": 5,
+   "6": 4,
+   "7": 1,
+   "8": 1,
+   "9": 1
+  }
+ }
+}

@@ -270,8 +270,16 @@ anything redistributable. The allowlist needs that fix.
 
 - **Labels.** With thinking on, the serving prompt ends in `<|im_start|>assistant\n<think>\n`. The
   label starts after it and covers the reasoning, `</think>`, the answer and `<|im_end|>`.
-  `tokenize_masked.py` labels everything after `<|im_start|>assistant\n` today, the `<think>`
-  opener included, which is how Gate 2 trained it.
+  Gate 2's `tokenize_masked.py` labelled everything after `<|im_start|>assistant\n`, the `<think>`
+  opener included. **Built 2026-09-29** (`thinking_record`): the label starts at the end of the
+  served prompt, rendered with the generation prompt and required to be a prefix of the row, as
+  text and as tokens.
+- **Tokenization matches llama.cpp's.** Found while building the labels: transformers' GGUF
+  converter left `<think>`, `</think>` and the tool-call tags as BPE pieces (`<think>` = `<th`
+  `ink` `>`), which llama.cpp keeps whole. Gate 1 and Gate 2 trained on the split form. The build
+  now registers the GGUF's 33 CONTROL and USER_DEFINED tokens (`match_llama_tokenization`). On the
+  pilot's 200 prompts, the token counts then equal llama-server's exactly, where they had been 2
+  over on every one (`reports/gate-evals/20260929-thinking-rendering-packing.md`).
 - **Earlier turns.** The template keeps reasoning only in assistant turns after the last user
   message; earlier assistant turns appear without it. They are context and get no label. Gate 2
   labelled 2,595 of them, and labelled, they train short answers with no reasoning: Gate 2's
@@ -280,10 +288,17 @@ anything redistributable. The allowlist needs that fix.
 - **Packing.** Rows are bin-packed into 8,192-token blocks, never split: first-fit decreasing,
   with the rest of each block padding with no label. `tokenize_masked.py` packed Gate 2 as one
   stream cut every 2,048 tokens. 2,158 assistant turns ran over a block edge, and each one's end
-  trained in the next block without its prompt.
+  trained in the next block without its prompt. **Built 2026-09-29:** on the pilot's 199 finished
+  rows, 190 packed into 56 blocks, 97.7% full. Rows are separated by `<|endoftext|>`, and neither
+  separator nor padding gets a label.
 - **Open: rows in a block see each other.** Full attention and the GatedDeltaNet state both carry
-  from one row into the next. Whether the recipe can reset both at row boundaries (position ids,
-  FLA's variable-length mode) is to be checked, not assumed.
+  from one row into the next. Checked in the code on 2026-09-29:
+  - the model resets the GatedDeltaNet state when given row lengths (`cu_seq_lens_q`);
+  - its 4-tap convolution's fallback ignores boundaries;
+  - attention's variable-length path is unverified for the aiter kernel;
+  - the recipe's collator passes no lengths.
+
+  A GPU check (a block with row lengths against its rows run alone) and a collator patch are next.
 
 ## Budget and time (estimated from the pilot's throughput)
 
@@ -334,13 +349,15 @@ anything redistributable. The allowlist needs that fix.
 
 ## Action items (Revision 2)
 
-1. [ ] Rendering and packing:
-   - the `<think>\n` opener stays in the prompt;
-   - no labels before the last user message;
-   - bin-packing into 8,192-token blocks without splitting rows (`build_masked_dataset.py` still
-     defaults to 2048);
-   - tests on rendered examples;
-   - check whether the recipe can reset attention and the GatedDeltaNet state at row boundaries.
+1. [ ] Rendering and packing. **Done 2026-09-29 except the last point**
+   (`reports/gate-evals/20260929-thinking-rendering-packing.md`):
+   - [x] the `<think>\n` opener stays in the prompt;
+   - [x] no labels before the last user message;
+   - [x] bin-packing into 8,192-token blocks without splitting rows (`build_masked_dataset.py` now
+     defaults to 8192);
+   - [x] tests on rendered examples, with the model's own chat template;
+   - [x] found on the way: the tokenizer now splits text as llama.cpp does;
+   - [ ] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
 2. [ ] Target A:
    - offsets stated in the timezone family;
    - sandboxed Postgres, MySQL and DuckDB engines;
