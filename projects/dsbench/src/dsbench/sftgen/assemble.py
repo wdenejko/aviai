@@ -91,9 +91,9 @@ def _select(recs: list[dict], target: int, deny, rng: random.Random, pool: str,
     return kept, stats
 
 
-def assemble(*, data_zone: str, breadth_dir: str, scale: float,
-             seed: int) -> tuple[list[dict], dict]:
-    deny = build_denylist()
+def assemble(*, data_zone: str, breadth_dir: str, scale: float, seed: int,
+             battery_items: str | None = None) -> tuple[list[dict], dict]:
+    deny = build_denylist(battery_items=battery_items)
     rng = random.Random(seed)
     all_kept: list[dict] = []
     pools: list[dict] = []
@@ -134,10 +134,14 @@ def main() -> None:
     ap.add_argument("--report", default="", help="write the manifest JSON here")
     ap.add_argument("--scale", type=float, default=1.0, help="multiply every pool's token target")
     ap.add_argument("--seed", type=int, default=20260921)
+    ap.add_argument("--battery-items", default="",
+                    help="a battery run's items/ dir: also decontaminate against the battery "
+                         "(ADR-004 Revision 2; the Gate 1/2 mixtures were built without it)")
     args = ap.parse_args()
 
     mixture, manifest = assemble(data_zone=args.data_zone, breadth_dir=args.breadth_dir,
-                                 scale=args.scale, seed=args.seed)
+                                 scale=args.scale, seed=args.seed,
+                                 battery_items=args.battery_items or None)
     if args.out:
         with open(args.out, "w") as fh:
             for rec in mixture:
