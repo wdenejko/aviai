@@ -215,7 +215,7 @@ def verify(items_path: Path, gen_path: Path, out_path: Path, dialect: str = "cli
 
     items = {i["id"]: i for i in map(json.loads, items_path.open()) if i["pool"] == "targetA"}
     gens = {g["id"]: g for g in map(json.loads, gen_path.open()) if not g.get("error")}
-    engines = available_engines(only=[dialect])
+    engines = available_engines(only=[dialect], sandboxed=True)  # model SQL
     if not engines:
         raise SystemExit(f"no {dialect} engine reachable (is the dsbench sandbox up?)")
     engine = engines[0]
@@ -320,6 +320,8 @@ def main() -> None:
     s.add_argument("--items", type=Path, required=True)
     s.add_argument("--gen", type=Path, required=True)
     s.add_argument("--out", type=Path, required=True)
+    s.add_argument("--dialect", default="clickhouse",
+                   choices=["clickhouse", "postgres", "mysql", "duckdb"])
     s = sub.add_parser("report")
     s.add_argument("--gen", type=Path, required=True)
     s.add_argument("--verified", type=Path)
@@ -333,7 +335,7 @@ def main() -> None:
     elif args.cmd == "generate":
         generate(args.items, args.out, args.base_url, args.workers, args.max_tokens)
     elif args.cmd == "verify":
-        verify(args.items, args.gen, args.out)
+        verify(args.items, args.gen, args.out, args.dialect)
     else:
         gens = [json.loads(line) for line in args.gen.open()]
         verified = ([json.loads(line) for line in args.verified.open()]
