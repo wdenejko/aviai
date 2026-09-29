@@ -364,9 +364,15 @@ anything redistributable. The allowlist needs that fix.
    - [x] found on the way: the tokenizer now splits text as llama.cpp does;
    - [ ] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
 2. [ ] Target A:
-   - offsets stated in the timezone family;
-   - sandboxed Postgres, MySQL and DuckDB engines;
-   - hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
+   - [x] offsets stated in the timezone family. **Done 2026-09-29:**
+     - the question states each city's offset, daylight or standard time, drawn per instance,
+       and holds it for every row;
+     - the truth follows from the stated offsets by construction;
+     - 36 of 36 generated rows verify on ClickHouse and DuckDB, and all 36 pass both
+       decontamination gates;
+     - the synthetic tables are unchanged, so old rows still rebuild.
+   - [ ] sandboxed Postgres, MySQL and DuckDB engines;
+   - [ ] hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
      dialect.
 3. [ ] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier.
