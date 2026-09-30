@@ -47,6 +47,14 @@ uv run python -m dsbench.sftgen.assemble --data-zone data/sft --breadth-dir <scr
     --out data/sft/pilot_mixture.jsonl --report data/sft/pilot_manifest.json
 ```
 
+## Revision 2 replay pools
+
+`breadth_tulu3_aya.jsonl` and `breadth_tulu3_sciriff.jsonl` are Tulu 3's Aya and SciRIFF subsets,
+acquired through the licensing gate (`sftgen/breadth/sources.py`) at pinned revisions. Revision 2
+takes its replay prompts from them, and the base writes the answers (ADR-004 Revision 2).
+`rev2_breadth_manifest.json` (tracked) records each pool's revision, sha256, licences and gate
+results, and the command that rebuilds it.
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent
