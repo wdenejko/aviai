@@ -49,11 +49,20 @@ uv run python -m dsbench.sftgen.assemble --data-zone data/sft --breadth-dir <scr
 
 ## Revision 2 replay pools
 
-`breadth_tulu3_aya.jsonl` and `breadth_tulu3_sciriff.jsonl` are Tulu 3's Aya and SciRIFF subsets,
-acquired through the licensing gate (`sftgen/breadth/sources.py`) at pinned revisions. Revision 2
-takes its replay prompts from them, and the base writes the answers (ADR-004 Revision 2).
-`rev2_breadth_manifest.json` (tracked) records each pool's revision, sha256, licences and gate
-results, and the command that rebuilds it.
+`breadth_tulu3_aya.jsonl`, `breadth_tulu3_sciriff.jsonl`, `breadth_gsm8k.jsonl` and
+`breadth_opencoder_edu_rev2.jsonl` (with its tests; the Gate-2 pool keeps its name) are acquired
+through the licensing gate (`sftgen/breadth/sources.py`) at pinned revisions. Revision 2 takes its
+prompts from them and from the Gate-2 pools of oasst1 and SWE-Swiss, and the base writes the
+answers (ADR-004 Revision 2). `rev2_breadth_manifest.json` (tracked) records each pool's revision,
+sha256, licences and gate results, and the command that rebuilds it.
+
+`rev2_prompts.jsonl` is the selection (`sftgen/select_prompts.py`); `rev2_prompts_manifest.json`
+(tracked) records its parameters and per-pool counts. Rebuild it with:
+
+```bash
+uv run python -m dsbench.sftgen.select_prompts --battery-items data/battery/items \
+    --out data/sft/rev2_prompts.jsonl --report data/sft/rev2_prompts_manifest.json
+```
 
 ## Provenance discipline (every row earns its place)
 
