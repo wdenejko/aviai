@@ -1,8 +1,9 @@
 """Unit tests for the breadth-source normalisers (pure; no network / no `datasets`).
 
-These guard the two things most likely to silently corrupt the pilot mixture: (1) the jupyter-agent
-tool-call rewrite (dict `arguments` -> JSON string, ids added + linked), and (2) the Tulu-3
-clean-source licensing filter. Everything here runs on synthetic rows, so it is CI-safe.
+These guard the things most likely to silently corrupt the pilot mixture: (1) the jupyter-agent
+tool-call rewrite (dict `arguments` -> JSON string, ids added + linked), (2) the Tulu-3
+clean-source licensing filter, and (3) GSM8K's registration (train split only) and its gold answer.
+Everything here runs on synthetic rows, so it is CI-safe.
 """
 from __future__ import annotations
 
@@ -10,6 +11,8 @@ import json
 
 from dsbench.sftgen.breadth.acquire import approx_tokens
 from dsbench.sftgen.breadth.sources import (
+    SOURCES_BY_KEY,
+    _norm_gsm8k,
     _norm_instruction_output,
     _norm_jupyter_agent,
     _norm_text_to_sql,
@@ -17,6 +20,7 @@ from dsbench.sftgen.breadth.sources import (
     _swe_row_ok,
     _tulu_row_ok,
     _valid_messages,
+    public_sources,
 )
 
 
@@ -105,6 +109,43 @@ def test_tulu_filter_takes_exact_subsets_and_leaves_out_no_robots():
     # A familiar word in a new or renamed subset is not enough.
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/aya_gpt4_translated"})
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/oasst1_converted_v2"})
+
+
+def test_gsm8k_is_registered_as_public_replay_from_its_train_split():
+    src = SOURCES_BY_KEY["gsm8k"]
+    assert (src.hf_id, src.config, src.split) == ("openai/gsm8k", "main", "train")  # never test
+    assert (src.bucket, src.licence, src.redistributable) == ("replay", "MIT", True)
+    assert src in public_sources()
+
+
+def _gold(answer: str) -> str:
+    return _norm_gsm8k({"question": "q", "answer": answer})["meta"]["gold_answer"]
+
+
+def test_gsm8k_strips_calculator_annotations_and_keeps_the_gold_number():
+    # A synthetic row in GSM8K's format: steps with `<<...>>` annotations, then `#### <number>`.
+    rec = _norm_gsm8k({
+        "question": " A baker made 30 rolls and sold a third of them. How many are left? ",
+        "answer": "She sold 30/3 = <<30/3=10>>10 rolls.\n"
+                  "So 30-10 = <<30-10=20>>20 are left.\n#### 20",
+    })
+    assert rec is not None and rec["loss_mask_roles"] == ["assistant"]
+    user, assistant = rec["messages"]
+    assert user == {"role": "user",
+                    "content": "A baker made 30 rolls and sold a third of them. How many are left?"}
+    assert assistant["content"] == ("She sold 30/3 = 10 rolls.\nSo 30-10 = 20 are left.\n\n"
+                                    "The answer is 20.")
+    assert rec["meta"] == {"gold_answer": "20"}
+    # Final answers are integers, some with thousands commas or a sign (79 and 3 of train's 7,473).
+    assert _gold("x\n#### 1,080") == "1080"
+    assert _gold("x\n#### -7") == "-7"
+
+
+def test_gsm8k_drops_rows_without_one_final_line():
+    assert _norm_gsm8k({"question": "q", "answer": "no final line"}) is None
+    assert _norm_gsm8k({"question": "q", "answer": "#### 3\n#### 4"}) is None
+    assert _norm_gsm8k({"question": "q", "answer": "x\n#### 4\nmore text"}) is None
+    assert _norm_gsm8k({"question": " ", "answer": "x\n#### 4"}) is None
 
 
 def test_swe_excludes_swebench_verified_repos():

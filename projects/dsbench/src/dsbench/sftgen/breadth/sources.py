@@ -19,6 +19,7 @@ lazily in `acquire.py`, so importing this registry never requires the heavy dep 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -191,6 +192,34 @@ def _tulu_row_ok(row: dict) -> bool:
     return (row.get("source") or "") in _TULU_CLEAN_SOURCES
 
 
+# GSM8K (Cobbe et al., 2021): grade-school maths word problems. Hired writers (Upwork, then Surge
+# AI) wrote the questions and their worked solutions. OpenAI released it under MIT, but no model
+# wrote it, so ADR-001's teacher rule doesn't apply. Train split only: test is GSM8K's benchmark.
+# Revision 2 uses the questions as replay prompts and the base writes the answers, so the solution
+# stays only as a clean reference:
+# - the calculator annotations (`<<48/2=24>>`) are stripped, as the dataset's README says to do.
+#   They were a hook for the paper's models, which handed the arithmetic to a calculator;
+# - the last line, `#### 72`, becomes a sentence, and its number goes to meta as the gold answer,
+#   so the base's answers can be checked against it.
+_GSM8K_CALC = re.compile(r"<<[^<>]*>>")
+_GSM8K_FINAL = re.compile(r"\n####\s*(\S+)\s*\Z")
+
+
+def _norm_gsm8k(row: dict) -> dict | None:
+    """{question, answer} -> a 2-turn chat; `meta.gold_answer` is the final number, commas out."""
+    q, a = row.get("question"), row.get("answer")
+    if not (isinstance(q, str) and q.strip() and isinstance(a, str)) or a.count("####") != 1:
+        return None
+    m = _GSM8K_FINAL.search(a)
+    if m is None:
+        return None
+    steps = _GSM8K_CALC.sub("", a[: m.start()]).strip()
+    final = m.group(1)
+    answer = f"{steps}\n\nThe answer is {final}." if steps else f"The answer is {final}."
+    msgs = [{"role": "user", "content": q.strip()}, {"role": "assistant", "content": answer}]
+    return _rec(msgs, {"gold_answer": final.replace(",", "")})
+
+
 # ADR-001 non-negotiable: exclude SWE-bench-Verified's repos from every SWE source (they are an eval
 # target). Conservative: a trajectory that names any of these owner/repo slugs anywhere is dropped.
 _SWEBENCH_VERIFIED_REPOS: tuple[str, ...] = (
@@ -253,6 +282,13 @@ SOURCES: list[Source] = [
         gated=False, normalize=_norm_messages_passthrough, row_ok=_tulu_row_ok,
         notes="Mixture: only clean-origin, redistributable subsets kept via row_ok (exact names); "
               "GPT-teacher subsets and No Robots (CC BY-NC) dropped.",
+    ),
+    Source(
+        key="gsm8k", hf_id="openai/gsm8k", config="main", split="train", bucket="replay",
+        licence="MIT", teacher="human-written", redistributable=True, gated=False,
+        normalize=_norm_gsm8k,
+        notes="Grade-school maths by hired writers; released by OpenAI, written by no model. "
+              "Replay prompts (ADR-004 Rev 2); the gold number is kept in meta.",
     ),
 ]
 
