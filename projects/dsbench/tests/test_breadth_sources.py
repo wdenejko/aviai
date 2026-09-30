@@ -2,21 +2,28 @@
 
 These guard the things most likely to silently corrupt the pilot mixture: (1) the jupyter-agent
 tool-call rewrite (dict `arguments` -> JSON string, ids added + linked), (2) the Tulu-3
-clean-source licensing filter, and (3) GSM8K's registration (train split only) and its gold answer.
-Everything here runs on synthetic rows, so it is CI-safe.
+clean-source licensing filter, (3) GSM8K's registration (train split only) and its gold answer, and
+(4) Aya's and SciRIFF's own gates (SciRIFF's per-task licences). Everything here runs on synthetic
+rows, so it is CI-safe.
 """
 from __future__ import annotations
 
 import json
+import re
 
 from dsbench.sftgen.breadth.acquire import approx_tokens
 from dsbench.sftgen.breadth.sources import (
+    _SCIRIFF_KEPT,
+    _SCIRIFF_LEFT_OUT,
     SOURCES_BY_KEY,
+    _norm_aya,
     _norm_gsm8k,
     _norm_instruction_output,
     _norm_jupyter_agent,
+    _norm_sciriff,
     _norm_text_to_sql,
     _norm_trajectory,
+    _sciriff_row_ok,
     _swe_row_ok,
     _tulu_row_ok,
     _valid_messages,
@@ -96,9 +103,7 @@ def test_tulu_clean_source_filter():
 
 
 def test_tulu_filter_takes_exact_subsets_and_leaves_out_no_robots():
-    for kept in ("ai2-adapt-dev/tulu_v3.9_aya_100k", "ai2-adapt-dev/tulu_v3.9_sciriff_10k",
-                 "ai2-adapt-dev/tulu_hard_coded_repeated_10"):
-        assert _tulu_row_ok({"source": kept})
+    assert _tulu_row_ok({"source": "ai2-adapt-dev/tulu_hard_coded_repeated_10"})
     # Human-written, but CC BY-NC 4.0: not for a redistributable model.
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/no_robots_converted"})
     # GPT-4-written subsets, under their real names.
@@ -109,6 +114,52 @@ def test_tulu_filter_takes_exact_subsets_and_leaves_out_no_robots():
     # A familiar word in a new or renamed subset is not enough.
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/aya_gpt4_translated"})
     assert not _tulu_row_ok({"source": "ai2-adapt-dev/oasst1_converted_v2"})
+
+
+def test_aya_and_sciriff_come_only_from_their_own_repos():
+    # The mixture's rows carry no SciRIFF task, so taking SciRIFF through it would skip the task
+    # licence check; and a subset taken both ways would duplicate its rows.
+    for subset in ("ai2-adapt-dev/tulu_v3.9_aya_100k", "ai2-adapt-dev/tulu_v3.9_sciriff_10k"):
+        assert not _tulu_row_ok({"source": subset})
+    for key in ("tulu3_aya", "tulu3_sciriff"):
+        src = SOURCES_BY_KEY[key]
+        assert src.bucket == "replay" and src in public_sources()
+        assert re.fullmatch(r"[0-9a-f]{40}", src.revision)  # pinned: a re-fetch gets the same rows
+
+
+def test_aya_keeps_language_and_annotation_type_and_leaves_the_annotator_id():
+    msgs = [{"content": "Habari?", "role": "user"}, {"content": "Nzuri.", "role": "assistant"}]
+    row = {"inputs": "Habari?", "targets": "Nzuri.", "language": "Swahili", "language_code": "swh",
+           "annotation_type": "original-annotations", "user_id": "ab12", "messages": msgs}
+    rec = _norm_aya(row)
+    assert rec["messages"] == msgs
+    assert rec["meta"] == {"language": "Swahili", "language_code": "swh",
+                           "annotation_type": "original-annotations"}
+    assert _norm_aya({**row, "messages": msgs[:1]}) is None
+
+
+def _sciriff(task: str) -> dict:
+    return {"dataset": f"science.{task}", "id": f"science.{task}.7",
+            "messages": [{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]}
+
+
+def test_sciriff_keeps_only_tasks_whose_source_licence_is_permissive():
+    assert _sciriff_row_ok(_sciriff("bioasq_factoid_qa"))
+    assert _norm_sciriff(_sciriff("bioasq_factoid_qa"))["meta"] == {
+        "task": "bioasq_factoid_qa", "task_licence": "CC BY", "id": "science.bioasq_factoid_qa.7"}
+    for task in ("scireviewgen_multidoc_summarization",  # CC BY-NC
+                 "chemtables_te",  # GPL 3.0
+                 "acl_arc_intent_classification",  # no licence listed
+                 "a_task_added_later"):  # in neither table: fails closed
+        assert not _sciriff_row_ok(_sciriff(task))
+        assert _norm_sciriff(_sciriff(task)) is None
+
+
+def test_sciriff_tables_name_each_of_the_subsets_45_tasks_once():
+    kept = [task for tasks in _SCIRIFF_KEPT.values() for task in tasks]
+    left_out = [task for tasks in _SCIRIFF_LEFT_OUT.values() for task in tasks]
+    assert (len(kept), len(left_out)) == (24, 21)
+    assert len(set(kept + left_out)) == 45
 
 
 def test_gsm8k_is_registered_as_public_replay_from_its_train_split():

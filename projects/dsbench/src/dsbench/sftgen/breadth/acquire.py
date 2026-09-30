@@ -44,13 +44,14 @@ def acquire_source(src: Source, *, cap_tokens: int, max_scan: int, deny, sink) -
     from datasets import load_dataset  # lazy: only a real fetch needs the heavy dep
 
     stats: dict[str, Any] = {
-        "source": src.key, "hf_id": src.hf_id, "bucket": src.bucket, "licence": src.licence,
-        "teacher": src.teacher, "redistributable": src.redistributable,
+        "source": src.key, "hf_id": src.hf_id, "revision": src.revision, "bucket": src.bucket,
+        "licence": src.licence, "teacher": src.teacher, "redistributable": src.redistributable,
         "scanned": 0, "emitted": 0, "tokens": 0,
         "skipped_row_ok": 0, "skipped_normalize": 0, "skipped_long": 0, "skipped_contam": 0,
         "contam_by_rule": {},
     }
-    ds = load_dataset(src.hf_id, name=src.config, split=src.split, streaming=True)
+    ds = load_dataset(src.hf_id, name=src.config, split=src.split, streaming=True,
+                      revision=src.revision)
     for row in ds:
         if stats["scanned"] >= max_scan:
             break
