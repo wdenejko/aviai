@@ -36,6 +36,8 @@ projects/dsbench/data/battery/
 projects/dsbench/data/sft/*.report.json
 # per-gate data zone: symlinks into the ignored pools (a trailing '#' is NOT a comment here)
 projects/dsbench/data/sft/gate2/
+# SynSQL's SQLite databases, extracted from its databases.zip (sftgen/synsql.py)
+projects/dsbench/data/synsql/
 
 # Frozen eval sets and run reports ARE committed (reproducibility contract),
 # so they are intentionally NOT ignored here.
