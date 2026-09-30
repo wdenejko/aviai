@@ -344,6 +344,7 @@ SOURCES: list[Source] = [
         key="swe_swiss", hf_id="SWE-Swiss/SWESwiss-SFT-Merged-10K", config="default", split="train",
         bucket="swe", licence="MIT", teacher="DeepSeek-R1", redistributable=True, gated=False,
         normalize=_norm_messages_passthrough, row_ok=_swe_row_ok,
+        revision="2d6d8395764d84b814f6a11b58b3b9340afde8db",
         notes="ADR-named SWE SFT, public at the un-hyphenated id. row_ok drops any trajectory "
               "naming a SWE-bench-Verified repo (eval hygiene).",
     ),
