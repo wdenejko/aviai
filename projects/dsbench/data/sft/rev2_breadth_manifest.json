@@ -1,0 +1,76 @@
+{
+ "built": "2026-09-30",
+ "purpose": "ADR-004 Revision 2 replay prompt pools (action item 6): Tulu 3's Aya and SciRIFF subsets, each from its own repo at a pinned revision",
+ "note": "The pools are git-ignored (data/sft/*.jsonl); this manifest anchors them. Token counts are chars/3.5 over the datasets' own messages; Revision 2 keeps the prompts and has the base write the answers. Every pool passed dsbench's gate at acquisition and the battery gate (decontaminate.py --battery-items data/battery/items) after it; rows below the battery line are kept and counted here.",
+ "pools": [
+  {
+   "file": "breadth_tulu3_aya.jsonl",
+   "source": "tulu3_aya",
+   "hf_id": "ai2-adapt-dev/tulu_v3.9_aya_100k",
+   "revision": "22532285925b4e2dd2895a68ae3daa2bf8ddac31",
+   "rows": 99964,
+   "approx_tokens": 17638835,
+   "bytes": 228468175,
+   "sha256": "76400b7f7a6957ed19d38b4e045605e6278a6371df50c4f9c127209caca6f74e",
+   "licences": {
+    "Apache-2.0": 99964
+   },
+   "acquisition": {
+    "scanned": 100000,
+    "skipped_row_ok": 0,
+    "skipped_normalize": 0,
+    "skipped_long": 34,
+    "skipped_contam": 2,
+    "contam_by_rule": {
+     "numeric-answer": 2
+    }
+   },
+   "battery_gate": {
+    "rejected": 0,
+    "below_line_rows": 69,
+    "below_line_items": 31,
+    "largest_share_of_an_item": 0.155
+   },
+   "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source tulu3_aya --cap-tokens 1000000000 --max-scan 200000 --out-dir <scratch>",
+   "languages": 71,
+   "annotation_types": {
+    "original-annotations": 67755,
+    "re-annotations": 32209
+   }
+  },
+  {
+   "file": "breadth_tulu3_sciriff.jsonl",
+   "source": "tulu3_sciriff",
+   "hf_id": "ai2-adapt-dev/tulu_v3.9_sciriff_10k",
+   "revision": "2974056c17086b2fcfd2758f94a3ad922e8d1b41",
+   "rows": 4902,
+   "approx_tokens": 6764118,
+   "bytes": 26469574,
+   "sha256": "d285bfa92408602f38d16e392e865b15e1081fa23eff3078a30ebce8d7607af1",
+   "licences": {
+    "CC BY": 1924,
+    "Apache 2.0": 1693,
+    "MIT": 721,
+    "CC 0": 564
+   },
+   "acquisition": {
+    "scanned": 10000,
+    "skipped_row_ok": 5096,
+    "skipped_normalize": 0,
+    "skipped_long": 0,
+    "skipped_contam": 2,
+    "contam_by_rule": {
+     "numeric-answer": 2
+    }
+   },
+   "battery_gate": {
+    "rejected": 0,
+    "below_line_rows": 3,
+    "below_line_items": 1,
+    "largest_share_of_an_item": 0.032
+   },
+   "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source tulu3_sciriff --cap-tokens 1000000000 --max-scan 200000 --out-dir <scratch>",
+   "tasks": 24
+  }
+ ]
+}

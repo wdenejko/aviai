@@ -219,8 +219,16 @@ subsets of clean origin. The persona sets were written by GPT-4 models, prompts 
 out under ADR-001's taint rule. WildChat's prompts are human-written, but its answers are GPT-4's,
 so the gate excludes it whole (decision 5). Proposed:
 - oasst1, with history where the conversation has it;
-- Aya (human-written, multilingual);
-- SciRIFF;
+- Aya (human-written, multilingual). **Acquired 2026-09-30** (`tulu3_aya`): 99,964 of the
+  subset's 100,000 rows in 71 languages (34 are over the length limit, and dsbench's gate drops 2).
+  Two thirds were written from scratch; a third are human edits of machine-generated text. Each
+  row keeps its language and annotation type, so selection can balance them;
+- SciRIFF. **Acquired 2026-09-30** (`tulu3_sciriff`): 4,902 of the subset's 10,000 rows. SciRIFF
+  repurposes existing scientific-literature datasets as tasks, and its card lists each source's
+  licence:
+  - kept: the 24 tasks under CC BY, CC0, Apache-2.0 or MIT, less 2 rows dsbench's gate drops;
+  - out: one task under CC BY-NC (271 rows), one under GPL-3.0 (1 row), and 19 tasks with no
+    licence listed (4,824 rows; decision 5);
 - FLAN v2, in a small share;
 - GSM8K train for math (MIT, human-written). **Registered 2026-09-30** (`gsm8k` in the gate):
   - hired writers wrote the problems and their worked solutions. OpenAI released them, but no
@@ -237,6 +245,17 @@ anything redistributable. The allowlist needs that fix. **Fixed 2026-09-29:**
 - no No Robots row was ever acquired: the Tulu pool so far is oasst1 and FLAN v2 only.
 
 The mixture's card gives FLAN v2 no licence (decision 5).
+
+Aya and SciRIFF come from their subsets' own repos, at pinned revisions. The rows are the
+mixture's, message for message (checked 2026-09-30), but the mixture keeps only the messages,
+and the SciRIFF gate needs each row's task. Both pools pass the battery gate with no row rejected.
+Below the line:
+- SciRIFF has 3 rows, sharing digit runs, at most 3.2% of an item's 13-grams;
+- Aya has 69 rows. 68 share digit runs, at most 8%. One English row shares 15.5% of IFEval item
+  2859's 13-grams, a passage both contain.
+
+Selection can leave out every row with an overlap. The pools are git-ignored;
+`data/sft/rev2_breadth_manifest.json` records their revisions, hashes and gate results.
 
 ## Where the reasoning comes from
 
@@ -359,13 +378,17 @@ The mixture's card gives FLAN v2 no licence (decision 5).
    text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
    carry the DS and tool behaviour), or regenerate them with the base as the agent, which needs
    their data in the sandbox.
-5. **Replay prompts:** clean-origin sets only (proposed), or also WildChat's first user turns,
-   which are human-written; their GPT-4 answers would be replaced. And FLAN v2: the Tulu card
-   lists its licence as unspecified, and its tasks come from many source datasets, each under
-   its own licence. Keep it, as Gate 2 did, or leave it out of anything redistributable.
-   And GSM8K's gold answers: keep only the base's correct replies, as a verified pool does
-   (proposed: the check is free, and a wrong solution would train at full weight), or every
-   reply that finishes, as the rest of replay does.
+5. **Replay prompts:**
+   - WildChat: clean-origin sets only (proposed), or also WildChat's first user turns, which are
+     human-written; their GPT-4 answers would be replaced.
+   - Unlisted licences. The Tulu card lists FLAN v2's licence as unspecified, and its tasks come
+     from many source datasets, each under its own licence. SciRIFF's card lists none for 19 of
+     the sample's tasks (4,824 rows). Keep them, or leave both out of anything redistributable
+     (proposed: the other replay sets have prompts to spare). FLAN v2 stays on the allowlist, as
+     Gate 2 had it, and SciRIFF's unlisted tasks stay out, until this is decided.
+   - GSM8K's gold answers: keep only the base's correct replies, as a verified pool does
+     (proposed: the check is free, and a wrong solution would train at full weight), or every
+     reply that finishes, as the rest of replay does.
 6. **The proportions above.**
 
 ## Action items (Revision 2)
@@ -406,7 +429,8 @@ The mixture's card gives FLAN v2 no licence (decision 5).
    gold-call checker.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
-   register GSM8K (**done 2026-09-30**), select the prompts, generate.
+   register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
+   select the prompts, generate.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
