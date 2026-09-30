@@ -64,6 +64,15 @@ uv run python -m dsbench.sftgen.select_prompts --battery-items data/battery/item
     --out data/sft/rev2_prompts.jsonl --report data/sft/rev2_prompts_manifest.json
 ```
 
+`rev2_tool_prompts.jsonl` holds the tool rows' prompts (`sftgen/tool_rows.py`: a tool list, a
+request, and the check the reply must pass); `rev2_tool_prompts_manifest.json` (tracked) records
+the parameters, the counts and the output's hash. Rebuild it with:
+
+```bash
+uv run python -m dsbench.sftgen.tool_rows generate --battery-items data/battery/items \
+    --out data/sft/rev2_tool_prompts.jsonl --report data/sft/rev2_tool_prompts_manifest.json
+```
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent

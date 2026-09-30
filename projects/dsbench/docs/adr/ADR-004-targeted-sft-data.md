@@ -335,7 +335,29 @@ The selection (seed 20260930), 2,646 prompts:
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
   declined 89.2% of BFCL's irrelevance items with thinking off, so these should come easily. No
-  BFCL item or schema is used.
+  BFCL item or schema is used. **Built 2026-09-30** (`sftgen/tool_rows.py`):
+  - 30 tools in 20 domains, written for this generator. A request states every value the call
+    needs, in everyday words ("7:30 pm", "euros"), while the schema asks for a format ("HH:MM",
+    ISO 4217). So a fit row also checks that the base maps one to the other. Values with two
+    common spellings are accepted both ways (a city with or without its country).
+  - Decline rows offer the fit rows' tool lists. About 60% of the requests ask for another
+    domain's action, and about 40% need no tool at all. A web-search tool could answer anything, so it is never
+    offered in a decline row. A general request close to a domain (planning a workout) is never
+    paired with that domain's tools.
+  - The check applies the rules of BFCL's AST checker. The function must match; every required
+    argument must be there, and no argument the schema lacks. Types must hold, though an integer
+    passes for a number. Strings are compared the way BFCL compares them, and lists as sets. A
+    value the request states must be passed; an unstated optional one may be left out or given
+    its default. A row also needs a finished reply with reasoning.
+  - The gate rejects an item that shares any 13-gram with the battery, not only a fifth of one.
+    The first run lost 56 candidates to BFCL schemas, though no text was copied. Common
+    parameter names (`amount`, `from_currency`, `to_currency`; `value`, `from_unit`, `to_unit`),
+    with the JSON between two tools, made the same 13 tokens. So did a description opening with
+    "Look up the". The names were changed, and no pair of tools overlaps any more.
+  - 518 prompts (seed 20260930): 295 fit, for 250 rows at an expected 0.85, and 223 decline,
+    for 200 at 0.9. None touches the battery (`data/sft/rev2_tool_prompts_manifest.json`).
+  - `reasoning_pilot.py generate` sends an item's tools and streams the reply, as the battery
+    does for BFCL. The stream reassembler dropped `reasoning_content`; it keeps it now.
 - **Replay, code and SWE.** The base's answers, sampled as in the pilot (temperature 0.6, top-p
   0.95, top-k 20), one per prompt.
 
@@ -470,8 +492,9 @@ The selection (seed 20260930), 2,646 prompts:
      with its stated offsets.
 3. [ ] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier.
-4. [ ] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
-   gold-call checker.
+4. [x] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
+   gold-call checker. **Done 2026-09-30:** 518 prompts, 0 battery overlaps; generation waits for
+   the GPU window with the rest.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
