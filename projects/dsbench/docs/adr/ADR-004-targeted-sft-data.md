@@ -222,7 +222,12 @@ so the gate excludes it whole (decision 5). Proposed:
 - Aya (human-written, multilingual);
 - SciRIFF;
 - FLAN v2, in a small share;
-- GSM8K train for math (MIT, human-written), to be registered in the gate.
+- GSM8K train for math (MIT, human-written). **Registered 2026-09-30** (`gsm8k` in the gate):
+  - hired writers wrote the problems and their worked solutions. OpenAI released them, but no
+    model wrote them, so ADR-001's teacher rule doesn't apply;
+  - the train split only, since test is GSM8K's benchmark;
+  - all 7,473 rows pass: dsbench's gate drops none, and none shares a 13-gram with a battery item;
+  - each row keeps its gold number in `meta`, so the base's answers can be checked (decision 5).
 
 No Robots is on the gate's allowlist, but its licence is CC BY-NC 4.0, so it stays out of
 anything redistributable. The allowlist needs that fix. **Fixed 2026-09-29:**
@@ -358,6 +363,9 @@ The mixture's card gives FLAN v2 no licence (decision 5).
    which are human-written; their GPT-4 answers would be replaced. And FLAN v2: the Tulu card
    lists its licence as unspecified, and its tasks come from many source datasets, each under
    its own licence. Keep it, as Gate 2 did, or leave it out of anything redistributable.
+   And GSM8K's gold answers: keep only the base's correct replies, as a verified pool does
+   (proposed: the check is free, and a wrong solution would train at full weight), or every
+   reply that finishes, as the rest of replay does.
 6. **The proportions above.**
 
 ## Action items (Revision 2)
@@ -398,7 +406,7 @@ The mixture's card gives FLAN v2 no licence (decision 5).
    gold-call checker.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
-   register GSM8K, select the prompts, generate.
+   register GSM8K (**done 2026-09-30**), select the prompts, generate.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
