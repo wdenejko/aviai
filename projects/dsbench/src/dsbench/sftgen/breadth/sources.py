@@ -47,6 +47,7 @@ class Source:
     row_ok: Callable[[dict], bool] = lambda r: True
     heavy: bool = False            # too big to stream in bulk (shards); excluded from --all-public
     notes: str = ""
+    revision: str | None = None    # a pinned commit, so a re-fetch returns the same rows
 
 
 # ---- normalisers (pure; defensive .get so a malformed row is dropped, not fatal) ----
@@ -178,18 +179,86 @@ def _norm_text_to_sql(row: dict) -> dict | None:
 # model. Some were written by a GPT-4 teacher (the persona sets, WildChat's answers, ...), and No
 # Robots, though human-written, is CC BY-NC 4.0. Kept: exact subset names, never substrings, so a
 # renamed or new subset fails closed instead of passing on a familiar word. Licences are as the
-# mixture's card lists them (checked 2026-09-29).
+# mixture's card lists them (checked 2026-09-29). Aya and SciRIFF are clean too, but they come from
+# their own repos (below), which keep the fields their gates need; the mixture keeps only messages.
 _TULU_CLEAN_SOURCES: dict[str, str] = {
     "ai2-adapt-dev/oasst1_converted": "Apache-2.0",  # crowdsourced
     "ai2-adapt-dev/flan_v2_converted": "unspecified",  # templated tasks; the card gives no licence
-    "ai2-adapt-dev/tulu_v3.9_aya_100k": "Apache-2.0",  # human-written, multilingual
-    "ai2-adapt-dev/tulu_v3.9_sciriff_10k": "ODC-BY-1.0",  # expert-annotated science tasks
     "ai2-adapt-dev/tulu_hard_coded_repeated_10": "CC-BY-4.0",  # hand-written identity prompts
 }
 
 
 def _tulu_row_ok(row: dict) -> bool:
     return (row.get("source") or "") in _TULU_CLEAN_SOURCES
+
+
+# Tulu 3's Aya and SciRIFF subsets, read from their own repos (revisions pinned). Their rows are the
+# mixture's (checked 2026-09-30: the same messages, row for row), and they keep what the mixture
+# drops: the SciRIFF task and the Aya language.
+#
+# Aya (CohereLabs/aya_dataset, Apache-2.0, "for any purpose"): 100,000 rows in 71 languages, written
+# by fluent speakers. About a third are re-annotations, human edits of machine-generated prompts and
+# answers; the rest were written from scratch. Language and annotation type go to meta, so prompt
+# selection can balance them; the annotator's hashed id stays behind.
+def _norm_aya(row: dict) -> dict | None:
+    msgs = row.get("messages")
+    if not _valid_messages(msgs):
+        return None
+    meta = {k: row[k] for k in ("language", "language_code", "annotation_type") if row.get(k)}
+    return _rec(msgs, meta)
+
+
+# SciRIFF (allenai/SciRIFF, ODC-BY) repurposes existing scientific-literature datasets as tasks,
+# and unlike FLAN v2's, its card lists each source's licence. Kept: the tasks whose source is
+# under CC BY, CC0, Apache-2.0 or MIT (24 of the 45 in Tulu's sample, 4,904 of its 10,000 rows).
+# Out: CC BY-NC (as No Robots), GPL-3.0 (copyleft), and the tasks with no licence listed, which
+# ADR-004 decision 5 puts to the owner. As the card lists them (checked 2026-09-30); a task named
+# in neither table fails closed.
+_SCIRIFF_KEPT: dict[str, tuple[str, ...]] = {
+    "CC BY": ("anat_em_ner", "bioasq_factoid_qa", "bioasq_general_qa", "bioasq_yesno_qa",
+              "chia_ner", "ddi_ner", "genia_ner", "linnaeus_ner", "qasper_extractive_qa"),
+    "CC 0": ("medmentions_ner", "ncbi_ner", "nlmchem_ner", "nlmgene_ner"),
+    "Apache 2.0": ("covid_deepset_qa", "data_reco_mcq_mc", "data_reco_mcq_sc", "mltables_te",
+                   "mslr2022_cochrane_multidoc_summarization",
+                   "mslr2022_ms2_multidoc_summarization", "scitldr_aic"),
+    "MIT": ("annotated_materials_syntheses_events", "multixscience_multidoc_summarization",
+            "pubmedqa_qa", "qasa_abstractive_qa"),
+}
+_SCIRIFF_LEFT_OUT: dict[str, tuple[str, ...]] = {
+    "CC BY-NC": ("scireviewgen_multidoc_summarization",),
+    "GPL 3.0": ("chemtables_te",),
+    "none listed": ("acl_arc_intent_classification", "bc7_litcovid_topic_classification",
+                    "cdr_ner", "chemdner_ner", "chemprot_ner", "chemprot_re",
+                    "chemsum_single_document_summarization", "covidfact_entailment",
+                    "craftchem_ner", "drug_combo_extraction_re", "gnormplus_ner",
+                    "healthver_entailment", "pico_ner", "scicite_classification",
+                    "scientific_lay_summarisation_elife_single_doc_summ",
+                    "scientific_lay_summarisation_plos_single_doc_summ",
+                    "scientific_papers_summarization_single_doc_arxiv",
+                    "scientific_papers_summarization_single_doc_pubmed", "scierc_re"),
+}
+_SCIRIFF_TASK_LICENCE: dict[str, str] = {
+    task: licence for licence, tasks in _SCIRIFF_KEPT.items() for task in tasks
+}
+
+
+def _sciriff_task(row: dict) -> str:
+    return (row.get("dataset") or "").removeprefix("science.")
+
+
+def _sciriff_row_ok(row: dict) -> bool:
+    return _sciriff_task(row) in _SCIRIFF_TASK_LICENCE
+
+
+def _norm_sciriff(row: dict) -> dict | None:
+    msgs = row.get("messages")
+    task = _sciriff_task(row)
+    if not _valid_messages(msgs) or task not in _SCIRIFF_TASK_LICENCE:
+        return None
+    meta = {"task": task, "task_licence": _SCIRIFF_TASK_LICENCE[task]}
+    if row.get("id"):
+        meta["id"] = row["id"]
+    return _rec(msgs, meta)
 
 
 # GSM8K (Cobbe et al., 2021): grade-school maths word problems. Hired writers (Upwork, then Surge
@@ -281,7 +350,25 @@ SOURCES: list[Source] = [
         bucket="replay", licence="ODC-BY", teacher="mixed (row-filtered)", redistributable=True,
         gated=False, normalize=_norm_messages_passthrough, row_ok=_tulu_row_ok,
         notes="Mixture: only clean-origin, redistributable subsets kept via row_ok (exact names); "
-              "GPT-teacher subsets and No Robots (CC BY-NC) dropped.",
+              "GPT-teacher subsets and No Robots (CC BY-NC) dropped; Aya and SciRIFF come from "
+              "their own repos.",
+    ),
+    Source(
+        key="tulu3_aya", hf_id="ai2-adapt-dev/tulu_v3.9_aya_100k", config="default",
+        split="train", revision="22532285925b4e2dd2895a68ae3daa2bf8ddac31", bucket="replay",
+        licence="Apache-2.0", teacher="human-written", redistributable=True, gated=False,
+        normalize=_norm_aya,
+        notes="Tulu 3's Aya subset (the mixture's rows) from its own repo, which keeps the "
+              "language and annotation type. Replay prompts (ADR-004 Rev 2).",
+    ),
+    Source(
+        key="tulu3_sciriff", hf_id="ai2-adapt-dev/tulu_v3.9_sciriff_10k", config="default",
+        split="train", revision="2974056c17086b2fcfd2758f94a3ad922e8d1b41", bucket="replay",
+        licence="ODC-BY-1.0, plus each task's source licence (meta.task_licence)",
+        teacher="none (existing datasets, templated)", redistributable=True, gated=False,
+        normalize=_norm_sciriff, row_ok=_sciriff_row_ok,
+        notes="Tulu 3's SciRIFF subset (the mixture's rows) from its own repo, which keeps the "
+              "task; row_ok keeps the tasks whose source licence is permissive.",
     ),
     Source(
         key="gsm8k", hf_id="openai/gsm8k", config="main", split="train", bucket="replay",
