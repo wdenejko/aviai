@@ -52,7 +52,7 @@ SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}
 # The Gate-2 Target A slice was generated with `--n 1500` rows per synthetic table, not the CLI's
 # default 4000: found by reproducing the stored truths (every probed row matched at 1500 only).
 TARGET_A_ROWS = 1500
-_SQL_BLOCK = re.compile(r"```[ \t]*sql[^\n]*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+SQL_BLOCK = re.compile(r"```[ \t]*sql[^\n]*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 
 
 # --- items -------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ def _single_turn(row: dict) -> bool:
 
 def last_sql(text: str) -> str | None:
     """The last ```sql block of a reply (a model may draft one and then correct it)."""
-    blocks = _SQL_BLOCK.findall(text or "")
+    blocks = SQL_BLOCK.findall(text or "")
     return blocks[-1].strip() if blocks else None
 
 

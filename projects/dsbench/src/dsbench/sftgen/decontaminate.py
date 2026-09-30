@@ -30,6 +30,7 @@ import argparse
 import json
 import re
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,24 @@ def scan_text(text: str, deny: DenyList, n: int = _NGRAM,
         if audit is not None:
             audit.extend(hits)
     return None
+
+
+def strict_gate(battery_items: str) -> Callable[[dict[str, Any]], str | None]:
+    """For rows generated here (tool rows, SynSQL prompts): dsbench's rules, and any 13-gram
+    shared with the battery rejects, not only rule 4's fifth. A generator can always draw another
+    row, so it has no reason to keep one that touches the battery at all.
+
+    Returns gate(row): why the row is rejected, or None.
+    """
+    deny = build_denylist(battery_items=battery_items)
+
+    def gate(row: dict[str, Any]) -> str | None:
+        audit: list[dict] = []
+        reason = scan_text(_row_text(row), deny, audit=audit)
+        if reason:
+            return f"{reason['rule']} {reason['hit']}"
+        return f"battery overlap {audit[0]['hit']}" if audit else None
+    return gate
 
 
 def _row_text(obj: dict[str, Any]) -> str:
