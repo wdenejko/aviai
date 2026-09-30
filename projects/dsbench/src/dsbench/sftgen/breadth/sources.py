@@ -137,8 +137,9 @@ def _norm_trajectory(row: dict) -> dict | None:
 def _norm_instruction_output(row: dict) -> dict | None:
     """OpenCoder opc-sft-stage2: {instruction, output[, testcase]} -> a 2-turn chat.
 
-    These carry `testcase` asserts (execution-checkable); we keep that provenance in
-    meta (a later pass can re-verify in the sandbox, mirroring our own generators' discipline).
+    These carry `testcase` asserts (execution-checkable). The asserts themselves go to meta:
+    ADR-004 Revision 2 keeps a code row only if the base's answer passes its tests, so they must
+    travel with the prompt (`has_testcase` stays for the pools acquired before).
     """
     ins, out = row.get("instruction"), row.get("output")
     if not (isinstance(ins, str) and ins.strip() and isinstance(out, str) and out.strip()):
@@ -150,6 +151,7 @@ def _norm_instruction_output(row: dict) -> dict | None:
             meta[k] = row[k]
     if row.get("testcase"):
         meta["has_testcase"] = True
+        meta["testcase"] = list(row["testcase"])
     return _rec(msgs, meta)
 
 
@@ -316,7 +318,7 @@ SOURCES: list[Source] = [
         key="opencoder_edu", hf_id="OpenCoder-LLM/opc-sft-stage2", config="educational_instruct",
         split="train", bucket="general_code", licence="Apache-2.0 (MIT code)",
         teacher="open pipeline", redistributable=True, gated=False,
-        normalize=_norm_instruction_output,
+        normalize=_norm_instruction_output, revision="7d28f40d579edd7c24402d17d0c7639f991e6f8d",
         notes="Has executable `testcase` asserts; also a `package_instruct` config.",
     ),
     Source(
@@ -373,7 +375,7 @@ SOURCES: list[Source] = [
     Source(
         key="gsm8k", hf_id="openai/gsm8k", config="main", split="train", bucket="replay",
         licence="MIT", teacher="human-written", redistributable=True, gated=False,
-        normalize=_norm_gsm8k,
+        normalize=_norm_gsm8k, revision="740312add88f781978c0658806c59bc2815b9866",
         notes="Grade-school maths by hired writers; released by OpenAI, written by no model. "
               "Replay prompts (ADR-004 Rev 2); the gold number is kept in meta.",
     ),

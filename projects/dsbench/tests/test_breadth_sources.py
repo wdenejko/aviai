@@ -80,6 +80,7 @@ def test_instruction_output_and_reject_empty():
     assert rec is not None
     assert [m["role"] for m in rec["messages"]] == ["user", "assistant"]
     assert rec["meta"]["has_testcase"] is True
+    assert rec["meta"]["testcase"] == ["assert add(1,1)==2"]  # the asserts travel with the prompt
     assert _norm_instruction_output({"instruction": "", "output": "x"}) is None
 
 
