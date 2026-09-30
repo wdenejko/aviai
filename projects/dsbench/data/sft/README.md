@@ -73,6 +73,20 @@ uv run python -m dsbench.sftgen.tool_rows generate --battery-items data/battery/
     --out data/sft/rev2_tool_prompts.jsonl --report data/sft/rev2_tool_prompts_manifest.json
 ```
 
+`rev2_sql_prompts.jsonl` holds the SQL pool's prompts (`sftgen/synsql.py`): a SynSQL-2.5M question
+over its own SQLite database, with the gold SQL whose rows the reply's must match, on the
+database and on three bigger variants of it. `rev2_sql_prompts_manifest.json` (tracked) records
+the parameters, the counts, the gate's hits and the output's hash. The databases the items use
+are unpacked into `data/synsql/` (git-ignored). Every query runs in the sandbox's `sqlite`
+container, which also builds the variants, so bring it up first. Rebuild with:
+
+```bash
+docker compose -f sandbox/docker-compose.yml up -d --build sqlite
+uv run --with huggingface_hub python -m dsbench.sftgen.synsql build \
+    --battery-items data/battery/items \
+    --out data/sft/rev2_sql_prompts.jsonl --report data/sft/rev2_sql_prompts_manifest.json
+```
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent
