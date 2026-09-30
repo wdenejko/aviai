@@ -1,0 +1,68 @@
+{
+ "params": {
+  "fit_rows": 250,
+  "fit_keep": 0.85,
+  "decline_rows": 200,
+  "decline_keep": 0.9,
+  "list_sizes": {
+   "1": 0.15,
+   "2": 0.25,
+   "3": 0.3,
+   "4": 0.2,
+   "5": 0.1
+  },
+  "other_tool_share": 0.6,
+  "battery_items": "data/battery/items"
+ },
+ "seed": 20260930,
+ "fit": 295,
+ "decline": 223,
+ "tools": 30,
+ "domains": 20,
+ "fit_by_tool": {
+  "book_table": 10,
+  "calculate_loan_payment": 10,
+  "convert_currency": 10,
+  "convert_units": 10,
+  "create_calendar_event": 9,
+  "define_word": 10,
+  "describe_table": 10,
+  "find_recipes": 10,
+  "find_restaurants": 10,
+  "get_current_weather": 10,
+  "get_exchange_rate": 10,
+  "get_local_time": 10,
+  "get_news_headlines": 10,
+  "get_stock_quote": 10,
+  "get_travel_time": 10,
+  "get_weather_forecast": 10,
+  "list_directory": 10,
+  "log_workout": 9,
+  "read_file": 10,
+  "run_sql_query": 10,
+  "search_flights": 10,
+  "search_hotels": 9,
+  "search_web": 10,
+  "send_email": 9,
+  "send_text_message": 10,
+  "set_lights": 10,
+  "set_reminder": 10,
+  "set_thermostat": 10,
+  "track_package": 9,
+  "translate_text": 10
+ },
+ "decline_by_kind": {
+  "no_tool": 96,
+  "other_tool": 127
+ },
+ "list_sizes": {
+  "1": 75,
+  "2": 112,
+  "3": 198,
+  "4": 81,
+  "5": 52
+ },
+ "rejected_by_gate": {},
+ "out": "data/sft/rev2_tool_prompts.jsonl",
+ "out_sha256": "4846dc85500a01a8ff46123a282e442d80a2b992d68f3fdc52f7bb9e3b721c7b"
+}
