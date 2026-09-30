@@ -62,7 +62,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from dsbench.battery.prepare import _bird_schema
-from dsbench.sftgen.reasoning_pilot import SQL_BLOCK
+from dsbench.sftgen.reasoning_pilot import SQL_BLOCK, sql_only
 
 REPO = "seeklhy/SynSQL-2.5M"
 REVISION = "cca2c84cc3b41afa6b51534762a6a3a4a420baca"
@@ -285,15 +285,6 @@ def build(*, reader: Callable[[int], dict | None], size: int, databases: Databas
         "gate_hits": gate_hits,
     }
     return items, report
-
-
-def sql_only(answer: str) -> str | None:
-    """The reply's SQL if the reply is one ```sql block and nothing else, as the prompt asks. A row
-    whose answer adds prose, or drafts two queries, would teach the model to ignore "only"."""
-    blocks = SQL_BLOCK.findall(answer)
-    if len(blocks) != 1 or SQL_BLOCK.sub("", answer).strip():
-        return None
-    return blocks[0].strip()
 
 
 def same_rows(pred: list[list], gold: list[list]) -> bool:

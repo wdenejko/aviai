@@ -77,6 +77,16 @@ def last_sql(text: str) -> str | None:
     return blocks[-1].strip() if blocks else None
 
 
+def sql_only(answer: str) -> str | None:
+    """The reply's SQL if the reply is one ```sql block and nothing else, as Revision 2's SQL
+    prompts ask. A row whose answer adds prose, or drafts two queries, would teach the model to
+    ignore "only"."""
+    blocks = SQL_BLOCK.findall(answer or "")
+    if len(blocks) != 1 or SQL_BLOCK.sub("", answer).strip():
+        return None
+    return blocks[0].strip()
+
+
 def make_item(pool: str, row: dict) -> dict:
     prompt = [{"role": m["role"], "content": m["content"]}
               for m in row["messages"] if m["role"] != "assistant"]
