@@ -225,7 +225,13 @@ so the gate excludes it whole (decision 5). Proposed:
 - GSM8K train for math (MIT, human-written), to be registered in the gate.
 
 No Robots is on the gate's allowlist, but its licence is CC BY-NC 4.0, so it stays out of
-anything redistributable. The allowlist needs that fix.
+anything redistributable. The allowlist needs that fix. **Fixed 2026-09-29:**
+- No Robots is out of the allowlist, and so is a dead entry that matched no subset;
+- the allowlist now names exact subsets with their licences (`sftgen/breadth/sources.py`), so a
+  renamed or new subset fails closed;
+- no No Robots row was ever acquired: the Tulu pool so far is oasst1 and FLAN v2 only.
+
+The mixture's card gives FLAN v2 no licence (decision 5).
 
 ## Where the reasoning comes from
 
@@ -349,7 +355,9 @@ anything redistributable. The allowlist needs that fix.
    carry the DS and tool behaviour), or regenerate them with the base as the agent, which needs
    their data in the sandbox.
 5. **Replay prompts:** clean-origin sets only (proposed), or also WildChat's first user turns,
-   which are human-written; their GPT-4 answers would be replaced.
+   which are human-written; their GPT-4 answers would be replaced. And FLAN v2: the Tulu card
+   lists its licence as unspecified, and its tasks come from many source datasets, each under
+   its own licence. Keep it, as Gate 2 did, or leave it out of anything redistributable.
 6. **The proportions above.**
 
 ## Action items (Revision 2)
@@ -389,8 +397,8 @@ anything redistributable. The allowlist needs that fix.
 4. [ ] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
    gold-call checker.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
-6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist, register GSM8K, select the
-   prompts, generate.
+6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
+   register GSM8K, select the prompts, generate.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
