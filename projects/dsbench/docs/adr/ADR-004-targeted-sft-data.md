@@ -318,6 +318,37 @@ The selection (seed 20260930), 2,646 prompts:
     the measured miss.
   - The Postgres, MySQL and DuckDB answers get sandboxed engines, since model SQL runs only in a
     sandbox. Until then only ClickHouse answers can be verified. **Built 2026-09-29.**
+
+  **The generator, built 2026-09-30** (`sftgen/target_a_hints.py`):
+  - The hint is one sentence in the system prompt, before the line asking for the answer.
+    - A weekday or weekend row gets the dialect's weekday numbering, not the weekend's numbers.
+    - A month row gets the month function, and a timezone row the direction rule: UTC = local
+      time - offset, so a clock at UTC-4 is 4 hours behind UTC.
+    - Every weekday and month hint is checked on the four sandboxed engines before any item is
+      built: each function on all seven days, and three months. Tests tie each hint to the
+      generator's own numbering.
+  - A reply is kept when:
+    - it finished, with reasoning;
+    - it is one ```sql block and nothing else, the rule the SQL pool uses;
+    - it returns the truth on the sandboxed engine;
+    - it doesn't read as told.
+  - A reply reads as told when it:
+    - names a hint or a note;
+    - has "as stated" or "according to the prompt" in a sentence with the hint's terms (a
+      function name, "ISO");
+    - has "the prompt says" or "we're told" followed by those terms;
+    - copies 10 tokens of the hint that the training prompt doesn't have.
+  - On the reasoning pilot's 80 Target A traces, which never saw a hint, the filter flags none.
+    The base writes "the prompt says" 211 times in them, quoting the question, so the phrase
+    alone can't be the test. It is kept as a soft flag, for review.
+  - The pilot's items: 192 rows, 12 for each dialect and family, 48 per dialect.
+    - Each row is a plain item and a hinted twin, 384 items in all.
+    - The plain twins measure the base alone on the same questions, and measure the timezone
+      family again with its stated offsets.
+    - The build is deterministic, and the gate rejects none
+      (`data/sft/rev2_target_a_pilot_manifest.json`).
+    - At the pilot's median of 1,556 reasoning tokens, generation is about 650k tokens: 1.5
+      hours of box time.
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -553,7 +584,8 @@ The selection (seed 20260930), 2,646 prompts:
    - [ ] hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
      dialect. The addendum's numbers say where the base is wrong: ClickHouse weekdays and
      weekends first, then DuckDB weekends. The timezone family goes too, once it is re-measured
-     with its stated offsets.
+     with its stated offsets. **Generator built 2026-09-30** (`sftgen/target_a_hints.py`): 384
+     pilot items, 192 plain and hinted pairs. The pilot's generation waits for the GPU window.
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
