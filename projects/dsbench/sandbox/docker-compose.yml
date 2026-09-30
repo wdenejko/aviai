@@ -4,6 +4,7 @@
 # Bring up:   docker compose up -d clickhouse         # warehouse only (this phase)
 #             docker compose up -d --build workspace   # + python workspace (agent's hands)
 #             docker compose up -d --build postgres mysql duckdb   # Target A's other dialects
+#             docker compose up -d --build sqlite     # SynSQL's databases (the SQL pool)
 # Verify:     docker compose exec clickhouse clickhouse-client -u avbench --password avbench -q "SELECT version()"
 # Teardown:   docker compose down            (add -v to also wipe the data volume)
 name: dsbench-sandbox
@@ -90,6 +91,20 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 2g
+    pids_limit: 64
+
+  # SynSQL's SQLite databases (ADR-004 Revision 2's SQL pool): the dataset's gold SQL and the
+  # model's run here, isolated as DuckDB's are. Each request brings its database on stdin.
+  sqlite:
+    build: ./sqlite
+    container_name: avbench-sqlite
+    network_mode: none
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
     pids_limit: 64
 
   # The agent's `run_python` executes HERE, never on the host (ADR-003 §1, security).
