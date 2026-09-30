@@ -173,16 +173,22 @@ def _norm_text_to_sql(row: dict) -> dict | None:
     return _rec(msgs, meta)
 
 
-# Tulu-3 is a MIXTURE; some subsets are GPT-4-teacher (personahub, wildchat, ...). Keep only
-# provably-clean origins for a redistributable slice. Conservative allow-list on the `source` field.
-_TULU_CLEAN_SOURCE_SUBSTR: tuple[str, ...] = (
-    "oasst", "no_robots", "flan_v2", "hard_coded", "aya", "sciriff", "tulu_v3.9_sft",
-)
+# Tulu-3 is a MIXTURE of 19 subsets (its `source` field), and most can't go into a redistributable
+# model. Some were written by a GPT-4 teacher (the persona sets, WildChat's answers, ...), and No
+# Robots, though human-written, is CC BY-NC 4.0. Kept: exact subset names, never substrings, so a
+# renamed or new subset fails closed instead of passing on a familiar word. Licences are as the
+# mixture's card lists them (checked 2026-09-29).
+_TULU_CLEAN_SOURCES: dict[str, str] = {
+    "ai2-adapt-dev/oasst1_converted": "Apache-2.0",  # crowdsourced
+    "ai2-adapt-dev/flan_v2_converted": "unspecified",  # templated tasks; the card gives no licence
+    "ai2-adapt-dev/tulu_v3.9_aya_100k": "Apache-2.0",  # human-written, multilingual
+    "ai2-adapt-dev/tulu_v3.9_sciriff_10k": "ODC-BY-1.0",  # expert-annotated science tasks
+    "ai2-adapt-dev/tulu_hard_coded_repeated_10": "CC-BY-4.0",  # hand-written identity prompts
+}
 
 
 def _tulu_row_ok(row: dict) -> bool:
-    src = (row.get("source") or "").lower()
-    return any(s in src for s in _TULU_CLEAN_SOURCE_SUBSTR)
+    return (row.get("source") or "") in _TULU_CLEAN_SOURCES
 
 
 # ADR-001 non-negotiable: exclude SWE-bench-Verified's repos from every SWE source (they are an eval
@@ -245,7 +251,8 @@ SOURCES: list[Source] = [
         key="tulu3", hf_id="allenai/tulu-3-sft-mixture", config="default", split="train",
         bucket="replay", licence="ODC-BY", teacher="mixed (row-filtered)", redistributable=True,
         gated=False, normalize=_norm_messages_passthrough, row_ok=_tulu_row_ok,
-        notes="Mixture: only clean-origin subsets kept via row_ok; GPT-teacher subsets dropped.",
+        notes="Mixture: only clean-origin, redistributable subsets kept via row_ok (exact names); "
+              "GPT-teacher subsets and No Robots (CC BY-NC) dropped.",
     ),
 ]
 

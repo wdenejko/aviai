@@ -91,6 +91,22 @@ def test_tulu_clean_source_filter():
     assert not _tulu_row_ok({"source": ""})
 
 
+def test_tulu_filter_takes_exact_subsets_and_leaves_out_no_robots():
+    for kept in ("ai2-adapt-dev/tulu_v3.9_aya_100k", "ai2-adapt-dev/tulu_v3.9_sciriff_10k",
+                 "ai2-adapt-dev/tulu_hard_coded_repeated_10"):
+        assert _tulu_row_ok({"source": kept})
+    # Human-written, but CC BY-NC 4.0: not for a redistributable model.
+    assert not _tulu_row_ok({"source": "ai2-adapt-dev/no_robots_converted"})
+    # GPT-4-written subsets, under their real names.
+    for tainted in ("ai2-adapt-dev/tulu_v3.9_wildchat_100k",
+                    "ai2-adapt-dev/personahub_ifdata_manual_seed_v3_29980",
+                    "ai2-adapt-dev/tulu_v3.9_table_gpt_5k"):
+        assert not _tulu_row_ok({"source": tainted})
+    # A familiar word in a new or renamed subset is not enough.
+    assert not _tulu_row_ok({"source": "ai2-adapt-dev/aya_gpt4_translated"})
+    assert not _tulu_row_ok({"source": "ai2-adapt-dev/oasst1_converted_v2"})
+
+
 def test_swe_excludes_swebench_verified_repos():
     # a trajectory that names a SWE-bench-Verified repo is dropped (eval hygiene)
     def msg(c):
