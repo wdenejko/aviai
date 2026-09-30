@@ -69,7 +69,7 @@ POOLS: tuple[Pool, ...] = (
     Pool("gsm8k", "replay", "breadth_gsm8k.jsonl", 0.2),
     Pool("opencoder_edu", "code", "breadth_opencoder_edu_rev2.jsonl", 0.75, keep_rate=0.8,
          requires="testcase"),
-    Pool("swe_swiss", "code", "breadth_swe_swiss.jsonl", 0.25),
+    Pool("swe_swiss", "code", "breadth_swe_swiss_rev2.jsonl", 0.25),
 )
 
 # Kept out of an item's meta: sizing that no longer applies, the acquisition's bucket (the item
