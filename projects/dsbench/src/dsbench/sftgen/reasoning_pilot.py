@@ -131,8 +131,14 @@ def request_body(item: dict, max_tokens: int) -> dict:
     # A fixed per-item seed makes a rerun reproduce the same sample; `enable_thinking` overrides
     # the server's thinking-off default (battery_server.sh) for these requests only.
     seed = int(hashlib.sha1(item["id"].encode()).hexdigest()[:8], 16)
-    return {"model": "base", "messages": item["messages"], **SAMPLING, "seed": seed,
+    body = {"model": "base", "messages": item["messages"], **SAMPLING, "seed": seed,
             "max_tokens": max_tokens, "chat_template_kwargs": {"enable_thinking": True}}
+    if item.get("tools"):
+        # Tool rows (sftgen/tool_rows.py) stream, as the battery's BFCL items do: the fork's
+        # non-stream endpoint 500s on a malformed call, and a streamed one comes back as text.
+        body.update(tools=item["tools"], parallel_tool_calls=True, stream=True,
+                    stream_options={"include_usage": True})
+    return body
 
 
 def _count_tokens(client, text: str) -> int:
@@ -143,24 +149,39 @@ def _count_tokens(client, text: str) -> int:
     return len(r.json()["tokens"])
 
 
+def _complete(client, body: dict) -> tuple[dict, str | None, dict, dict]:
+    """(message, finish_reason, usage, timings), whether the request streams or not."""
+    if body.get("stream"):
+        from dsbench.streaming import reassemble_stream  # only tool items stream
+
+        with client.stream("POST", "/v1/chat/completions", json=body) as r:
+            r.raise_for_status()
+            out = reassemble_stream(r)
+        return out["message"], out["finish_reason"], out["usage"], out["timings"]
+    r = client.post("/v1/chat/completions", json=body)
+    r.raise_for_status()
+    data = r.json()
+    choice = data["choices"][0]
+    return (choice.get("message") or {}, choice.get("finish_reason"), data.get("usage") or {},
+            data.get("timings") or {})
+
+
 def run_one(client, item: dict, max_tokens: int) -> dict:
     record = {"id": item["id"], "pool": item["pool"], "error": ""}
     started = time.time()
     try:
-        r = client.post("/v1/chat/completions", json=request_body(item, max_tokens))
-        r.raise_for_status()
-        data = r.json()
-        choice = data["choices"][0]
-        reasoning, answer = split_reasoning(choice.get("message") or {})
-        usage = data.get("usage") or {}
+        message, finish, usage, timings = _complete(client, request_body(item, max_tokens))
+        reasoning, answer = split_reasoning(message)
         record.update(
-            reasoning=reasoning, answer=answer, finish_reason=choice.get("finish_reason"),
+            reasoning=reasoning, answer=answer, finish_reason=finish,
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
             reasoning_tokens=_count_tokens(client, reasoning),
             answer_tokens=_count_tokens(client, answer),
-            decode_tok_s=(data.get("timings") or {}).get("predicted_per_second"),
+            decode_tok_s=timings.get("predicted_per_second"),
         )
+        if message.get("tool_calls"):
+            record["tool_calls"] = message["tool_calls"]
     except Exception as exc:  # noqa: BLE001 - recorded, and the item is retried on resume
         record["error"] = f"{type(exc).__name__}: {exc}"[:300]
     record.update(started=round(started, 3), finished=round(time.time(), 3))
