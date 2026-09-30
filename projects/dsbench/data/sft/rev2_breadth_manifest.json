@@ -1,6 +1,6 @@
 {
  "built": "2026-09-30",
- "purpose": "ADR-004 Revision 2 prompt pools (action item 6): Tulu 3's Aya and SciRIFF subsets, each from its own repo at a pinned revision, GSM8K train, and OpenCoder's educational_instruct with its tests",
+ "purpose": "ADR-004 Revision 2 prompt pools (action item 6): Tulu 3's Aya and SciRIFF subsets, each from its own repo at a pinned revision, GSM8K train, OpenCoder's educational_instruct with its tests, and SWE-Swiss whole",
  "note": "The pools are git-ignored (data/sft/*.jsonl); this manifest anchors them. Token counts are chars/3.5 over the datasets' own messages; Revision 2 keeps the prompts and has the base write the answers. Every pool passed dsbench's gate at acquisition and the battery gate (decontaminate.py --battery-items data/battery/items) after it; rows below the battery line are kept and counted here.",
  "pools": [
   {
@@ -134,6 +134,38 @@
    "rows_with_their_check": 10000,
    "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source opencoder_edu --cap-tokens 1000000000 --max-scan 10000 --out-dir <scratch>",
    "note": "acquired as breadth_opencoder_edu.jsonl and saved under this name: the Gate-2 pool keeps its own, and it lacks the tests"
+  },
+  {
+   "file": "breadth_swe_swiss_rev2.jsonl",
+   "source": "swe_swiss",
+   "hf_id": "SWE-Swiss/SWESwiss-SFT-Merged-10K",
+   "revision": "2d6d8395764d84b814f6a11b58b3b9340afde8db",
+   "rows": 2267,
+   "approx_tokens": 12474500,
+   "bytes": 45927432,
+   "sha256": "c609ecf307203f7c8871c708c8244eb48f5e0389b4f1ef9d140ba60e779fa3c5",
+   "licences": {
+    "MIT": 2267
+   },
+   "acquisition": {
+    "scanned": 10254,
+    "skipped_row_ok": 64,
+    "skipped_normalize": 0,
+    "skipped_long": 7922,
+    "skipped_contam": 1,
+    "contam_by_rule": {
+     "numeric-answer": 1
+    }
+   },
+   "battery_gate": {
+    "rejected": 0,
+    "rejected_by_item": {},
+    "below_line_rows": 15,
+    "below_line_items": 36,
+    "largest_share_of_an_item_below_the_line": 0.066
+   },
+   "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source swe_swiss --cap-tokens 1000000000 --max-scan 20000 --out-dir <scratch>",
+   "note": "the whole dataset, acquired as breadth_swe_swiss.jsonl and saved under this name: the Gate-2 pool (293 rows, stopped at its token cap) keeps its own. row_ok drops the 64 rows naming a SWE-bench-Verified repo; 7,922 rows are over ADR-001's 8,000-token trace limit"
   }
  ]
 }

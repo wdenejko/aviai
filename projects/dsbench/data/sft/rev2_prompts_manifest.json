@@ -10,12 +10,12 @@
   "battery_items_n": 6419,
   "exclude": ""
  },
- "items": 2635,
+ "items": 2646,
  "out": "data/sft/rev2_prompts.jsonl",
- "out_sha256": "d94e36cc5a7d023d8fe99741851cc93bc46e666cc68c183a3a72d146aa0a03ef",
+ "out_sha256": "ffb2f195c3e8276cdbe5247354125f31e548ec5450bce13e55a14ff4eec04dfc",
  "by_bucket": {
   "replay": 1685,
-  "code": 950
+  "code": 961
  },
  "pools": [
   {
@@ -265,24 +265,26 @@
   {
    "pool": "swe_swiss",
    "bucket": "code",
-   "file": "breadth_swe_swiss.jsonl",
+   "file": "breadth_swe_swiss_rev2.jsonl",
    "share": 0.25,
    "keep_rate": 0.95,
    "quota": 211,
-   "rows": 293,
-   "eligible": 200,
+   "rows": 2267,
+   "eligible": 1609,
    "dropped": {
-    "long": 93
+    "long": 639,
+    "duplicate": 11,
+    "battery": 8
    },
-   "selected": 200,
-   "shortfall": 11,
+   "selected": 211,
+   "shortfall": 0,
    "with_check": 0,
    "prompt_tokens_est": {
-    "median": 899,
-    "p90": 2607,
-    "max": 3067
+    "median": 971,
+    "p90": 2498,
+    "max": 3059
    },
-   "file_sha256": "604767b2a64fce113fec2050453846053bf75d2b67aa407ed684795829091c5a"
+   "file_sha256": "c609ecf307203f7c8871c708c8244eb48f5e0389b4f1ef9d140ba60e779fa3c5"
   }
  ]
 }
