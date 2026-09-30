@@ -9,6 +9,10 @@ recoverable tool error instead of aborting the run. See reference-ornith-agentic
 
 Shared by the agentic loop and the acceptance battery (the BFCL tool-call tests need the same
 recovery: a malformed call must score as a format failure, not crash the request).
+
+A thinking-mode reply streams its trace as `reasoning_content` deltas; they are kept the same way,
+since Revision 2's tool rows train on the trace (ADR-004). Callers that build the next request
+from `content` and `tool_calls` are unaffected.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ import httpx
 
 def reassemble_stream(r: httpx.Response) -> dict:
     content = ""
+    reasoning = ""
     finish = None
     usage: dict = {}
     timings: dict = {}
@@ -42,6 +47,8 @@ def reassemble_stream(r: httpx.Response) -> dict:
         delta = ch.get("delta") or {}
         if delta.get("content"):
             content += delta["content"]
+        if delta.get("reasoning_content"):
+            reasoning += delta["reasoning_content"]
         for tc in (delta.get("tool_calls") or []):
             idx = tc.get("index", 0)
             slot = calls.setdefault(idx, {"id": None, "name": None, "arguments": ""})
@@ -56,5 +63,7 @@ def reassemble_stream(r: httpx.Response) -> dict:
          "function": {"name": c["name"], "arguments": c["arguments"]}}
         for _, c in sorted(calls.items())
     ]
-    return {"message": {"role": "assistant", "content": content, "tool_calls": tool_calls},
-            "finish_reason": finish, "usage": usage, "timings": timings}
+    message = {"role": "assistant", "content": content, "tool_calls": tool_calls}
+    if reasoning:
+        message["reasoning_content"] = reasoning
+    return {"message": message, "finish_reason": finish, "usage": usage, "timings": timings}
