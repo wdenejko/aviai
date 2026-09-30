@@ -44,6 +44,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from dsbench.sftgen.decontaminate import strict_gate
+
 SEED = 20260930
 # ADR-004's table: 250 fit rows and 200 decline rows kept, divided by the share expected to survive
 # the check and the length limits (the base declined 89.2% of BFCL's irrelevance items).
@@ -834,21 +836,6 @@ def verify(items_path: Path, gen_path: Path, out_path: Path) -> dict:
 
 # --- CLI -------------------------------------------------------------------------------------
 
-def _battery_gate(items_dir: str) -> Callable[[dict], str | None]:
-    """dsbench's rules plus the battery: any shared 13-gram rejects, not only rule 4's fifth."""
-    from dsbench.sftgen.decontaminate import _row_text, build_denylist, scan_text
-
-    deny = build_denylist(battery_items=items_dir)
-
-    def gate(item: dict) -> str | None:
-        audit: list[dict] = []
-        reason = scan_text(_row_text(item), deny, audit=audit)
-        if reason:
-            return f"{reason['rule']} {reason['hit']}"
-        return f"battery overlap {audit[0]['hit']}" if audit else None
-    return gate
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -869,7 +856,7 @@ def main() -> None:
         print(json.dumps(verify(args.items, args.gen, args.out)))
         return
     items, report = generate(seed=args.seed, n_fit=args.fit, n_decline=args.decline,
-                             gate=_battery_gate(args.battery_items))
+                             gate=strict_gate(args.battery_items))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w") as fh:
         for item in items:
