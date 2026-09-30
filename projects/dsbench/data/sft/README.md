@@ -87,6 +87,19 @@ uv run --with huggingface_hub python -m dsbench.sftgen.synsql build \
     --out data/sft/rev2_sql_prompts.jsonl --report data/sft/rev2_sql_prompts_manifest.json
 ```
 
+`rev2_target_a_pilot.jsonl` holds the Target A pilot's items (`sftgen/target_a_hints.py`): each
+generated row as a plain item and a hinted twin, whose generation prompt states the convention
+and whose `train_messages` don't. `rev2_target_a_pilot_manifest.json` (tracked) records the hints,
+the checks they passed on the engines, the counts per cell and the output's hash. It needs the
+sandbox's four engines. Rebuild with:
+
+```bash
+docker compose -f sandbox/docker-compose.yml up -d --build clickhouse postgres mysql duckdb
+uv run python -m dsbench.sftgen.target_a_hints items --battery-items data/battery/items \
+    --out data/sft/rev2_target_a_pilot.jsonl \
+    --report data/sft/rev2_target_a_pilot_manifest.json
+```
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent

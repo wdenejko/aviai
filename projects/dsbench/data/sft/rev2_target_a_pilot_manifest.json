@@ -1,0 +1,57 @@
+{
+ "params": {
+  "copy_run": 10,
+  "battery_items": "data/battery/items"
+ },
+ "hint_checks_passed": {
+  "clickhouse": 10,
+  "duckdb": 17,
+  "postgres": 17,
+  "mysql": 17
+ },
+ "seed": 20260930,
+ "reps": 2,
+ "rows_per_table": 1500,
+ "rows": 192,
+ "generator_rejected": 0,
+ "items": 384,
+ "pairs_by_cell": {
+  "clickhouse/month-bucket": 12,
+  "clickhouse/timezone-direction": 12,
+  "clickhouse/weekday-numbering": 12,
+  "clickhouse/weekend-flag": 12,
+  "duckdb/month-bucket": 12,
+  "duckdb/timezone-direction": 12,
+  "duckdb/weekday-numbering": 12,
+  "duckdb/weekend-flag": 12,
+  "mysql/month-bucket": 12,
+  "mysql/timezone-direction": 12,
+  "mysql/weekday-numbering": 12,
+  "mysql/weekend-flag": 12,
+  "postgres/month-bucket": 12,
+  "postgres/timezone-direction": 12,
+  "postgres/weekday-numbering": 12,
+  "postgres/weekend-flag": 12
+ },
+ "gate_rejected": {},
+ "hints": {
+  "clickhouse/weekday-numbering": "In ClickHouse, toDayOfWeek(date) numbers Monday 1 through Sunday 7.",
+  "clickhouse/weekend-flag": "In ClickHouse, toDayOfWeek(date) numbers Monday 1 through Sunday 7.",
+  "clickhouse/timezone-direction": "UTC = local time - UTC offset: a clock at UTC-4 is 4 hours behind UTC, so its UTC time is the local time plus 4 hours.",
+  "clickhouse/month-bucket": "In ClickHouse, toMonth(date) returns the month number, January 1 through December 12.",
+  "duckdb/weekday-numbering": "In DuckDB, dayofweek(date) numbers Sunday 0 through Saturday 6; isodow(date) numbers Monday 1 through Sunday 7.",
+  "duckdb/weekend-flag": "In DuckDB, dayofweek(date) numbers Sunday 0 through Saturday 6; isodow(date) numbers Monday 1 through Sunday 7.",
+  "duckdb/timezone-direction": "UTC = local time - UTC offset: a clock at UTC-4 is 4 hours behind UTC, so its UTC time is the local time plus 4 hours.",
+  "duckdb/month-bucket": "In DuckDB, month(date) returns the month number, January 1 through December 12.",
+  "postgres/weekday-numbering": "In PostgreSQL, EXTRACT(DOW FROM date) numbers Sunday 0 through Saturday 6; EXTRACT(ISODOW FROM date) numbers Monday 1 through Sunday 7.",
+  "postgres/weekend-flag": "In PostgreSQL, EXTRACT(DOW FROM date) numbers Sunday 0 through Saturday 6; EXTRACT(ISODOW FROM date) numbers Monday 1 through Sunday 7.",
+  "postgres/timezone-direction": "UTC = local time - UTC offset: a clock at UTC-4 is 4 hours behind UTC, so its UTC time is the local time plus 4 hours.",
+  "postgres/month-bucket": "In PostgreSQL, EXTRACT(MONTH FROM date) returns the month number, January 1 through December 12.",
+  "mysql/weekday-numbering": "In MySQL, DAYOFWEEK(date) numbers Sunday 1 through Saturday 7; WEEKDAY(date) numbers Monday 0 through Sunday 6.",
+  "mysql/weekend-flag": "In MySQL, DAYOFWEEK(date) numbers Sunday 1 through Saturday 7; WEEKDAY(date) numbers Monday 0 through Sunday 6.",
+  "mysql/timezone-direction": "UTC = local time - UTC offset: a clock at UTC-4 is 4 hours behind UTC, so its UTC time is the local time plus 4 hours.",
+  "mysql/month-bucket": "In MySQL, MONTH(date) returns the month number, January 1 through December 12."
+ },
+ "out": "data/sft/rev2_target_a_pilot.jsonl",
+ "out_sha256": "e45fcf1e48d172dce46cc7c61a068cb44887014493fc2b7355cbc4d68038f89b"
+}
