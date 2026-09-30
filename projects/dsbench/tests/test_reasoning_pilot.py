@@ -78,6 +78,16 @@ def test_request_body_turns_thinking_on_with_a_stable_seed():
     assert body["chat_template_kwargs"] == {"enable_thinking": True}
     assert body["temperature"] == 0.6 and body["max_tokens"] == 16384
     assert body["seed"] == rp.request_body(item, 1)["seed"]
+    assert "stream" not in body and "tools" not in body
+
+
+def test_a_tool_item_sends_its_tools_and_streams():
+    tools = [{"type": "function", "function": {"name": "f", "parameters": {"type": "object"}}}]
+    item = {"id": "tool_fit:0001", "messages": [{"role": "user", "content": "hi"}],
+            "tools": tools}
+    body = rp.request_body(item, 8192)
+    assert body["tools"] == tools and body["stream"] is True
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}
 
 
 def test_target_a_id_parsing_keeps_hyphenated_families():
