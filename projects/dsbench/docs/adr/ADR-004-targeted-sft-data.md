@@ -198,7 +198,7 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 | Pool | Tokens | Rows (≈) | Prompts | Kept if |
 |---|---:|---:|---|---|
 | Target A: SQL-dialect conventions | 0.8M (8%) | 450 | `dialect_conventions.py`, four dialects, asking for the SQL only | its SQL returns the truth on the dialect's sandboxed engine |
-| SQL on real schemas | 1.0M (10%) | 500 | SynSQL-2.5M (Apache-2.0), SQLite, each prompt built from its row's database | its result equals the gold SQL's on that database |
+| SQL on real schemas | 1.0M (10%) | 500 | SynSQL-2.5M (Apache-2.0), SQLite, each prompt built from its row's database | its result equals the gold SQL's on that database and on three bigger variants of it |
 | Target C: ML-delivery loops | 1.0M (10%) | 150 | `ml_tasks.py` | the task's oracle passes, and the loop fits 8,192 tokens |
 | Tool calls where a tool fits | 0.4M (4%) | 250 | generated tool lists, gold calls and requests; no BFCL item | the call matches the gold call |
 | Tool lists that don't fit | 0.3M (3%) | 200 | the same tool lists with unrelated requests | no call |
@@ -323,7 +323,71 @@ The selection (seed 20260930), 2,646 prompts:
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
   is kept if its result equals the gold SQL's. The gold SQL must run first, as the pilot required
   of Target A's truth. BIRD and Spider train (CC BY-SA 4.0) are optional; if used, they are flagged
-  for the publish gate's licence audit.
+  for the publish gate's licence audit. **Built 2026-09-30** (`sftgen/synsql.py`), SynSQL alone,
+  as decision 3 proposes:
+  - The questions sit in one 9.4 GB JSON array, grouped by database. The build reads 64 KB at
+    seeded offsets of the pinned revision and takes the first whole question after each offset,
+    one question per database. A question's chance therefore follows the length of the question
+    before it. On 150 chunks (2,406 questions), the picks matched the dataset's complexity mix
+    within noise.
+  - **SynSQL's databases are nearly empty.** In the pool's 1,112 databases, a table holds 2 rows
+    at the median and 10 at most. The prompt's example rows are therefore the whole database. On
+    the database alone, the gold SQL returned no rows for half the questions read, and a wrong
+    query often returns the gold's rows. On 300 items of a first build, all with gold rows,
+    mutated gold queries still matched the gold:
+    - with an aggregate swapped (AVG for SUM, MIN for MAX), 60% of the time;
+    - with the sort flipped before a LIMIT, 89%;
+    - with a comparison flipped, 9%.
+  - So every query also runs on three variants of its database, and a reply must match the gold
+    on all four. This is test-suite accuracy (Zhong, Yu & Klein, 2020).
+    - A variant keeps the tables and the rows, and adds new rows up to 100 per table.
+    - A new value repeats one the column holds half the time, so the question's literals still
+      match rows.
+    - A foreign key points at a few parents most of the time. Groups then hold several rows,
+      where AVG and SUM differ, and some parents have none, where INNER and LEFT JOIN differ.
+    - With the variants, on the pool's 1,112 items, the three mutations matched 15%, 19% and
+      0.9% of the time. The aggregate survivors inspected are equivalent to the gold: an
+      aggregate the query doesn't return, or a group of one row by construction.
+  - Every query runs in a new `sqlite` sandbox container, the gold SQL included, since a model
+    wrote it too. The variants are built there as well, because building one runs the dataset's
+    CREATE TABLE statements.
+    - The container has no network, a read-only root and no capabilities.
+    - The runner opens each database read-only, refuses ATTACH and interrupts a query after 30
+      seconds.
+  - A question is kept when:
+    - its style isn't "Multi-turn Dialogue", a conversation pasted into one question (10% of
+      those read);
+    - its prompt fits in 4,096 tokens;
+    - its gold SQL runs on all four databases and returns at most 1,000 rows on each;
+    - the gold returns rows on at least one database, and not only NULL, 0 or ''. A result
+      that is empty or blank everywhere passes any query that matches nothing, so it checks
+      nothing.
+  - Of the 1,528 questions whose gold SQL ran, 1,112 were kept. The gold never failed on the
+    database itself. It returned no rows anywhere for 341 (22%), only blanks for 37, over 1,000
+    rows on a variant for 36, and failed on a variant for 2. Moderate questions lose the most to
+    empty results: 28% of those read.
+  - The gate rejected 6 questions. Five shared a run of 0s and 1s with a DS-1000 item: flag
+    columns in the example rows, 1 or 2 of the item's 150-odd 13-grams. The sixth contained a
+    dsbench answer (44.1). None touched BIRD.
+  - The prompt has three phrasings. Each names SQLite and asks for the query only, in a ```sql
+    block.
+  - A reply passes when:
+    - it is that one block and nothing else;
+    - its rows equal the gold SQL's as a set on all four databases (BIRD's execution accuracy,
+      four times);
+    - it finished, with reasoning.
+
+    Target A's check takes the last block and allows prose around it. Its generation can adopt
+    this rule.
+  - 1,112 prompts (seed 20260930), for 500 rows at an expected 0.45, a guess until the base's
+    replies are checked (`data/sft/rev2_sql_prompts_manifest.json`):
+    - Complex 408, Highly Complex 321, Moderate 282, Simple 101, close to the mix read;
+    - prompts of 2,383 tokens at the median and 3,393 at p90;
+    - for 409 prompts the gold returns no rows on the database itself, and only the variants
+      check them. On a variant the gold returns 8 rows at the median;
+    - the build is deterministic: a 30-item run reproduced the pool's first 30 items byte for
+      byte;
+    - `decontaminate.py --battery-items` passes all 1,112, with no overlap below the line.
 - **Target C.** The base runs the ADR-003 loop on the Target C tasks, thinking on.
   - A loop has one user message, so the template keeps every assistant turn's reasoning, and each
     turn is labelled with it.
@@ -490,8 +554,10 @@ The selection (seed 20260930), 2,646 prompts:
      dialect. The addendum's numbers say where the base is wrong: ClickHouse weekdays and
      weekends first, then DuckDB weekends. The timezone family goes too, once it is re-measured
      with its stated offsets.
-3. [ ] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
-   execution-match verifier.
+3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
+   execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
+   databases hold about two rows a table, so the check also runs every query on three bigger
+   variants of each. Generation waits for the GPU window with the rest.
 4. [x] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
    gold-call checker. **Done 2026-09-30:** 518 prompts, 0 battery overlaps; generation waits for
    the GPU window with the rest.

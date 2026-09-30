@@ -1,0 +1,144 @@
+{
+ "params": {
+  "sql_rows": 500,
+  "sql_keep": 0.45,
+  "max_prompt_tokens": 4096,
+  "max_rows": 1000,
+  "variants": 3,
+  "variant_rows": 100,
+  "excluded_styles": [
+   "Multi-turn Dialogue"
+  ],
+  "battery_items": "data/battery/items"
+ },
+ "seed": 20260930,
+ "revision": "cca2c84cc3b41afa6b51534762a6a3a4a420baca",
+ "items": 1112,
+ "offsets_read": 1796,
+ "rejected": {
+  "gold returns no rows": 341,
+  "style Multi-turn Dialogue": 178,
+  "database already used": 55,
+  "gold returns only NULL, 0 or ''": 37,
+  "gold returns over 1000 rows": 36,
+  "prompt too long": 29,
+  "gate: battery": 5,
+  "gold fails on a variant": 2,
+  "gate: numeric-answer": 1
+ },
+ "by_complexity": {
+  "Complex": 408,
+  "Highly Complex": 321,
+  "Moderate": 282,
+  "Simple": 101
+ },
+ "read_by_complexity": {
+  "Complex": 637,
+  "Moderate": 529,
+  "Highly Complex": 483,
+  "Simple": 147
+ },
+ "rejected_by_complexity": {
+  "Complex": {
+   "gold returns no rows": 117,
+   "style Multi-turn Dialogue": 62,
+   "database already used": 21,
+   "gold returns only NULL, 0 or ''": 9,
+   "gold returns over 1000 rows": 9,
+   "prompt too long": 8,
+   "gate: battery": 2,
+   "gold fails on a variant": 1
+  },
+  "Highly Complex": {
+   "gold returns no rows": 56,
+   "style Multi-turn Dialogue": 47,
+   "gold returns over 1000 rows": 24,
+   "database already used": 13,
+   "prompt too long": 10,
+   "gold returns only NULL, 0 or ''": 8,
+   "gate: battery": 2,
+   "gate: numeric-answer": 1,
+   "gold fails on a variant": 1
+  },
+  "Moderate": {
+   "gold returns no rows": 148,
+   "style Multi-turn Dialogue": 55,
+   "database already used": 18,
+   "gold returns only NULL, 0 or ''": 14,
+   "prompt too long": 9,
+   "gold returns over 1000 rows": 2,
+   "gate: battery": 1
+  },
+  "Simple": {
+   "gold returns no rows": 20,
+   "style Multi-turn Dialogue": 14,
+   "gold returns only NULL, 0 or ''": 6,
+   "database already used": 3,
+   "prompt too long": 2,
+   "gold returns over 1000 rows": 1
+  }
+ },
+ "by_style": {
+  "Interrogative": 157,
+  "Colloquial": 147,
+  "Concise": 145,
+  "Descriptive": 142,
+  "Formal": 140,
+  "Vague": 132,
+  "Imperative": 131,
+  "Metaphorical": 118
+ },
+ "read_by_style": {
+  "Interrogative": 233,
+  "Concise": 212,
+  "Descriptive": 203,
+  "Formal": 198,
+  "Colloquial": 197,
+  "Vague": 193,
+  "Imperative": 192,
+  "Multi-turn Dialogue": 186,
+  "Metaphorical": 182
+ },
+ "by_instruction": {
+  "0": 373,
+  "1": 354,
+  "2": 385
+ },
+ "prompt_tokens_est": {
+  "median": 2383.0,
+  "p90": 3393,
+  "max": 4095
+ },
+ "gold_rows_median": {
+  "database": 1.0,
+  "variants": 8.0
+ },
+ "gate_hits": [
+  {
+   "id": "synsql:software_configuration_management_and_build_tracking:ab47ffbff1",
+   "reason": "battery overlap ds1000:299"
+  },
+  {
+   "id": "synsql:time_use_and_labor_market_analysis:90b7d15235",
+   "reason": "battery overlap ds1000:348"
+  },
+  {
+   "id": "synsql:us_election_results_and_voting_data_analysis:b6e131f72c",
+   "reason": "battery overlap ds1000:508"
+  },
+  {
+   "id": "synsql:robotic_joint_movement_and_kinematics:a5710aebf0",
+   "reason": "battery overlap ds1000:668"
+  },
+  {
+   "id": "synsql:global_cultural_values_and_traits:0d77e597f9",
+   "reason": "numeric-answer 44.1"
+  },
+  {
+   "id": "synsql:speech_signal_processing_and_analysis:0031df3c7d",
+   "reason": "battery overlap ds1000:668"
+  }
+ ],
+ "out": "data/sft/rev2_sql_prompts.jsonl",
+ "out_sha256": "4eba2b93ea37844a927d0dd98164950d6e7033245ccb8897503cba63b637a903"
+}
