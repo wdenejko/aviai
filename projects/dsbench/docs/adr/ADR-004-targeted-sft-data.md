@@ -273,7 +273,15 @@ pilot. Aya is sampled evenly across its 71 languages and SciRIFF across its 24 t
 was acquired again, because the Gate-2 pool kept only a flag where the tests should be. GSM8K's
 and OpenCoder's revisions are pinned now, like Aya's and SciRIFF's.
 
-The first selection (seed 20260930), 2,635 prompts:
+SWE-Swiss was acquired whole, at a pinned revision, because the first selection fell 11 short on
+Gate 2's pool, which stopped at its token cap after 293 rows. Its prompts carry repository code:
+the median is about 8,900 tokens. Of its 10,254 rows:
+- 64 name a SWE-bench-Verified repository and are dropped (ADR-001);
+- 7,922 are over ADR-001's 8,000-token limit, counting DeepSeek-R1's answer, which Revision 2
+  discards. The limit may also lean the pool toward prompts with shorter replies;
+- 2,267 are kept, and 1,609 of their prompts are eligible.
+
+The selection (seed 20260930), 2,646 prompts:
 
 | Pool | Share | Selected | Eligible | Dropped |
 |---|---:|---:|---:|---|
@@ -283,12 +291,12 @@ The first selection (seed 20260930), 2,635 prompts:
 | GSM8K | 0.20 | 337 | 7,473 | none |
 | FLAN v2 | 0 | 0 | 2,361 | (decision 5) |
 | opencoder | 0.75 | 750 | 8,225 | 1,731 duplicates, 44 battery |
-| SWE-Swiss | 0.25 | 200 of 211 | 200 | 93 long |
+| SWE-Swiss | 0.25 | 211 | 1,609 | 639 long, 11 duplicates, 8 battery |
 
 - 249 of the oasst1 prompts carry history.
-- SWE-Swiss falls 11 short: Gate 2 acquired 293 of its 10,000 rows, and 93 of those prompts are
-  too long. More need a new acquisition.
-- Expected after generation: about 1,600 replay rows and 790 code rows.
+- Expected after generation: about 1,600 replay rows and 800 code rows.
+- Each pool draws from its own seeded generator: SWE-Swiss's new pool left the other 2,435
+  prompts unchanged.
 - `data/sft/rev2_prompts_manifest.json` records the parameters, each pool's counts, languages
   and tasks, and the hashes of the pools and the output.
 
@@ -467,7 +475,7 @@ The first selection (seed 20260930), 2,635 prompts:
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
-   select the prompts (**selector built 2026-09-30**: 2,635 prompts; SWE-Swiss 11 short),
+   select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
    generate.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
