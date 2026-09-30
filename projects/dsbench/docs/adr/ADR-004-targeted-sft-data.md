@@ -257,6 +257,41 @@ Below the line:
 Selection can leave out every row with an overlap. The pools are git-ignored;
 `data/sft/rev2_breadth_manifest.json` records their revisions, hashes and gate results.
 
+**Prompt selection (built 2026-09-30, `sftgen/select_prompts.py`).** A prompt is a row's messages
+up to its last user turn, history included, and its items run through `reasoning_pilot.py
+generate` as they are. A row is eligible when its prompt:
+- fits in 3,072 tokens (chars/3.5), leaving 5,120 for the reply. That covers the pilot's p90
+  reply in every pool but opencoder's (10,195), whose prompts are short: no prompt cap helps
+  there;
+- shares nothing with the battery, below rule 4's line included;
+- carries its check where the source has one: GSM8K's gold number, and opencoder's tests;
+- isn't a duplicate.
+
+Each pool's quota is its share of the bucket's kept rows, divided by the share it is expected to
+keep after generation: 0.95, and 0.8 for opencoder, which lost 6 of 32 rows to length in the
+pilot. Aya is sampled evenly across its 71 languages and SciRIFF across its 24 tasks. OpenCoder
+was acquired again, because the Gate-2 pool kept only a flag where the tests should be. GSM8K's
+and OpenCoder's revisions are pinned now, like Aya's and SciRIFF's.
+
+The first selection (seed 20260930), 2,635 prompts:
+
+| Pool | Share | Selected | Eligible | Dropped |
+|---|---:|---:|---:|---|
+| oasst1 | 0.40 | 674 | 7,118 | 7 duplicates, 4 long, 2 battery |
+| Aya | 0.20 | 337 | 90,437 | 9,514 duplicates, 8 battery, 5 long |
+| SciRIFF | 0.20 | 337 | 4,223 | 670 long, 9 duplicates |
+| GSM8K | 0.20 | 337 | 7,473 | none |
+| FLAN v2 | 0 | 0 | 2,361 | (decision 5) |
+| opencoder | 0.75 | 750 | 8,225 | 1,731 duplicates, 44 battery |
+| SWE-Swiss | 0.25 | 200 of 211 | 200 | 93 long |
+
+- 249 of the oasst1 prompts carry history.
+- SWE-Swiss falls 11 short: Gate 2 acquired 293 of its 10,000 rows, and 93 of those prompts are
+  too long. More need a new acquisition.
+- Expected after generation: about 1,600 replay rows and 790 code rows.
+- `data/sft/rev2_prompts_manifest.json` records the parameters, each pool's counts, languages
+  and tasks, and the hashes of the pools and the output.
+
 ## Where the reasoning comes from
 
 - **Target A: hint-conditioned generation (STaR's rationalisation).**
@@ -389,7 +424,9 @@ Selection can leave out every row with an overlap. The pools are git-ignored;
    - GSM8K's gold answers: keep only the base's correct replies, as a verified pool does
      (proposed: the check is free, and a wrong solution would train at full weight), or every
      reply that finishes, as the rest of replay does.
-6. **The proportions above.**
+6. **The proportions above**, and within the buckets (the selector's defaults, proposed):
+   replay 0.4 oasst1, 0.2 each Aya, SciRIFF and GSM8K, FLAN v2 0 until decision 5; code 0.75
+   opencoder, 0.25 SWE-Swiss.
 
 ## Action items (Revision 2)
 
@@ -430,7 +467,8 @@ Selection can leave out every row with an overlap. The pools are git-ignored;
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
-   select the prompts, generate.
+   select the prompts (**selector built 2026-09-30**: 2,635 prompts; SWE-Swiss 11 short),
+   generate.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).

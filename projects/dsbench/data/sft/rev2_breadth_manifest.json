@@ -1,6 +1,6 @@
 {
  "built": "2026-09-30",
- "purpose": "ADR-004 Revision 2 replay prompt pools (action item 6): Tulu 3's Aya and SciRIFF subsets, each from its own repo at a pinned revision",
+ "purpose": "ADR-004 Revision 2 prompt pools (action item 6): Tulu 3's Aya and SciRIFF subsets, each from its own repo at a pinned revision, GSM8K train, and OpenCoder's educational_instruct with its tests",
  "note": "The pools are git-ignored (data/sft/*.jsonl); this manifest anchors them. Token counts are chars/3.5 over the datasets' own messages; Revision 2 keeps the prompts and has the base write the answers. Every pool passed dsbench's gate at acquisition and the battery gate (decontaminate.py --battery-items data/battery/items) after it; rows below the battery line are kept and counted here.",
  "pools": [
   {
@@ -71,6 +71,69 @@
    },
    "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source tulu3_sciriff --cap-tokens 1000000000 --max-scan 200000 --out-dir <scratch>",
    "tasks": 24
+  },
+  {
+   "file": "breadth_gsm8k.jsonl",
+   "source": "gsm8k",
+   "hf_id": "openai/gsm8k",
+   "revision": "740312add88f781978c0658806c59bc2815b9866",
+   "rows": 7473,
+   "approx_tokens": 1052661,
+   "bytes": 6057431,
+   "sha256": "b3b740af1baecc92f6a92b75f77b723c2b4ac76c86c67edb2565bc7bd0ffcfea",
+   "licences": {
+    "MIT": 7473
+   },
+   "acquisition": {
+    "scanned": 7473,
+    "skipped_row_ok": 0,
+    "skipped_normalize": 0,
+    "skipped_long": 0,
+    "skipped_contam": 0,
+    "contam_by_rule": {}
+   },
+   "battery_gate": {
+    "rejected": 0,
+    "rejected_by_item": {},
+    "below_line_rows": 0,
+    "below_line_items": 0,
+    "largest_share_of_an_item_below_the_line": 0.0
+   },
+   "rows_with_their_check": 7473,
+   "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source gsm8k --cap-tokens 1000000000 --max-scan 10000 --out-dir <scratch>"
+  },
+  {
+   "file": "breadth_opencoder_edu_rev2.jsonl",
+   "source": "opencoder_edu",
+   "hf_id": "OpenCoder-LLM/opc-sft-stage2",
+   "revision": "7d28f40d579edd7c24402d17d0c7639f991e6f8d",
+   "rows": 10000,
+   "approx_tokens": 1380303,
+   "bytes": 11119750,
+   "sha256": "76212053d24f73a892bbb3526a9f08fcfd6bc814133e898878aa28b81459195b",
+   "licences": {
+    "Apache-2.0 (MIT code)": 10000
+   },
+   "acquisition": {
+    "scanned": 10000,
+    "skipped_row_ok": 0,
+    "skipped_normalize": 0,
+    "skipped_long": 0,
+    "skipped_contam": 0,
+    "contam_by_rule": {}
+   },
+   "battery_gate": {
+    "rejected": 5,
+    "rejected_by_item": {
+     "bfcl:multiple_1": 5
+    },
+    "below_line_rows": 70,
+    "below_line_items": 13,
+    "largest_share_of_an_item_below_the_line": 0.135
+   },
+   "rows_with_their_check": 10000,
+   "regen": "uv run --with datasets python -m dsbench.sftgen.breadth.acquire --source opencoder_edu --cap-tokens 1000000000 --max-scan 10000 --out-dir <scratch>",
+   "note": "acquired as breadth_opencoder_edu.jsonl and saved under this name: the Gate-2 pool keeps its own, and it lacks the tests"
   }
  ]
 }

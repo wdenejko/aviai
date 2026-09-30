@@ -1,0 +1,288 @@
+{
+ "params": {
+  "seed": 20260930,
+  "max_prompt_tokens": 3072,
+  "bucket_rows": {
+   "replay": 1600,
+   "code": 800
+  },
+  "battery_items": "data/battery/items",
+  "battery_items_n": 6419,
+  "exclude": ""
+ },
+ "items": 2635,
+ "out": "data/sft/rev2_prompts.jsonl",
+ "out_sha256": "d94e36cc5a7d023d8fe99741851cc93bc46e666cc68c183a3a72d146aa0a03ef",
+ "by_bucket": {
+  "replay": 1685,
+  "code": 950
+ },
+ "pools": [
+  {
+   "pool": "oasst1",
+   "bucket": "replay",
+   "file": "breadth_tulu3.jsonl",
+   "share": 0.4,
+   "keep_rate": 0.95,
+   "quota": 674,
+   "rows": 7131,
+   "eligible": 7118,
+   "dropped": {
+    "duplicate": 7,
+    "long": 4,
+    "battery": 2
+   },
+   "selected": 674,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 41,
+    "p90": 444,
+    "max": 1693
+   },
+   "file_sha256": "08740d36176e33e0974a65425d003b64c0cdfc18bc9ca3b145acc41efe546344"
+  },
+  {
+   "pool": "flan_v2",
+   "bucket": "replay",
+   "file": "breadth_tulu3.jsonl",
+   "share": 0.0,
+   "keep_rate": 0.95,
+   "quota": 0,
+   "rows": 2373,
+   "eligible": 2361,
+   "dropped": {
+    "duplicate": 7,
+    "long": 5
+   },
+   "selected": 0,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 0,
+    "p90": 0,
+    "max": 0
+   },
+   "file_sha256": "08740d36176e33e0974a65425d003b64c0cdfc18bc9ca3b145acc41efe546344"
+  },
+  {
+   "pool": "aya",
+   "bucket": "replay",
+   "file": "breadth_tulu3_aya.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.95,
+   "quota": 337,
+   "rows": 99964,
+   "eligible": 90437,
+   "dropped": {
+    "duplicate": 9514,
+    "battery": 8,
+    "long": 5
+   },
+   "selected": 337,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 18,
+    "p90": 89,
+    "max": 2004
+   },
+   "groups": {
+    "available": 71,
+    "selected": 71
+   },
+   "by_language": {
+    "Amharic": 5,
+    "Basque": 5,
+    "Bengali": 5,
+    "Burmese": 5,
+    "Cebuano": 5,
+    "Central Kurdish": 4,
+    "Danish": 4,
+    "Dutch": 5,
+    "Egyptian Arabic": 5,
+    "English": 5,
+    "Filipino": 5,
+    "Finnish": 5,
+    "French": 5,
+    "German": 4,
+    "Greek": 5,
+    "Gujarati": 5,
+    "Haitian": 4,
+    "Hausa": 5,
+    "Hindi": 5,
+    "Hungarian": 4,
+    "Igbo": 5,
+    "Indonesian": 5,
+    "Iranian Persian": 5,
+    "Irish": 5,
+    "Italian": 5,
+    "Japanese": 5,
+    "Javanese": 4,
+    "Kannada": 4,
+    "Korean": 4,
+    "Kyrgyz": 5,
+    "Lithuanian": 5,
+    "Malayalam": 5,
+    "Marathi": 5,
+    "Moroccan Arabic": 5,
+    "Najdi Arabic": 4,
+    "Nepali": 5,
+    "Northern Sotho": 4,
+    "Nyanja": 5,
+    "Panjabi": 5,
+    "Plateau Malagasy": 5,
+    "Polish": 5,
+    "Portuguese": 5,
+    "Russian": 5,
+    "Serbian": 4,
+    "Shona": 5,
+    "Simplified Chinese": 5,
+    "Sindhi": 4,
+    "Sinhala": 5,
+    "Somali": 5,
+    "South Levantine Arabic": 4,
+    "Southern Pashto": 5,
+    "Spanish": 5,
+    "Standard Arabic": 5,
+    "Standard Malay": 5,
+    "Sundanese": 4,
+    "Swahili": 4,
+    "Swedish": 5,
+    "Ta'izzi-Adeni Arabic": 4,
+    "Tamil": 5,
+    "Telugu": 5,
+    "Thai": 5,
+    "Tosk Albanian": 4,
+    "Traditional Chinese": 5,
+    "Turkish": 5,
+    "Ukrainian": 5,
+    "Urdu": 5,
+    "Vietnamese": 5,
+    "Wolof": 5,
+    "Xhosa": 4,
+    "Yoruba": 5,
+    "Zulu": 5
+   },
+   "file_sha256": "76400b7f7a6957ed19d38b4e045605e6278a6371df50c4f9c127209caca6f74e"
+  },
+  {
+   "pool": "sciriff",
+   "bucket": "replay",
+   "file": "breadth_tulu3_sciriff.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.95,
+   "quota": 337,
+   "rows": 4902,
+   "eligible": 4223,
+   "dropped": {
+    "long": 670,
+    "duplicate": 9
+   },
+   "selected": 337,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 707,
+    "p90": 2322,
+    "max": 3055
+   },
+   "groups": {
+    "available": 24,
+    "selected": 24
+   },
+   "by_task": {
+    "anat_em_ner": 15,
+    "annotated_materials_syntheses_events": 15,
+    "bioasq_factoid_qa": 16,
+    "bioasq_general_qa": 16,
+    "bioasq_yesno_qa": 16,
+    "chia_ner": 16,
+    "covid_deepset_qa": 15,
+    "data_reco_mcq_mc": 16,
+    "data_reco_mcq_sc": 16,
+    "ddi_ner": 16,
+    "genia_ner": 16,
+    "linnaeus_ner": 4,
+    "medmentions_ner": 16,
+    "mltables_te": 3,
+    "mslr2022_cochrane_multidoc_summarization": 16,
+    "mslr2022_ms2_multidoc_summarization": 15,
+    "multixscience_multidoc_summarization": 16,
+    "ncbi_ner": 16,
+    "nlmchem_ner": 1,
+    "nlmgene_ner": 15,
+    "pubmedqa_qa": 15,
+    "qasa_abstractive_qa": 16,
+    "qasper_extractive_qa": 15,
+    "scitldr_aic": 16
+   },
+   "file_sha256": "d285bfa92408602f38d16e392e865b15e1081fa23eff3078a30ebce8d7607af1"
+  },
+  {
+   "pool": "gsm8k",
+   "bucket": "replay",
+   "file": "breadth_gsm8k.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.95,
+   "quota": 337,
+   "rows": 7473,
+   "eligible": 7473,
+   "dropped": {},
+   "selected": 337,
+   "shortfall": 0,
+   "with_check": 337,
+   "prompt_tokens_est": {
+    "median": 63,
+    "p90": 107,
+    "max": 173
+   },
+   "file_sha256": "b3b740af1baecc92f6a92b75f77b723c2b4ac76c86c67edb2565bc7bd0ffcfea"
+  },
+  {
+   "pool": "opencoder_edu",
+   "bucket": "code",
+   "file": "breadth_opencoder_edu_rev2.jsonl",
+   "share": 0.75,
+   "keep_rate": 0.8,
+   "quota": 750,
+   "rows": 10000,
+   "eligible": 8225,
+   "dropped": {
+    "duplicate": 1731,
+    "battery": 44
+   },
+   "selected": 750,
+   "shortfall": 0,
+   "with_check": 750,
+   "prompt_tokens_est": {
+    "median": 35,
+    "p90": 77,
+    "max": 241
+   },
+   "file_sha256": "76212053d24f73a892bbb3526a9f08fcfd6bc814133e898878aa28b81459195b"
+  },
+  {
+   "pool": "swe_swiss",
+   "bucket": "code",
+   "file": "breadth_swe_swiss.jsonl",
+   "share": 0.25,
+   "keep_rate": 0.95,
+   "quota": 211,
+   "rows": 293,
+   "eligible": 200,
+   "dropped": {
+    "long": 93
+   },
+   "selected": 200,
+   "shortfall": 11,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 899,
+    "p90": 2607,
+    "max": 3067
+   },
+   "file_sha256": "604767b2a64fce113fec2050453846053bf75d2b67aa407ed684795829091c5a"
+  }
+ ]
+}
