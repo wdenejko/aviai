@@ -47,7 +47,8 @@ a measured Gate-2 failure (reports/gate-evals/20260924-gate2-battery.md and its 
 4. **Tool calls keep their arguments** (`tool_arguments_as_objects`). The records carry them as
    JSON strings, and the template renders parameters only from a mapping, so every real tool call
    Gate 2 trained on was an empty `<function=...>` block. The server parses the string first;
-   training now does the same.
+   training now does the same. A boolean or null argument is passed as its JSON text, which the
+   model wrote; the template would print Python's `True` or `None`.
 
 **The tokenizer.** One more fix turned up while building this path. transformers' GGUF converter
 registers only a few ChatML control tokens as added tokens, so `<think>`, `</think>`,
@@ -281,6 +282,7 @@ def tool_arguments_as_objects(messages: list[dict]) -> list[dict]:
     all 6,061 real tool calls in its training tokens rendered empty (2026-10-01).
 
     A call whose arguments aren't a JSON object rejects the row: it could not have been served.
+    Each argument's value is passed as the model wrote it (`_as_written`).
     """
     out = []
     for message in messages:
@@ -301,10 +303,28 @@ def tool_arguments_as_objects(messages: list[dict]) -> list[dict]:
                 arguments = {}
             if not isinstance(arguments, dict):
                 raise RowRejected("tool_arguments_not_an_object")
-            function["arguments"] = arguments
+            function["arguments"] = {name: _as_written(value) for name, value in arguments.items()}
             fixed.append({**call, "function": function})
         out.append({**message, "tool_calls": fixed})
     return out
+
+
+def _as_written(value: Any) -> Any:
+    """A top-level tool-call argument, spelled for the template as the model wrote it.
+
+    The template prints an argument with `tojson` when it is a mapping or a list, and with Jinja's
+    `string` filter otherwise. That filter is Python's `str`, which spells a boolean `True` and a
+    null `None`. llama-server's grammar held the model to the parameter's JSON schema, so it wrote
+    `true`, `false` or `null`, and that text is what the label must hold. Found 2026-10-01 in the
+    Target C pilot, where the base ends runs with `finish(answer=true)`; 30 of the tool rows' 295
+    fit prompts call a tool with a boolean parameter. Numbers print the same both ways, and nested
+    values go through `tojson`, which already writes JSON.
+    """
+    if isinstance(value, bool):  # before anything numeric: True == 1 in Python
+        return "true" if value else "false"
+    if value is None:
+        return "null"
+    return value
 
 
 def render_thinking(
