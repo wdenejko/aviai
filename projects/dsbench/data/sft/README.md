@@ -108,7 +108,8 @@ weekend rows, each as 4 plain items and 4 `start` items, whose prefill opens the
 with the convention. All 192 have the plain prompt. The `recall` items are cut from the plain
 replies on the box, between the window's two phases (`prefill splice`).
 `rev2_target_a_prefill_pilot_manifest.json` (tracked) records the convention's sentence, the
-engine checks, the counts per cell and the output's hash. Rebuild with:
+engine checks, the counts per cell and the output's hash. The pilot ran on 2026-10-01
+(`reports/gate-evals/20261001-target-a-prefill-pilot.md`). Rebuild with:
 
 ```bash
 docker compose -f sandbox/docker-compose.yml up -d --build clickhouse postgres mysql duckdb

@@ -1,0 +1,181 @@
+{
+ "run": {
+  "date": "2026-10-01",
+  "box": "dashi",
+  "run_dir": "~/benchlab/runs/2026-10-01-qwen36-target-a-prefill-pilot/",
+  "window_minutes": 66,
+  "model": "Qwen3.6-35B-A3B APEX I-Mini, no LoRA",
+  "sampling": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "top_k": 20
+  },
+  "max_tokens": 16384,
+  "slots": 8,
+  "path": "raw completion: /apply-template (thinking on) + /completion, <think>/</think> preserved; plain items with an empty prefill"
+ },
+ "items": {
+  "manifest": "data/sft/rev2_target_a_prefill_pilot_manifest.json",
+  "seed": 20261001,
+  "rows": 24,
+  "dialect": "clickhouse",
+  "families": [
+   "weekday-numbering",
+   "weekend-flag"
+  ],
+  "samples_per_row_and_arm": 4,
+  "sentence": "In ClickHouse, `toDayOfWeek(date)` (alias `dayOfWeek`) returns 1 for Monday, 2 for Tuesday, ..., 7 for Sunday: the ISO numbering. (MySQL's `DAYOFWEEK` is the one that starts at Sunday = 1.)"
+ },
+ "generation": {
+  "phase1_plain_and_start": {
+   "replies": 192,
+   "errors": 0,
+   "completion_tokens": 360234,
+   "wall_minutes": 48.5,
+   "tokens_per_second": 123.7,
+   "hit_limit": 7
+  },
+  "phase2_recall": {
+   "replies": 96,
+   "errors": 0,
+   "completion_tokens": 139975,
+   "wall_minutes": 17.1,
+   "tokens_per_second": 136.5,
+   "hit_limit": 0
+  }
+ },
+ "recall_cut_chars": {
+  "n": 96,
+  "median": 367.0,
+  "min": 32,
+  "max": 666,
+  "approx_tokens_median": 109,
+  "approx_tokens_max": 195,
+  "plain_replies_without_a_cut": 0
+ },
+ "per_cell": {
+  "clickhouse/weekday-numbering": {
+   "plain": {
+    "replies": 48,
+    "wrong": 41,
+    "cites": 0,
+    "soft_flagged": 35,
+    "kept": 5,
+    "verified": 5,
+    "unfinished": 2,
+    "rows": 12,
+    "rows_kept": 4,
+    "reasoning_tokens_median": 1504.0,
+    "kept_reasoning_tokens_median": 1769
+   },
+   "start": {
+    "replies": 48,
+    "verified": 45,
+    "cites": 0,
+    "soft_flagged": 26,
+    "kept": 45,
+    "wrong": 3,
+    "rows": 12,
+    "rows_kept": 12,
+    "reasoning_tokens_median": 1026.0,
+    "kept_reasoning_tokens_median": 1007
+   },
+   "recall": {
+    "replies": 48,
+    "verified": 47,
+    "cites": 0,
+    "soft_flagged": 29,
+    "kept": 47,
+    "wrong": 1,
+    "rows": 12,
+    "rows_kept": 12,
+    "reasoning_tokens_median": 1541.0,
+    "kept_reasoning_tokens_median": 1527
+   }
+  },
+  "clickhouse/weekend-flag": {
+   "plain": {
+    "replies": 48,
+    "wrong": 42,
+    "cites": 0,
+    "soft_flagged": 30,
+    "kept": 2,
+    "unfinished": 4,
+    "verified": 2,
+    "rows": 12,
+    "rows_kept": 2,
+    "reasoning_tokens_median": 1445.5,
+    "kept_reasoning_tokens_median": 2210.5
+   },
+   "start": {
+    "replies": 48,
+    "verified": 47,
+    "cites": 0,
+    "soft_flagged": 15,
+    "kept": 47,
+    "unfinished": 1,
+    "rows": 12,
+    "rows_kept": 12,
+    "reasoning_tokens_median": 960.5,
+    "kept_reasoning_tokens_median": 959
+   },
+   "recall": {
+    "replies": 48,
+    "verified": 48,
+    "cites": 0,
+    "soft_flagged": 30,
+    "kept": 48,
+    "rows": 12,
+    "rows_kept": 12,
+    "reasoning_tokens_median": 1561.0,
+    "kept_reasoning_tokens_median": 1561.0
+   }
+  }
+ },
+ "quality_of_kept": {
+  "plain": {
+   "kept": 7,
+   "kept_restating_sunday1": 7,
+   "kept_clean": 0,
+   "rows_with_a_clean_kept": 0,
+   "median_tokens_kept_restating": 1844,
+   "median_tokens_kept_clean": null,
+   "kept_opening_with_a_check": 0,
+   "kept_citing_docs": 7
+  },
+  "start": {
+   "kept": 92,
+   "kept_restating_sunday1": 40,
+   "kept_clean": 52,
+   "rows_with_a_clean_kept": 23,
+   "median_tokens_kept_restating": 1212.5,
+   "median_tokens_kept_clean": 888.0,
+   "kept_opening_with_a_check": 72,
+   "kept_citing_docs": 90
+  },
+  "recall": {
+   "kept": 95,
+   "kept_restating_sunday1": 49,
+   "kept_clean": 46,
+   "rows_with_a_clean_kept": 23,
+   "median_tokens_kept_restating": 1634,
+   "median_tokens_kept_clean": 1475.0,
+   "kept_opening_with_a_check": 87,
+   "kept_citing_docs": 95
+  }
+ },
+ "notes": {
+  "kept": "verified on the sandboxed ClickHouse, one sql block and nothing else, finished with reasoning; a prefilled reply also doesn't credit the prompt or name a hint after the prefill (citations: 0 in every arm)",
+  "kept_restating_sunday1": "kept replies with a sentence, after the prefill, that states Sunday = 1 and doesn't name MySQL: mostly doubts ('is there any chance toDayOfWeek returns 1 for Sunday'), misremembered doc quotes, a few contrasts with other dialects",
+  "plain_never_right_rows": 18,
+  "wrong": {
+   "start": "2 old belief, 1 arithmetic slip (Wednesday = 4 under Monday = 1)",
+   "recall": "1 arithmetic slip ('4 for Thursday ... So Thursday is 5')"
+  },
+  "unfinished": {
+   "plain": "6 hit the 16,384-token limit",
+   "start": "1 looped to the limit after writing its answer"
+  },
+  "thermostat_interventions": 0
+ }
+}
