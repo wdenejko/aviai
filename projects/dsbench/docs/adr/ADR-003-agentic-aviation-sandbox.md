@@ -1,6 +1,6 @@
 # ADR-003: dsbench v2 — an agentic, real-world aviation data-stack sandbox
 
-- **Status:** Accepted. Phase 1 (ClickHouse vertical slice) shipped; **Gate 0 v2 baseline established 2026-09-18** via a public harness (see §6). Phase 2 (live Airflow + MLflow) pending.
+- **Status:** Accepted. Phase 1 (ClickHouse vertical slice) shipped; **Gate 0 v2 baseline established 2026-09-18** via a public harness (see §6). Phase 2 (live Airflow + MLflow) pending. **2026-10-01:** the agent runs as its own ClickHouse login, out of reach of the labels its grader holds back (§7).
 - **Date:** 2026-09-15 (baseline addendum 2026-09-18)
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-002 (the single-shot dsbench harness this evolves; its execution-verified / paired / oracle-gated methodology carries over), ADR-001 (the fine-tune study these scores gate), `avtext` (reused data collectors and licensing discipline), memory `reference-fork-thinking-eval` (thinking-model eval protocol), memory `reference-ornith-agentic-behavior` (the baseline finding).
@@ -104,7 +104,7 @@ by others — the owner directed three changes:
 
 **Set expanded to 20 (2026-09-18) — headroom for the fine-tune.** 8/10 by majority left too little room to *measure* an improvement, so 10 more hard problems were added across five capability axes, each with a pandas-vs-ClickHouse cross-validated oracle (gate now **20/20**): **time/timezone** — `da_worst_dep_hour` (parse a String `hhmm`), `da_utc_peak_hour` (per-hub local→UTC, sign of the offset), `da_redeye_count` (midnight wraparound); **dialect/NULL** — `da_all_flights_avg_delay` (`avg` skips NULLs → wrong denominator); **statistical rigor** — `da_weighted_ontime` (pooled vs average-of-averages / Simpson), `da_delay_attribution` (5-cause share, population rule); **window / gaps-and-islands** — `da_delay_streak` (longest consecutive-day run); **grain + rank** — `da_cancel_weather_share` (rate within a group), `de_route_leaderboard` and `de_recovery_leaderboard` (state tables, conditional denominators). Candidates deliberately *dropped* after probing the data (rigor over volume): a `uniq()`-approximation trap (ClickHouse `uniq` is exact at ~1.2k distinct here), an exact-percentile trap (`quantileExact` vs pandas interpolation is oracle-fragile), and a METAR as-of join (obs cadence is ~5 min, so any as-of/tz error still matches an obs → non-discriminating).
 
-**Set expanded to 23 (2026-09-19) — the DS/ML axis.** Rounded out DS (was one text-classification problem) with three more leakage-safe ML tasks so it spans the canonical types: `ds_delay_predict` (binary late-arrival, **ROC-AUC** — the target is zero-inflated so MAE/accuracy are traps, only ranking is honest), `ds_cancel_predict` (**imbalanced** ~2% binary, ROC-AUC), `ds_taxi_regression` (**regression**, MAE vs the predict-the-median baseline — taxi-out is not zero-inflated, so MAE is fair). Each exposes only pre-departure features (leakage-safe by construction), uses a deterministic `cityHash64` split with a once-materialised test id, and grades held-out truth the agent never sees. Gate **23/23**. The authoritative baseline below is now the **23-problem k=5** run (superseding the earlier 10-problem 37/50).
+**Set expanded to 23 (2026-09-19) — the DS/ML axis.** Rounded out DS (was one text-classification problem) with three more leakage-safe ML tasks so it spans the canonical types: `ds_delay_predict` (binary late-arrival, **ROC-AUC** — the target is zero-inflated so MAE/accuracy are traps, only ranking is honest), `ds_cancel_predict` (**imbalanced** ~2% binary, ROC-AUC), `ds_taxi_regression` (**regression**, MAE vs the predict-the-median baseline — taxi-out is not zero-inflated, so MAE is fair). Each exposes only pre-departure features (leakage-safe by construction), uses a deterministic `cityHash64` split with a once-materialised test id, and grades held-out truth the agent never sees (in fact it could, until the per-run login of §7, 2026-10-01). Gate **23/23**. The authoritative baseline below is now the **23-problem k=5** run (superseding the earlier 10-problem 37/50).
 
 **Reframing — the real fine-tune target is capability, not plumbing.** Under `pi`: `da_hub_delay` passes, **zero** `model_error`s, and the write-heavy `ds_notam_classify` (94% CV) is solid. The Phase-1 "structured-tool-output is the bottleneck" conclusion was a native-`finish` artifact. The residual, *reproducible* weakness is **SQL-dialect capability** — two independent problems isolate the ClickHouse `dayOfWeek` convention as the sharpest miss. This is the movable Gate-2 target for ADR-001.
 
@@ -147,6 +147,50 @@ The remaining 1–2/5 misses on otherwise-passing problems (an undercount, an em
 
 **Harness gaps fixed en route** (all setup, not model misses — each surfaced as a false negative until pinned): `run_python` must inject the full `CLICKHOUSE_*` env (host `clickhouse`, avbench/avbench) or the agent connects to `localhost` inside the container and fails; `SYSTEM_PI` must document the write API (`client.command('CREATE TABLE … ENGINE=MergeTree ORDER BY …'); client.insert_df('t', df)`) or the model invents `bulk_insert`/`data_insert` and 0/5s a solvable problem; and prompt ambiguities (cancellation handling; "n_periods" all-rows vs Forecast-only) must be pinned with an exact, discrete/rounded expected answer.
 
+### 7. Withheld labels: the agent's own login (2026-10-01)
+
+§6 says the ds problems grade "held-out truth the agent never sees". The agent could see it. It ran
+as the sandbox's admin (`avbench`), which reads everything, and the labels were in two places:
+- in its own scratch database, `<x>_test_key` and `<x>_test_full` (three ds problems and two probe
+  tasks; Target C's synthetic tasks likewise);
+- in the shared warehouse. `aviation.flights` holds every test flight's outcome, reachable by
+  joining a test row on date, carrier, route and departure time. `aviation.notam` holds the test
+  split's categories.
+
+The saved runs show agents reaching for them (`reports/gate-evals/20261001-dsbench-withheld-labels.md`,
+692 runs audited):
+- the base read `cancel_test_full`'s labels in a 2026-09-19 baseline run, which failed;
+- the base joined `delay_test` to `aviation.flights` to score its predictions in the Gate 2
+  battery, after writing them;
+- Ornith read the NOTAM test split's category counts in 19 runs.
+
+No passing run delivered from the labels, so no past score changes.
+
+**Decision.** Each run's agent gets its own ClickHouse login (`agentic/access.py`), made after
+setup and dropped after the run:
+- **its scratch database,** with every privilege except none on the tables named `*_test_key` or
+  `*_test_full`, which also vanish from its SHOW TABLES;
+- **SELECT on `aviation`,** with a restrictive row policy hiding the rows its problem declares
+  (`AgentProblem.withheld_rows`): the flight problems' test buckets, and the NOTAM test split.
+  The grader, on the admin login, still sees every row;
+- **no table function that reaches another server or a file.**
+
+The native loop, pi and the probe all run the agent this way. The pi and probe prompts now read
+the credentials from the environment instead of naming the admin's.
+
+**Kept honest by tests and gates:**
+- a test checks that every table a setup writes is either named in its prompt or withheld;
+- both oracle gates (`dsbench-agent-selftest`, the probe's) check each login on the live sandbox:
+  inputs listed, labels refused, withheld rows invisible, scratch writable;
+- a guard fails a run whose tool calls name a withheld table or the admin's login
+  (`withheld_access`).
+
+**The trust model, corrected.** "Never the host" holds for the native loop, not for pi: its
+`bash` tool runs on the host, where the repo holds the admin's password, and the workspace
+container keeps the admin's credentials in its environment. The login stops an agent that comes
+across the labels. An agent that hunts for the admin's login can still find it; the guard flags
+any run that uses it.
+
 ## Options considered (the owner's choices, with the trade-off recorded)
 
 - **Agent loop vs single-shot** → *agent loop.* Real-world-facing and what the fine-tune targets; cost is a harder harness, tool-format fragility, and looser determinism (mitigated by step budgets, temp-0/no-think, final-state grading).
@@ -157,7 +201,7 @@ The remaining 1–2/5 misses on otherwise-passing problems (an undercount, an em
 ## Consequences
 
 - **Easier:** a benchmark that measures the owner's actual workflows; cross-source aviation problems; the same instrument scores no-training alternatives (better prompts, retrieval); v1 stays as a fast regression floor.
-- **Harder / new surface:** a container stack to run and keep deterministic; an agent loop and a tool-call parser tied to the served template; live-service state to reset between problems; the agent executes arbitrary Python + SQL — **contained to the `workspace`/`clickhouse` containers, never the host**, network-restricted, resource-limited (v1's "own model, own box" trust model, now enforced by the container boundary — do not point this at an untrusted endpoint).
+- **Harder / new surface:** a container stack to run and keep deterministic; an agent loop and a tool-call parser tied to the served template; live-service state to reset between problems; the agent executes arbitrary Python + SQL — **contained to the `workspace`/`clickhouse` containers, never the host** (in the native loop; pi's `bash` tool runs on the host, §7), network-restricted, resource-limited (v1's "own model, own box" trust model, now enforced by the container boundary — do not point this at an untrusted endpoint).
 - **Determinism:** live services + an agent are less reproducible than v1. Controlled by pinned data snapshots, temp-0 / thinking-off, per-problem namespaces, idempotent setup, step/time budgets, and final-state (not trajectory) grading. Conclusions still come from paired flips + McNemar, not a single percentage.
 - **Licensing:** publishable stack = BTS (public domain) + IEM/AWC METAR/TAF + Zenodo NOTAM (CC-BY, attributed). Quarantined avtext NOTAM sets never leave local eval. Only manifests/loaders are committed — bulk records never enter git.
 
@@ -171,6 +215,7 @@ The remaining 1–2/5 misses on otherwise-passing problems (an undercount, an em
 | BTS PREZIP schema/URL drift or TLS quirks | Low | Ingest breaks | Pin the month + checksum a manifest; relaxed TLS; snapshot committed-by-manifest |
 | NOTAM operational fitness (avtext sets are extraction-labeled) | Med | Weak NOTAM problems | Evaluate Zenodo CC-BY set for operational fields; align to the chosen month/airports |
 | Arbitrary code execution escaping the sandbox | Low | Host risk | Exec only inside containers; no host mounts beyond the repo workdir; network-restricted; own-model-only |
+| The agent reads the labels its grader holds back | Seen (2 of 692 saved runs) | Inflated scores; leaked SFT data | A login per run, row policies on the shared data, a guard on tool calls, both oracle gates check the logins (§7) |
 | Agent overfits the exact tool wrapper | Low | Unfair scores | Keep tool schemas stable + documented; grade outcomes, not tool syntax |
 
 ## Action items — phased
@@ -182,6 +227,8 @@ The remaining 1–2/5 misses on otherwise-passing problems (an undercount, an em
 4. [x] `agentic/` harness: ReAct loop + `run_sql`/`run_python`/`finish`; **native OpenAI tool-calling** (verified working on the fork — the ADR-001 template worry did not materialise); thinking-off; trajectory logging; `model_error`/`truncated` statuses.
 5. [x] 6 problems across de/da/ds using all five tables — answer- and table-graded, incl. a NOTAM-ML task with a `setup()`-seeded unlabeled test set graded on real held-out accuracy; independent oracles + negative controls; `dsbench-agent-selftest` green 6/6.
 6. [x] Baseline Ornith-1.5 (native loop, thinking off): **1/2** — but its `da_hub_delay` "fail" was a `finish(answer=)` artifact, not the model. **Superseded by the Gate-0 baseline in §6** (public harness, thinking on, k=5): **37/50 runs, 8/10 by majority.**
+
+7. [x] **Withheld labels (2026-10-01, §7):** the agent runs as its own ClickHouse login; label tables and test rows are out of its reach; a guard fails runs that reach for them; `python -m dsbench.agentic.audit` audits saved runs (692 audited, no score changes).
 
 **Phase 1 + Gate 0 complete** (data foundation + agent harness + **10** problems + an authoritative public-harness baseline; see §6). Next: **Phase 2 — live Airflow + MLflow** (problems that build/trigger a DAG and log an experiment, graded on live service state); keep growing the set and re-baseline as it grows.
 

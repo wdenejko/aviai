@@ -21,6 +21,12 @@ db `sftgen`; MySQL: `root`/`avbench-root`. Both have a `sftgen_reader`/`sftgen_r
 at a time (`src/dsbench/sftgen/engines.py`). SQL that reaches outside its table (files, other
 schemas, DDL) fails; `tests/test_sandbox_engines.py` checks it whenever these services are up.
 
+An agent never connects as `avbench`. Each dsbench or probe run makes its own ClickHouse login
+(`src/dsbench/agentic/access.py`), dropped afterwards. It has the run's scratch database, minus
+the grader's label tables, and `aviation`, minus the problem's test rows (ADR-003 §7). The pi
+wrappers and the workspace's `CLICKHOUSE_*` variables carry that login during a run; `avbench`
+is only their default for use by hand.
+
 ## Use
 
 ```bash
@@ -58,6 +64,7 @@ are committed.
 ## Safety / trust model
 
 The agent executes **arbitrary Python and SQL**. It is contained to the `workspace` and
-`clickhouse` containers on the `avnet` network — never the host. This is for **your own model on
+`clickhouse` containers on the `avnet` network — never the host, in the native loop. Under pi, the
+agent's `bash` tool runs on the host itself (ADR-003 §6-7). This is for **your own model on
 your own box**; do not point the harness at an untrusted endpoint. The only host mount is the repo
 working directory (agent files, `dags/`, ingest scripts).

@@ -1,0 +1,362 @@
+{
+ "scope": {
+  "saved_runs": "reports/agentic-runs/*.json (27 files)",
+  "gate2_battery_runs": "~/benchlab/runs/2026-09-24-gate2-battery/pi-runs/*.json on the box (2 files)",
+  "tool": "python -m dsbench.agentic.audit"
+ },
+ "runs": 692,
+ "files": 29,
+ "summary": {
+  "joined_test_to_flights": {
+   "runs": 1,
+   "passed": 1
+  },
+  "named_withheld": {
+   "runs": 1,
+   "passed": 0
+  },
+  "notam_test_labels": {
+   "runs": 19,
+   "passed": 11
+  },
+  "read_flights": {
+   "runs": 1,
+   "passed": 0
+  },
+  "saw_withheld_listed": {
+   "runs": 3,
+   "passed": 1
+  }
+ },
+ "flagged": [
+  {
+   "file": "20260915-201822-ornith-6.json",
+   "model": "ornith",
+   "harness": "native",
+   "index": 5,
+   "id": "ds_notam_classify",
+   "status": "model_error",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260915-202237-ornith-ds.json",
+   "model": "ornith",
+   "harness": "native",
+   "index": 0,
+   "id": "ds_notam_classify",
+   "status": "model_error",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260915-202620-ornith-ds2.json",
+   "model": "ornith",
+   "harness": "native",
+   "index": 0,
+   "id": "ds_notam_classify",
+   "status": "model_error",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260915-212744-ornith-ds4.json",
+   "model": "ornith",
+   "harness": "native",
+   "index": 0,
+   "id": "ds_notam_classify",
+   "status": "model_error",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-105529-pi-notam-refix.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 0,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-110240-ornith-pi-baseline-v2.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 5,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-120921-ornith-pi-harder-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 46,
+   "id": "ds_notam_classify",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-120921-ornith-pi-harder-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 47,
+   "id": "ds_notam_classify",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-120921-ornith-pi-harder-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 49,
+   "id": "ds_notam_classify",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-123914-ornith-pi-harder-k5-v2.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 45,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-123914-ornith-pi-harder-k5-v2.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 46,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-123914-ornith-pi-harder-k5-v2.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 48,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-123914-ornith-pi-harder-k5-v2.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 49,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260918-234853-ornith-23problem-k1.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 20,
+   "id": "ds_delay_predict",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "read_flights": true
+   }
+  },
+  {
+   "file": "20260918-234853-ornith-23problem-k1.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 21,
+   "id": "ds_notam_classify",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 103,
+   "id": "ds_delay_predict",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "saw_withheld_listed": true
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 105,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 106,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 107,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 108,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-005921-ornith-23problem-k5.json",
+   "model": "ornith",
+   "harness": "pi",
+   "index": 109,
+   "id": "ds_notam_classify",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "notam_test_labels": [
+     "aggregate"
+    ]
+   }
+  },
+  {
+   "file": "20260919-110559-qwen36-23problem-k5.json",
+   "model": "qwen36",
+   "harness": "pi",
+   "index": 99,
+   "id": "ds_cancel_predict",
+   "status": "wrong",
+   "passed": false,
+   "flags": {
+    "named_withheld": [
+     "cancel_test_full"
+    ],
+    "saw_withheld_listed": true
+   }
+  },
+  {
+   "file": "20260924-185004-battery-base.json",
+   "model": "qwen36",
+   "harness": "pi",
+   "index": 103,
+   "id": "ds_delay_predict",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "joined_test_to_flights": true
+   }
+  },
+  {
+   "file": "20260924-210521-battery-adapter.json",
+   "model": "qwen36",
+   "harness": "pi",
+   "index": 113,
+   "id": "ds_taxi_regression",
+   "status": "ok",
+   "passed": true,
+   "flags": {
+    "saw_withheld_listed": true
+   }
+  }
+ ]
+}
