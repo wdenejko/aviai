@@ -99,11 +99,15 @@ def make_workdir(path: str) -> None:
                    capture_output=True, timeout=30)
 
 
-def run_python(code: str, namespace: str | None = None, workdir: str | None = None) -> str:
+def run_python(code: str, namespace: str | None = None, workdir: str | None = None,
+               env: dict[str, str] | None = None) -> str:
     """Exec Python in the workspace container. Returns stdout+stderr (capped). Errors -> text.
 
     `namespace` overrides CLICKHOUSE_DB for this exec so the agent's Python defaults to the same
     per-problem scratch DB that run_sql uses (the container's own default is `aviation`).
+
+    `env` sets more variables for the exec: a run's login (`access.AgentLogin.env`) replaces the
+    container's admin credentials, so the agent's Python connects as the agent.
 
     `workdir` (made with `make_workdir`) is the exec's working and temp directory. Each call is a
     fresh process, so an agent keeps state between calls in files, and runs in parallel share the
@@ -114,6 +118,8 @@ def run_python(code: str, namespace: str | None = None, workdir: str | None = No
     cmd = ["docker", "exec", "-i"]
     if namespace:
         cmd += ["-e", f"CLICKHOUSE_DB={namespace}"]
+    for key, value in (env or {}).items():
+        cmd += ["-e", f"{key}={value}"]
     if workdir:
         cmd += ["-w", workdir, "-e", f"TMPDIR={workdir}"]
     cmd += [WORKSPACE_CONTAINER, "python", "-"]

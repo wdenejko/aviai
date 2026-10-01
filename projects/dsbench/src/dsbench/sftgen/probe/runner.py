@@ -33,8 +33,9 @@ ClickHouse has no correlated subqueries — use JOINs.
   run_python   (reads Python 3 from STDIN, e.g.  run_python < script.py)
       Runs in a container with pandas, numpy, scipy, scikit-learn, clickhouse_connect. To reach \
 ClickHouse use exactly:  client = clickhouse_connect.get_client(host='clickhouse', port=8123, \
-username='avbench', password='avbench', database=os.environ['CLICKHOUSE_DB'])  (do NOT use \
-host='localhost' inside the container). To WRITE a table, create it then insert a DataFrame: \
+username=os.environ['CLICKHOUSE_USER'], password=os.environ['CLICKHOUSE_PASSWORD'], \
+database=os.environ['CLICKHOUSE_DB'])  (do NOT use host='localhost' inside the container). \
+To WRITE a table, create it then insert a DataFrame: \
 client.command('CREATE TABLE t (col Type, ...) ENGINE = MergeTree ORDER BY col'); \
 client.insert_df('t', df). It defaults to your scratch DB.
 

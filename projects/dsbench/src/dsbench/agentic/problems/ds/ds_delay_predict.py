@@ -30,6 +30,10 @@ _POOL = (
     f"Dest, CRSDepTime, Distance, ArrDelayMinutes, {_BUCKET} AS b FROM aviation.flights "
     f"WHERE Cancelled = 0 AND ArrDelayMinutes IS NOT NULL AND Origin IN {_HUBS})"
 )
+# The test flights' outcomes are in aviation.flights too: a test row joins back to its flight on
+# date, carrier, route and scheduled time. The agent's login hides every hub flight in the test
+# buckets (access.login_statements), which covers the test set whatever the pool's other filters.
+_TEST_FLIGHTS = f"Origin IN {_HUBS} AND {_BUCKET} < 8"
 _COLS = ("FlightDate AS fl_date, Reporting_Airline AS carrier, Origin AS origin, Dest AS dest, "
          "CRSDepTime AS crs_dep_time, Distance AS distance")
 
@@ -145,4 +149,5 @@ PROBLEM = AgentProblem(
     title="Predict late hub arrivals (ROC-AUC)", prompt=PROMPT,
     check=check, reference=reference, setup=setup, max_steps=24,
     tags=("ml", "classification", "auc", "leakage-safe"),
+    withheld_rows=(("aviation.flights", _TEST_FLIGHTS),),
 )

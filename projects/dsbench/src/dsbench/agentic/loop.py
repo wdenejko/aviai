@@ -8,6 +8,7 @@ budget reasoning and never act). Determinism: temp 0, per-problem scratch DB, fi
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import time
@@ -15,6 +16,7 @@ import time
 import httpx
 
 from dsbench.agentic import tools as T
+from dsbench.agentic.access import AgentLogin, breach, close_login, open_login
 from dsbench.agentic.ch import get_client
 from dsbench.agentic.schema import AgentProblem, AgentResult, GradeContext
 from dsbench.streaming import reassemble_stream as _reassemble_stream  # why stream: see module
@@ -113,7 +115,33 @@ def grade(problem: AgentProblem, ctx: GradeContext) -> tuple[bool, str, str]:
 
 def run_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str, model: str,
               no_think: bool = True, verbose: bool = False) -> AgentResult:
+    """Run the agent on a set-up problem and grade the final state.
+
+    The agent runs as its own login (`access.open_login`): its tools never see the labels the
+    grader holds back, while `ctx.client`, the grader's, still does. A run whose tool calls name a
+    withheld table or use the admin's login fails as `withheld_access`, whatever the oracle says.
+    """
+    try:
+        login = open_login(ctx, problem.withheld_rows)
+    except Exception as e:  # noqa: BLE001
+        return AgentResult(problem.id, problem.category, problem.difficulty, False, "setup_error",
+                           reason=f"agent login: {str(e)[:200]}")
+    try:
+        result = _run_agent(problem, ctx, login, base_url=base_url, model=model,
+                            no_think=no_think, verbose=verbose)
+    finally:
+        with contextlib.suppress(Exception):  # a login left behind is replaced by the next run
+            close_login(login)
+    why = breach(result.trajectory, login.withheld)
+    if why:
+        result.passed, result.status, result.reason = False, "withheld_access", why
+    return result
+
+
+def _run_agent(problem: AgentProblem, ctx: GradeContext, login: AgentLogin, *, base_url: str,
+               model: str, no_think: bool, verbose: bool) -> AgentResult:
     t0 = time.time()
+    agent_client = login.client()
     messages: list = [
         {"role": "system", "content": SYSTEM.format(namespace=ctx.namespace, schema=SCHEMA_DOC)},
         {"role": "user", "content": problem.prompt},
@@ -179,9 +207,9 @@ def run_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str, model:
                 passed, status, reason = grade(problem, ctx)
                 return result(passed, status, reason, step)
             if name == "run_sql":
-                obs = T.run_sql(ctx.client, args.get("query", ""))
+                obs = T.run_sql(agent_client, args.get("query", ""))
             elif name == "run_python":
-                obs = T.run_python(args.get("code", ""), ctx.namespace)
+                obs = T.run_python(args.get("code", ""), ctx.namespace, env=login.env)
             else:
                 obs = f"error: unknown tool {name!r}"
             messages.append({"role": "tool", "tool_call_id": tc.get("id"), "content": obs})
