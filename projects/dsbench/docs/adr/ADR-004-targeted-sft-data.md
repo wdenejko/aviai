@@ -320,35 +320,45 @@ The selection (seed 20260930), 2,646 prompts:
     sandbox. Until then only ClickHouse answers can be verified. **Built 2026-09-29.**
 
   **The generator, built 2026-09-30** (`sftgen/target_a_hints.py`):
-  - The hint is one sentence in the system prompt, before the line asking for the answer.
-    - A weekday or weekend row gets the dialect's weekday numbering, not the weekend's numbers.
-    - A month row gets the month function, and a timezone row the direction rule: UTC = local
-      time - offset, so a clock at UTC-4 is 4 hours behind UTC.
-    - Every weekday and month hint is checked on the four sandboxed engines before any item is
-      built: each function on all seven days, and three months. Tests tie each hint to the
-      generator's own numbering.
-  - A reply is kept when:
-    - it finished, with reasoning;
-    - it is one ```sql block and nothing else, the rule the SQL pool uses;
-    - it returns the truth on the sandboxed engine;
-    - it doesn't read as told.
-  - A reply reads as told when it:
-    - names a hint or a note;
-    - has "as stated" or "according to the prompt" in a sentence with the hint's terms (a
-      function name, "ISO");
-    - has "the prompt says" or "we're told" followed by those terms;
-    - copies 10 tokens of the hint that the training prompt doesn't have.
-  - On the reasoning pilot's 80 Target A traces, which never saw a hint, the filter flags none.
-    The base writes "the prompt says" 211 times in them, quoting the question, so the phrase
-    alone can't be the test. It is kept as a soft flag, for review.
-  - The pilot's items: 192 rows, 12 for each dialect and family, 48 per dialect.
-    - Each row is a plain item and a hinted twin, 384 items in all.
-    - The plain twins measure the base alone on the same questions, and measure the timezone
-      family again with its stated offsets.
-    - The build is deterministic, and the gate rejects none
-      (`data/sft/rev2_target_a_pilot_manifest.json`).
-    - At the pilot's median of 1,556 reasoning tokens, generation is about 650k tokens: 1.5
-      hours of box time.
+  - The hint is one sentence:
+    - for a weekday or weekend row, the dialect's weekday numbering, not the weekend's numbers;
+    - for a month row, the month function;
+    - for a timezone row, the direction rule.
+
+    Every weekday and month hint is checked on the four sandboxed engines before any item is
+    built, each function on all seven days. Tests tie each hint to the generator's own numbering.
+  - A reply is kept when it finished with reasoning, is one ```sql block and nothing else (the
+    SQL pool's rule), returns the truth on the sandboxed engine, and doesn't read as told. It
+    reads as told when it:
+    - names a hint;
+    - talks about the framing;
+    - attributes the hint's terms to the prompt ("the prompt explicitly says toDayOfWeek ...");
+    - copies 8 tokens of the hint's wording.
+
+  **Piloted 2026-09-30** (`reports/gate-evals/20260930-target-a-hints-pilot.md`): 192 rows, 12
+  per dialect and family, each answered plain and hinted, in one GPU window.
+  - **The gap is ClickHouse's weekday numbering.**
+    - Plain, 1 of 12 ClickHouse weekday rows verify, and 0 of 8 weekend rows whose question is
+      unambiguous. All 24 of those traces consider Sunday = 1.
+    - Month buckets verify 48 of 48.
+    - The timezone family, with its stated offsets, verifies 44 of 48.
+    - Postgres and MySQL answer their weekdays right.
+  - **The hint fixes the answers, but the base reads it back.**
+    - With the hint, every weekday row verifies, and so does every weekend row whose question is
+      unambiguous.
+    - Stated plainly, the hint left 11 of 96 weekday and weekend traces clean. Framed as the
+      base's own knowledge, it left 4, because the base quoted the framing.
+    - The first framing's clean traces run less than half the base's usual length.
+
+    **Hint-conditioned generation can't supply Target A as designed.**
+  - **Next**, each about half an hour of box time: prefill the base's own reasoning with the
+    convention, so no prompt text states it, or sample plain ClickHouse prompts at scale (the
+    base verified 1 of 12, reasoning right). A teacher stays the fallback (decision 2).
+  - **Found on the way:**
+    - One weekend phrasing, ", by order_ts?", was answered with GROUP BY 30 times in 32. It made
+      most of the weekend misses outside ClickHouse, and its wording is fixed.
+    - The citation filter was calibrated on the pilot's traces, and flags none of the 272 that
+      never saw a hint.
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -531,8 +541,10 @@ The selection (seed 20260930), 2,646 prompts:
 ## Decisions for the owner
 
 1. **Budget:** 10M tokens (about 15 hours of training and 25-40 of generation), or more.
-2. **Target A's reasoning:** the hint-conditioned base (proposed: on-policy and licence-clean), or
-   a teacher (Ling).
+2. **Target A's reasoning.** The pilot ruled out the hint-conditioned base as designed: 4-11% of
+   its traces don't cite the hint. Proposed now: pilot a reasoning prefill and plain sampling at
+   scale in the next window, both on-policy and licence-clean, and use a teacher (Ling) if neither
+   yields.
 3. **SQL:** SynSQL-2.5M alone (proposed), or also BIRD and Spider train under CC BY-SA 4.0.
 4. **jupyter-agent (559 rows in Gate 2) and DataMind (640):** their answers are other pipelines'
    text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
@@ -581,11 +593,13 @@ The selection (seed 20260930), 2,646 prompts:
        in a container with no network;
      - the pilot's answers in those dialects verify 10/16, 11/16 and 10/16, against ClickHouse's
        9/32 (`reports/gate-evals/20260928-reasoning-pilot.md`, addendum).
-   - [ ] hint-conditioned generation with its hint-citation filter, piloted on about 50 rows per
-     dialect. The addendum's numbers say where the base is wrong: ClickHouse weekdays and
-     weekends first, then DuckDB weekends. The timezone family goes too, once it is re-measured
-     with its stated offsets. **Generator built 2026-09-30** (`sftgen/target_a_hints.py`): 384
-     pilot items, 192 plain and hinted pairs. The pilot's generation waits for the GPU window.
+   - [x] hint-conditioned generation with its hint-citation filter, piloted on 48 rows per
+     dialect. **Done 2026-09-30** (`reports/gate-evals/20260930-target-a-hints-pilot.md`):
+     - the hint fixes the answers, but only 4-11% of hinted traces don't cite it;
+     - the gap is ClickHouse's weekday numbering alone;
+     - the timezone family, measured again, verifies 44 of 48.
+   - [ ] a source of ClickHouse weekday reasoning: a reasoning prefill or plain sampling at scale,
+     piloted in the next GPU window; a teacher if neither yields.
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
