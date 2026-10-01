@@ -535,6 +535,38 @@ The selection (seed 20260930), 2,646 prompts:
   Proposed: volume at 8,192 tokens with a quota per family, about 300 runs and 3.5 hours for 150
   rows. A 16,384-token step would keep 19 of the 20 passes, but needs new kernel keys. Whether
   failed turns train is decision 7.
+
+  **Quota mode, built 2026-10-01** (`ml_delivery_trajectories.py --quota`, `generate_quota`):
+  - **Each family runs until it has its rows.** Run indices count up from `--run-offset` per
+    family. Each dataset passes its own oracle before the agent sees it, so `--oracle-only` is no
+    longer a separate step.
+  - **A row is kept** when:
+    - the oracle passes;
+    - every turn carries reasoning;
+    - no tool call names an answer key;
+    - the server's count fits the block.
+
+    The other runs go to `--fail-out` with the reason. Rows over the block keep `oracle_passed`,
+    for a longer step later.
+  - **A free slot goes to the family furthest from its quota.** Each of its running loops counts
+    at its keep rate so far. Simulated on the pilot's keep rates and run times, with 22 rows a
+    family over 5 trials:
+    - 286 to 336 runs;
+    - 3.4 to 4.1 hours, with 7.4 of 8 slots busy;
+    - 1 to 4 rows over the 154.
+  - **Stopping and resuming.** `--max-minutes` stops new runs before the window ends. `--resume`
+    continues from the output files and never reuses a run index. Consecutive model errors stop
+    the run.
+  - **Found: the answer keys are visible to the agent.** Each task writes its withheld labels
+    into the run's own database, where the oracle reads them.
+    - Gate 2's Ling loops listed them in 15 of 350 runs and read none. The base never listed
+      tables in the pilot.
+    - A run that read a key would pass by copying the labels, so its row is now never kept, in
+      either mode.
+    - A ClickHouse user per run, limited to its own tables, would hide the keys. For the data,
+      the guard is enough.
+  - **For the window,** the default 4-hour hold is tight. Either one window with a 5-hour hold
+    and `--max-minutes 270`, or two windows with `--resume`.
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
@@ -625,7 +657,8 @@ The selection (seed 20260930), 2,646 prompts:
     at 2,560 tokens a reply: about 6.4M tokens, 14 hours;
   - the verified pools, about 1,400 kept rows: at a 30-60% yield, 3-7M generated tokens,
     7-15 hours;
-  - Target C: about 3.5 hours for 150 rows, at the pilot's keep rates and 8 loops at once;
+  - Target C: about 4 hours for 150 rows, simulated on the pilot's keep rates and run times with
+    a quota per family and 8 loops at once;
   - in all, about 25-40 hours of box time.
 - **Training:** 10M tokens at 8,192 ≈ 15 hours, plus a few percent of padding.
 
@@ -753,10 +786,14 @@ The selection (seed 20260930), 2,646 prompts:
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
    - [x] the pilot. **Run 2026-10-01** (`reports/gate-evals/20261001-target-c-agentic-pilot.md`):
      20 of 21 pass, 14 fit 8,192 tokens, every turn has reasoning, no teacher needed.
-   - [ ] a quota mode in the generator: each family until its rows fill, with the length taken
-     from the server's counts.
+   - [x] a quota mode in the generator. **Built 2026-10-01**:
+     - each family runs until its rows fill, with the length taken from the server's counts;
+     - each dataset is gated by its own oracle;
+     - a run can be resumed;
+     - a run that names an answer key is never kept.
    - [ ] if decision 7 masks failed turns: a per-turn mark that `thinking_record` reads.
-   - [ ] the volume run, about 3.5 hours for 150 rows.
+   - [ ] the volume run, about 4 hours for 150 rows: the window scripts with a longer hold, or
+     two windows.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
