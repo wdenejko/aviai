@@ -193,3 +193,18 @@ unless `--slot-save-path` is set; and stopping the OCR unit while it is still lo
 llama-server inside the toolbox container (systemd's stop times out and kills only the wrapper).
 Both window launchers therefore stop OCR through `stop_ocr`, which waits for OCR's `/health` and
 kills any OCR server that outlives the stop.
+
+## ADR-004 Revision 2 pilots
+
+Each pilot's window refuses to start while production runs, handles OCR as the battery's
+launchers do, and has an arming script that starts it once the owner has stopped production.
+
+- `target_a_hints_window.sh` + `target_a_hints_arm.sh`: Target A's hint pilot. The base answers
+  the pilot's items, plain and with the convention in the prompt.
+- `target_a_prefill_window.sh` + `target_a_prefill_arm.sh`: the reasoning-prefill pilot. Phase 1
+  (plain and `start`), the `recall` splice on the box, then phase 2.
+- `target_c_pilot_window.sh` + `target_c_pilot_arm.sh` + `target_c_pilot_mac.sh`: Target C's
+  agentic pilot. The box serves the base and holds until `hold/done`. The Mac tunnels
+  `localhost:18080` to it and runs the agent loop beside the sandbox.
+- `target-c-pilot/measure_trajectories.py`: puts each trajectory through `thinking_record` on the
+  box, giving its tokens, whether it fits 8,192 and whether it is trainable.
