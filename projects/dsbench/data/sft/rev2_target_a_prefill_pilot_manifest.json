@@ -1,0 +1,30 @@
+{
+ "params": {
+  "battery_items": "data/battery/items"
+ },
+ "hint_checks_passed": {
+  "clickhouse": 17,
+  "duckdb": 17,
+  "postgres": 17,
+  "mysql": 17
+ },
+ "seed": 20261001,
+ "reps": 2,
+ "samples": 4,
+ "rows_per_table": 1500,
+ "rows": 24,
+ "generator_rejected": 0,
+ "items": 192,
+ "items_by_cell": {
+  "clickhouse/weekday-numbering plain": 48,
+  "clickhouse/weekday-numbering start": 48,
+  "clickhouse/weekend-flag plain": 48,
+  "clickhouse/weekend-flag start": 48
+ },
+ "gate_rejected": {},
+ "recall": {
+  "clickhouse": "In ClickHouse, `toDayOfWeek(date)` (alias `dayOfWeek`) returns 1 for Monday, 2 for Tuesday, ..., 7 for Sunday: the ISO numbering. (MySQL's `DAYOFWEEK` is the one that starts at Sunday = 1.)"
+ },
+ "out": "data/sft/rev2_target_a_prefill_pilot.jsonl",
+ "out_sha256": "d1cc85efa88a76e4ff4dcdc9c9b88575dfdd4fccfba4cad6148cb22948945aba"
+}

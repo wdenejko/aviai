@@ -102,6 +102,21 @@ uv run python -m dsbench.sftgen.target_a_hints items --battery-items data/batter
     --report data/sft/rev2_target_a_pilot_manifest.json
 ```
 
+`rev2_target_a_prefill_pilot.jsonl` holds the reasoning-prefill pilot's first phase
+(`sftgen/prefill.py`, ADR-004's "The reasoning prefill"). It has 24 ClickHouse weekday and
+weekend rows, each as 4 plain items and 4 `start` items, whose prefill opens the base's thinking
+with the convention. All 192 have the plain prompt. The `recall` items are cut from the plain
+replies on the box, between the window's two phases (`prefill splice`).
+`rev2_target_a_prefill_pilot_manifest.json` (tracked) records the convention's sentence, the
+engine checks, the counts per cell and the output's hash. Rebuild with:
+
+```bash
+docker compose -f sandbox/docker-compose.yml up -d --build clickhouse postgres mysql duckdb
+uv run python -m dsbench.sftgen.target_a_hints prefill-items --battery-items data/battery/items \
+    --out data/sft/rev2_target_a_prefill_pilot.jsonl \
+    --report data/sft/rev2_target_a_prefill_pilot_manifest.json
+```
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent
