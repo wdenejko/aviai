@@ -175,6 +175,20 @@ def test_a_tool_call_recorded_as_a_json_string_trains_with_its_arguments():
     assert record["messages"][1]["tool_calls"][0]["function"]["arguments"] == '{"city": "Oslo"}'
 
 
+def test_a_boolean_or_null_argument_trains_as_the_json_the_model_wrote():
+    # The template prints a top-level argument with Jinja's `string` filter, which is Python's
+    # `str`: `True`, `None`. Served, the grammar held the model to JSON, so it wrote `true`.
+    tok = TemplateTokenizer()
+    record = _openai_loop('{"city": "Oslo", "dst": true, "zone": null, "offset": 1, '
+                          '"opts": {"exact": false}}')
+    trained = _labelled(tok, *tm.thinking_record(tok, record))
+    assert "<parameter=dst>\ntrue\n</parameter>" in trained
+    assert "<parameter=zone>\nnull\n</parameter>" in trained
+    assert "<parameter=offset>\n1\n</parameter>" in trained  # 1 == True in Python; not here
+    assert '<parameter=opts>\n{"exact": false}\n</parameter>' in trained  # tojson: JSON already
+    assert "True" not in trained and "None" not in trained
+
+
 def test_reasoning_baked_into_the_content_trains_the_same():
     # render.py's rows carry `<think>...</think>` inside the content; the template splits it out.
     tok = TemplateTokenizer()
