@@ -10,22 +10,33 @@ the fix. So the generation prompt states the convention the row tests (the hint)
 kept when its SQL verifies and it doesn't read as told: the training prompt has no hint, so the
 kept trace has to reason its way to the convention.
 
-The hint is one sentence appended to the system prompt, and every hint is checked on the engines
-before any item is built (`check_hints`): a wrong hint would teach a wrong convention at full
-weight. A reply is kept when:
+Every hint is checked on the engines before any item is built (`check_hints`): a wrong hint would
+teach a wrong convention at full weight. A reply is kept when:
 - it finished, with reasoning;
 - it is one ```sql block and nothing else, as the prompt asks (`reasoning_pilot.sql_only`);
 - that SQL returns the row's truth on the dialect's sandboxed engine, on the row's own table,
   rebuilt from its seed after the gold SQL reproduces the truth there;
-- for a hinted item, it doesn't cite the hint (`cites_hint`): no reference to having been told
-  (the system prompt, a note, "we're told"), no "as stated" beside the hint's own terms, and no
-  run of COPY_RUN tokens taken from the hint that the training prompt doesn't also contain.
+- for a hinted item, it doesn't read as told (`cites_hint`): it doesn't name the hint, attribute
+  the hint's terms to the prompt ("the prompt explicitly says toDayOfWeek ..."), talk about the
+  framing ("my own knowledge"), or copy COPY_RUN tokens of the hint's own wording.
 
-The pilot pairs every item with a plain twin, the same prompt without the hint: 4 dialects x 4
-families x 12 rows, 48 per dialect, as ADR-004 plans. Both run through `reasoning_pilot.py
-generate` as they are (the hinted item's `messages` carry the hint, its `train_messages` don't).
-The pairs show per cell what the hint changes: verified answers, citations, reasoning length. The
-plain timezone rows also re-measure that family, which states its offsets now.
+What the pilot found (reports/gate-evals/20260930-target-a-hints-pilot.md):
+- the hint fixes the answers: every weekday row, and every weekend row whose question is
+  unambiguous, verifies with it;
+- but a thinking trace narrates the prompt, so it cites the hint. Stated plainly, the hint came
+  back quoted ("the prompt explicitly states: ... So I must follow the prompt's definition"), and
+  11 of 96 weekday and weekend traces were clean. Framed as the base's own knowledge (FRAMING),
+  only 4 were, because the base quoted the framing.
+
+As designed, the method can't supply Target A's rows. Hints go only to the families the base gets
+wrong without one (HINTED_FAMILIES): month buckets verify without a hint, and so does the
+timezone family, now that it states its offsets.
+
+The pilot's items are 4 dialects x 4 families x 12 rows, 48 per dialect as ADR-004 plans, each
+row a plain item, and the weekday and weekend rows also a hinted twin. Both run through
+`reasoning_pilot.py generate` as they are (a hinted item's `messages` carry the hint, its
+`train_messages` don't), and `verify` compares the twins per cell: verified answers, citations,
+reasoning length.
 
     uv run python -m dsbench.sftgen.target_a_hints items --battery-items data/battery/items \\
         --out data/sft/rev2_target_a_pilot.jsonl --report data/sft/rev2_target_a_pilot_manifest.json
@@ -56,7 +67,17 @@ ROWS_PER_TABLE = 1500  # rows in each synthetic table, as the Gate-2 slice had
 PILOT_REPS = 2  # tables per domain: 6 domains x 2 = 12 rows per (dialect, family) cell
 DIALECTS = ("clickhouse", "duckdb", "postgres", "mysql")
 FAMILIES = ("weekday-numbering", "weekend-flag", "timezone-direction", "month-bucket")
-COPY_RUN = 10  # a run this long taken from the hint reads as copied, not reasoned
+COPY_RUN = 8  # a run this long of the hint's own wording reads as copied, not reasoned
+# How the generation prompt presents the hint. The pilot tried two framings on the same 96 weekday
+# and weekend rows (reports/gate-evals/20260930-target-a-hints-pilot.md). Stated plainly before
+# the answer line, 11 traces came out clean; framed as below, 4, because the base quoted the
+# framing itself. Neither keeps enough rows: the next test prefills the base's own reasoning with
+# the convention, or samples plain prompts at scale.
+FRAMING = ("Treat the following as your own knowledge of the engine. Don't quote it or mention "
+           "where it came from:")
+# The families whose convention the base gets wrong without a hint (the pilot's plain rows). Month
+# buckets, and the timezone family now that it states its offsets, verify without one.
+HINTED_FAMILIES = ("weekday-numbering", "weekend-flag")
 
 # --- the hints -----------------------------------------------------------------------------------
 
@@ -166,30 +187,46 @@ def check_hints(engines: dict) -> dict[str, int]:
 
 # --- the citation filter -------------------------------------------------------------------------
 
-# Always a citation: the reply names a hint or a note. Nothing in the training prompt is one.
+# Measured on the pilot (reports/gate-evals/20260930-target-a-hints-pilot.md). With the hint
+# stated plainly in the system prompt, the base quoted it back ("the prompt explicitly states: ...
+# So I must follow the prompt's definition") in almost every trace. And it talks about "the
+# prompt" constantly anyway, quoting the question, in 150 traces that never saw a hint: "explicitly
+# says" in 25, "note" in 101, "a hint" in 9 ("by opened_ts might be a hint"). So a phrase alone
+# rejects only when nothing in the training prompt could be its subject.
+
+# Always a citation: the reply names the hint, or talks about the framing's instruction.
 _HINT_WORD = re.compile(
-    r"\b(?:the|this|that)\s+(?:hint|note|tip|reminder)\b"
-    r"|\b(?:provided|given)\s+(?:fact|information|info|note|hint)\b",
+    r"\b(?:the|this|that|prompt's|system's|given|provided)\s+(?:hint|note|tip|reminder)\b"
+    r"|\b(?:provided|given)\s+(?:fact|facts|information|info|knowledge)\b"
+    r"|\bown\s+knowledge\b|\bwhere\s+it\s+came\s+from\b"
+    r"|\b(?:without|don't|do\s+not|shouldn't|should\s+not|mustn't|must\s+not)\s+"
+    r"(?:quot|mention|cit)\w*",  # "not mentioned" and "not to mention" are ordinary English
     re.IGNORECASE)
-# A citation when the hint's own terms (a function name, "ISO") are what the phrase attributes.
-# The training prompt has a system prompt too, and the timezone family's question states its
-# offsets, so "the system prompt asks for one query" and "we're told New York is UTC-4" are fine;
-# "we're told toDayOfWeek is ISO" isn't. The base writes "the prompt says" all the time, quoting
-# the question (211 times in the pilot's 80 Target A traces): `The prompt says "month of April",
-# so toMonth(order_ts) = 4` names the function in its own SQL, after the quote. So:
-# - "as stated", "according to the prompt" attribute their whole sentence;
+# A citation when the hint's own terms (a function name, "ISO") are what the phrase attributes:
+# "the system prompt asks for one query" and "we're told New York is UTC-4" are fine; "we're told
+# toDayOfWeek is ISO" isn't.
+# - these attribute their whole sentence;
 _AS_STATED = re.compile(
-    r"\bas\s+(?:stated|noted|mentioned|given|specified|provided|indicated|described)\b"
-    r"|\b(?:stated|noted|mentioned|given|provided|specified|indicated)\s+(?:above|earlier|before)\b"
+    r"\bas\s+(?:\w+ly\s+)?(?:stated|noted|mentioned|given|specified|provided|indicated|described|"
+    r"instructed|defined|told)\b"
+    r"|\b(?:stated|noted|mentioned|given|provided|specified|indicated|defined)\s+"
+    r"(?:above|earlier|before|in\s+the\s+(?:prompt|system|instructions?))\b"
     r"|\baccording\s+to\s+the\s+(?:prompt|instructions?|system|context|problem|question)\b"
-    r"|\b(?:from|in|per)\s+the\s+system\s+(?:prompt|message|instructions?)\b",
+    r"|\b(?:from|in|per)\s+the\s+system\s+(?:prompt|message|instructions?)\b"
+    r"|\bper\s+(?:the\s+)?(?:prompt|instructions?)\b"
+    r"|\b(?:matches|match|matching|follows?|following|consistent\s+with|in\s+line\s+with)\s+"
+    r"the\s+prompt\b"
+    r"|\bthe\s+prompt's\s+(?:definition|statement|information|numbering|claim|convention|fact)\b",
     re.IGNORECASE)
-# - "the prompt says", "we're told" attribute what follows, up to the end of the clause.
+# - these attribute what follows, up to the end of the clause: `The prompt says "month of April",
+#   so toMonth(order_ts) = 4` names the function in its own SQL, after the quote.
 _SAYS = re.compile(
     r"\b(?:we're|we\s+are|we\s+were|i'm|i\s+am|i\s+was|(?:have|has|'ve)\s+been)\s+told\b"
     r"|\byou\s+(?:told|said|say|mentioned|noted)\b"
-    r"|\b(?:prompt|message|instructions?|problem|question|task|context)\s+"
-    r"(?:says|states|tells\s+us|mentions|notes|specifies|gives)\b",
+    r"|\b(?:prompt|message|instructions?|problem|question|task|context|system)\s+(?:\w+ly\s+)?"
+    r"(?:says|said|states|stated|tells\s+us|told\s+us|mentions|mentioned|notes|noted|specifies|"
+    r"specified|gives|gave|defines|defined|lists|listed|explains|explained|shows|showed|confirms|"
+    r"confirmed|indicates|indicated|provides|provided|clarifies|clarified)\b",
     re.IGNORECASE)
 _CLAUSE_END = re.compile(r"[,;]|\s(?:so|then|which|but|because|and\s+so)\s|\s[-\u2014]\s")
 _SENTENCE = re.compile(r"[^.!?\n]+")
@@ -240,8 +277,9 @@ def parse_row_id(row_id: str) -> tuple[str, str, int]:
     return parts[-3], parts[-2], int(parts[-1])
 
 
-def make_items(row: dict, n: int = ROWS_PER_TABLE) -> list[dict]:
-    """The plain item and its hinted twin for one Target A row (dialect_conventions' raw form)."""
+def make_items(row: dict, n: int = ROWS_PER_TABLE, hinted: bool = True) -> list[dict]:
+    """The plain item and, if `hinted`, its hinted twin for one Target A row
+    (dialect_conventions' raw form)."""
     system, user, gold = (t["content"] for t in row["turns"])
     family, dialect = row["family"], row["dialect"]
     _, domain, seed = parse_row_id(row["id"])
@@ -254,17 +292,18 @@ def make_items(row: dict, n: int = ROWS_PER_TABLE) -> list[dict]:
     plain = {"id": f"targetA:{row['id']}", "pool": "targetA", "messages": train,
              "verify": verify,
              "meta": {**meta, "hinted": False, "teacher": "none: the base answers"}}
+    if not hinted:
+        return [plain]
     said = hint(family, dialect)
-    head, answer_with, tail = system.partition(" Answer with")  # the hint goes before it
-    hinted = {"id": f"targetA_hint:{row['id']}", "pool": "targetA_hint",
-              "messages": [{"role": "system", "content": f"{head} {said}{answer_with}{tail}"},
-                           {"role": "user", "content": user}],
-              "train_messages": train,
-              "verify": {**verify, "hint": said},
-              "meta": {**meta, "hinted": True,
-                       "teacher": "none: the base answers with the convention stated; the "
-                                  "training prompt drops it"}}
-    return [plain, hinted]
+    twin = {"id": f"targetA_hint:{row['id']}", "pool": "targetA_hint",
+            "messages": [{"role": "system", "content": f"{system}\n\n{FRAMING} {said}"},
+                         {"role": "user", "content": user}],
+            "train_messages": train,
+            "verify": {**verify, "hint": said},
+            "meta": {**meta, "hinted": True,
+                     "teacher": "none: the base answers with the convention stated; the "
+                                "training prompt drops it"}}
+    return [plain, twin]
 
 
 def build_items(*, seed: int = SEED, reps: int = PILOT_REPS, n: int = ROWS_PER_TABLE,
@@ -281,18 +320,19 @@ def build_items(*, seed: int = SEED, reps: int = PILOT_REPS, n: int = ROWS_PER_T
     items: list[dict] = []
     rejected: Counter[str] = Counter()
     for row in map(row_to_dict, rows):
-        pair = make_items(row, n)
+        pair = make_items(row, n, hinted=row["family"] in HINTED_FAMILIES)
         reason = gate(pair[0]) if gate else None  # the training text is the plain item's
         if reason:
             rejected[reason.split(" ", 1)[0]] += 1
             continue
         items += pair
-    cells = Counter(f"{i['meta']['dialect']}/{i['meta']['family']}" for i in items
-                    if not i["meta"]["hinted"])
+    cells = Counter(f"{i['meta']['dialect']}/{i['meta']['family']}"
+                    + (" hinted" if i["meta"]["hinted"] else "") for i in items)
     report = {"seed": seed, "reps": reps, "rows_per_table": n, "rows": len(rows),
               "generator_rejected": generated["rejected"], "items": len(items),
-              "pairs_by_cell": dict(sorted(cells.items())), "gate_rejected": dict(rejected),
-              "hints": {f"{d}/{f}": hint(f, d) for d in DIALECTS for f in FAMILIES}}
+              "items_by_cell": dict(sorted(cells.items())), "gate_rejected": dict(rejected),
+              "framing": FRAMING, "hinted_families": list(HINTED_FAMILIES),
+              "hints": {f"{d}/{f}": hint(f, d) for d in DIALECTS for f in HINTED_FAMILIES}}
     return items, report
 
 
