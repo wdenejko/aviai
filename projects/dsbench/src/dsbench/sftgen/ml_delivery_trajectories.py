@@ -105,22 +105,36 @@ def request_body(messages: list, *, model: str, sampling: dict | None = None,
 
 def _call(messages: list, *, base_url: str, model: str, sampling: dict | None = None,
           thinking: bool = False, max_tokens: int = 4096, seed: int | None = None,
-          timeout: float = 1800.0, attempts: int = 3) -> dict:
+          timeout: float = 1800.0, attempts: int = 3, reconnect_s: float = 180.0,
+          sleep=time.sleep, clock=time.monotonic) -> dict:
     """One streamed chat completion with the Target C tools; reassembles tool-calls from deltas.
-    Returns {message, finish_reason, usage, timings}; the message keeps `reasoning_content`."""
+    Returns {message, finish_reason, usage, timings}; the message keeps `reasoning_content`.
+
+    An HTTP error is retried `attempts` times. A lost connection is retried for `reconnect_s`
+    seconds. The volume run reaches the box through an SSH tunnel that restarts itself within
+    seconds (patches/target_c_volume_mac.sh); without the wait, one drop would fail every loop in
+    flight, and their errors in a row would stop the run. A request that times out has taken
+    longer than that, and fails at once.
+    """
     body = request_body(messages, model=model, sampling=sampling, thinking=thinking,
                         max_tokens=max_tokens, seed=seed)
-    last: Exception | None = None
-    for i in range(attempts):
+    t0 = clock()
+    tries = 0
+    while True:
         try:
             with httpx.stream("POST", f"{base_url}/chat/completions", json=body,
                               timeout=timeout) as r:
                 r.raise_for_status()
                 return _reassemble_stream(r)
-        except (httpx.HTTPStatusError, httpx.TransportError) as e:
-            last = e
-            time.sleep(2 * (i + 1))
-    raise last  # type: ignore[misc]
+        except httpx.HTTPStatusError:
+            tries += 1
+            if tries >= attempts:
+                raise
+            sleep(2 * tries)
+        except httpx.TransportError:
+            if clock() - t0 >= reconnect_s:
+                raise
+            sleep(5)
 
 
 def _assistant(content: str, reasoning: str, tool_calls: list | None = None) -> dict:
