@@ -136,6 +136,10 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
     --out trajectories.jsonl --fail-out failed.jsonl --report report.json
 ```
 
+Piloted 2026-10-01 (`reports/gate-evals/20261001-target-c-agentic-pilot.md`): 20 of 21 runs pass,
+14 fit the 8,192-token block, and every turn carries reasoning. Most of a loop's length is code:
+`run_python` runs each call in a new process, so every fix resends the whole script.
+
 The seven families each target a different delivery failure mode: balanced classification
 (`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
 (`mlc_churn_rare`), a temporal train/test boundary (`mlc_energy_load`), multiclass with a

@@ -511,6 +511,30 @@ The selection (seed 20260930), 2,646 prompts:
   - **Gate 2's trajectories don't carry over.** Run through the same measurement, a sample of 20
     Ling trajectories is all rejected: no turn has reasoning. Even without it, 2 of the 20 are
     over 8,192 tokens (median 2,820).
+
+  **Piloted 2026-10-01** (`reports/gate-evals/20261001-target-c-agentic-pilot.md`), in an
+  18.8-minute window:
+  - **No teacher is needed.** 20 of 21 runs pass the oracle, and every family passes at least 2 of
+    3. All 215 assistant turns carry reasoning, and `thinking_record` rejects no trajectory.
+  - **The 8,192-token block keeps 14 of the 20.** A passing loop runs a median of 5,715 tokens.
+    The 6 over the block come from the hard families: credit_leak and upsell_join keep 1 of 3
+    each, and energy_load 1 of its 2 passes.
+  - **The length is mostly code.** Tool-call arguments are 56% of a passing loop's characters,
+    tool output 25%, reasoning 18%. `run_python` runs each call in a new process, so every fix
+    resends the whole script.
+  - **The block selects.** It drops the loops with more failed calls (2.67 erroring turns against
+    1.29 kept). It also drops both credit_leak loops that reason through the leak; the kept one
+    left the column out without a word.
+  - **About 28% of a passing loop's labelled text sits in turns whose call failed.** 16 of 20
+    loops have such a turn. The commonest error is reading a ClickHouse result into pandas: 16 of 41 errors.
+  - **The miss** is energy_load's trap: lags filled forward across the horizon, validated one step
+    ahead. The base's reasoning named the problem and kept the model for its validation number.
+  - **The row matches the loop.** It is at most one token longer than the server's count of the
+    loop's last request, so generation can apply the 8,192 cap itself.
+
+  Proposed: volume at 8,192 tokens with a quota per family, about 300 runs and 3.5 hours for 150
+  rows. A 16,384-token step would keep 19 of the 20 passes, but needs new kernel keys. Whether
+  failed turns train is decision 7.
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
@@ -580,6 +604,11 @@ The selection (seed 20260930), 2,646 prompts:
     whose arguments aren't a JSON object. **Built 2026-10-01**
     (`tokenize_masked.tool_arguments_as_objects`). It covers every Revision 2 row with tool
     calls: Target C and the tool rows.
+  - **Booleans.** Found in the Target C pilot. The template prints a top-level argument that isn't
+    a mapping or a list with Python's `str`, so `true` trains as `True` and `null` as `None`.
+    Served, the grammar holds the model to JSON, so it wrote `true`. A boolean or null now passes
+    as its JSON text (`_as_written`). 30 of the tool rows' 295 fit prompts call a tool with a
+    boolean parameter.
 - **Open: rows in a block see each other.** Full attention and the GatedDeltaNet state both carry
   from one row into the next. Checked in the code on 2026-09-29:
   - the model resets the GatedDeltaNet state when given row lengths (`cu_seq_lens_q`);
@@ -596,7 +625,7 @@ The selection (seed 20260930), 2,646 prompts:
     at 2,560 tokens a reply: about 6.4M tokens, 14 hours;
   - the verified pools, about 1,400 kept rows: at a 30-60% yield, 3-7M generated tokens,
     7-15 hours;
-  - Target C: sandbox time on top;
+  - Target C: about 3.5 hours for 150 rows, at the pilot's keep rates and 8 loops at once;
   - in all, about 25-40 hours of box time.
 - **Training:** 10M tokens at 8,192 ≈ 15 hours, plus a few percent of padding.
 
@@ -658,6 +687,15 @@ The selection (seed 20260930), 2,646 prompts:
 6. **The proportions above**, and within the buckets (the selector's defaults, proposed):
    replay 0.4 oasst1, 0.2 each Aya, SciRIFF and GSM8K, FLAN v2 0 until decision 5; code 0.75
    opencoder, 0.25 SWE-Swiss.
+7. **Target C's failed turns.** In the pilot, about 28% of a passing loop's labelled text sits in
+   turns whose tool call failed. The commonest failure is a wrong guess at the ClickHouse client's
+   API.
+   - Proposed: no loss on those turns; they stay in the row as context, so the fix that follows
+     trains with its cause in view. The oracle checks the delivered table, not each step.
+   - Or: train every turn, as the loop happened.
+
+   Also: Target C at 8,192 tokens with a quota per family (proposed), or a 16,384-token step for
+   its rows, which would keep the loops that reason through credit_leak's leak.
 
 ## Action items (Revision 2)
 
@@ -671,6 +709,8 @@ The selection (seed 20260930), 2,646 prompts:
    - [x] found on the way: the tokenizer now splits text as llama.cpp does;
    - [x] found 2026-10-01: tool-call arguments render as the server renders them. Gate 2 trained
      every one of its 6,061 tool calls with no arguments;
+   - [x] found 2026-10-01 in the Target C pilot: a boolean or null argument renders as the JSON
+     the model wrote, not Python's `True` or `None`;
    - [ ] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
 2. [ ] Target A:
    - [x] offsets stated in the timezone family. **Done 2026-09-29:**
@@ -711,8 +751,12 @@ The selection (seed 20260930), 2,646 prompts:
    gold-call checker. **Done 2026-09-30:** 518 prompts, 0 battery overlaps; generation waits for
    the GPU window with the rest.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
-   **The pilot is built 2026-10-01**: 21 runs, the base as the agent, the datasets checked by the
-   oracle first. It runs in the next GPU window.
+   - [x] the pilot. **Run 2026-10-01** (`reports/gate-evals/20261001-target-c-agentic-pilot.md`):
+     20 of 21 pass, 14 fit 8,192 tokens, every turn has reasoning, no teacher needed.
+   - [ ] a quota mode in the generator: each family until its rows fill, with the length taken
+     from the server's counts.
+   - [ ] if decision 7 masks failed turns: a per-turn mark that `thinking_record` reads.
+   - [ ] the volume run, about 3.5 hours for 150 rows.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
