@@ -38,12 +38,27 @@ row a plain item, and the weekday and weekend rows also a hinted twin. Both run 
 `train_messages` don't), and `verify` compares the twins per cell: verified answers, citations,
 reasoning length.
 
+The next pilot moves the convention out of the prompt and into the base's own reasoning
+(sftgen/prefill.py): `recall` is the sentence it writes there, `prefill_items` the first phase's
+items. Only ClickHouse gets one, since the hint pilot found its weekday numbering the only
+convention the base gets wrong. Each ClickHouse weekday and weekend row is answered
+PREFILL_SAMPLES times plain and as many times with the thinking block opened by the convention
+(`start`). The plain replies are then cut where the base first turns to the weekday function,
+and the convention goes there (`recall`, built on the box by `prefill splice`). A prefilled reply
+is checked as a hinted one is, on what the base wrote after the prefill: the prefill is part of
+the training row, so the base may refer back to it ("as noted above"), but it may not attribute it
+to the prompt, which never said it. The plain replies also measure the other route: how often the
+base, sampled several times, gets ClickHouse right alone.
+
     uv run python -m dsbench.sftgen.target_a_hints items --battery-items data/battery/items \\
         --out data/sft/rev2_target_a_pilot.jsonl --report data/sft/rev2_target_a_pilot_manifest.json
+    uv run python -m dsbench.sftgen.target_a_hints prefill-items \\
+        --battery-items data/battery/items --out data/sft/rev2_target_a_prefill_pilot.jsonl \\
+        --report data/sft/rev2_target_a_prefill_pilot_manifest.json
     uv run python -m dsbench.sftgen.target_a_hints verify --items <items> --gen <gen> --out <out>
 
-Both need the sandbox's four engines: docker compose -f sandbox/docker-compose.yml up -d --build
-clickhouse postgres mysql duckdb.
+All three need the sandbox's four engines: docker compose -f sandbox/docker-compose.yml up -d
+--build clickhouse postgres mysql duckdb.
 """
 from __future__ import annotations
 
@@ -78,6 +93,12 @@ FRAMING = ("Treat the following as your own knowledge of the engine. Don't quote
 # The families whose convention the base gets wrong without a hint (the pilot's plain rows). Month
 # buckets, and the timezone family now that it states its offsets, verify without one.
 HINTED_FAMILIES = ("weekday-numbering", "weekend-flag")
+# The reasoning-prefill pilot: ClickHouse alone (the hint pilot found its weekday numbering the only
+# convention the base gets wrong), the weekday and weekend rows, each answered PREFILL_SAMPLES times
+# per placement. Several replies per row also measure how often the base gets a row right alone.
+PREFILL_SEED = 20261001
+PREFILL_DIALECTS = ("clickhouse",)
+PREFILL_SAMPLES = 4
 
 # --- the hints -----------------------------------------------------------------------------------
 
@@ -112,6 +133,13 @@ WEEKDAY_FUNCTIONS: dict[str, tuple[Function, ...]] = {
                           "iso", "isodow")),
     "mysql": (Function("DAYOFWEEK(date)", "SELECT DAYOFWEEK(DATE '{d}')", "sun1", "dayofweek"),
               Function("WEEKDAY(date)", "SELECT WEEKDAY(DATE '{d}')", "mon0", "weekday")),
+}
+# Other names for a dialect's weekday function. No hint names them, but the reasoning prefill names
+# ClickHouse's alias: in the hint pilot's 24 plain ClickHouse traces, the base named `dayOfWeek`
+# first in 14 and `toDayOfWeek` in 9.
+ALIASES: dict[str, tuple[Function, ...]] = {
+    "clickhouse": (Function("dayOfWeek(date)", "SELECT dayOfWeek(toDate('{d}'))", "iso",
+                            "dayofweek"),),
 }
 MONTH_FUNCTIONS: dict[str, Function] = {
     "clickhouse": Function("toMonth(date)", "SELECT toMonth(toDate('{d}'))", "month", "tomonth"),
@@ -155,10 +183,44 @@ def hint_terms(family: str, dialect: str) -> set[str]:
     return {"behind"}  # the question states the offsets; the hint adds the direction
 
 
+def _name(fn: Function) -> str:
+    return fn.shown.split("(")[0]
+
+
+def _returns(fn: Function) -> str:
+    """The numbering the way the base's own traces put it: "returns 1 for Monday, 2 for Tuesday,
+    ..., 7 for Sunday"."""
+    number = _SCHEMES[fn.scheme]
+    first, second, *_, last = sorted(range(7), key=number)
+    return (f"returns {number(first)} for {_DAYS[first]}, {number(second)} for {_DAYS[second]}, "
+            f"..., {number(last)} for {_DAYS[last]}")
+
+
+def recall(dialect: str) -> str:
+    """The convention as a reasoning prefill writes it into the base's own thinking
+    (sftgen/prefill.py), for a weekday or a weekend row.
+
+    It reads as the base's own recall, in the register of its plain traces ("`toDayOfWeek`
+    returns 1 for Sunday, 2 for Monday, ..., 7 for Saturday"), but right. It names the alias the
+    base often reaches for first (ALIASES). It also says where the Sunday-1 belief comes from,
+    MySQL, so that a base that doubts the sentence has the reason in front of it. Every claim in
+    it is one of `hint_checks`.
+    """
+    if dialect not in PREFILL_DIALECTS:
+        raise ValueError(f"no prefill for {dialect}: the base gets its weekdays right")
+    fn, alias = WEEKDAY_FUNCTIONS[dialect][0], ALIASES[dialect][0]
+    mysql = WEEKDAY_FUNCTIONS["mysql"][0]
+    return (f"In {DIALECT_DISPLAY[dialect]}, `{fn.shown}` (alias `{_name(alias)}`) {_returns(fn)}: "
+            f"the ISO numbering. (MySQL's `{_name(mysql)}` is the one that starts at Sunday = "
+            f"{_SCHEMES[mysql.scheme](6)}.)")
+
+
 def hint_checks(dialect: str) -> list[tuple[str, int]]:
-    """(query, expected) pairs that every weekday and month hint of the dialect must pass."""
+    """(query, expected) pairs that every weekday and month function a hint or a prefill names
+    must pass in the dialect."""
     checks = [(fn.check.format(d=day), _SCHEMES[fn.scheme](w))
-              for fn in WEEKDAY_FUNCTIONS[dialect] for w, day in enumerate(_WEEK)]
+              for fn in WEEKDAY_FUNCTIONS[dialect] + ALIASES.get(dialect, ())
+              for w, day in enumerate(_WEEK)]
     month = MONTH_FUNCTIONS[dialect]
     checks += [(month.check.format(d=f"2024-{m:02d}-15"), m) for m in (1, 7, 12)]
     return checks
@@ -205,18 +267,26 @@ _HINT_WORD = re.compile(
 # A citation when the hint's own terms (a function name, "ISO") are what the phrase attributes:
 # "the system prompt asks for one query" and "we're told New York is UTC-4" are fine; "we're told
 # toDayOfWeek is ISO" isn't.
-# - these attribute their whole sentence;
-_AS_STATED = re.compile(
-    r"\bas\s+(?:\w+ly\s+)?(?:stated|noted|mentioned|given|specified|provided|indicated|described|"
-    r"instructed|defined|told)\b"
+# - these attribute their whole sentence to the prompt;
+_FROM_PROMPT = re.compile(
+    r"\bas\s+(?:\w+ly\s+)?(?:instructed|told)\b"
     r"|\b(?:stated|noted|mentioned|given|provided|specified|indicated|defined)\s+"
-    r"(?:above|earlier|before|in\s+the\s+(?:prompt|system|instructions?))\b"
+    r"in\s+the\s+(?:prompt|system|instructions?)\b"
     r"|\baccording\s+to\s+the\s+(?:prompt|instructions?|system|context|problem|question)\b"
     r"|\b(?:from|in|per)\s+the\s+system\s+(?:prompt|message|instructions?)\b"
     r"|\bper\s+(?:the\s+)?(?:prompt|instructions?)\b"
     r"|\b(?:matches|match|matching|follows?|following|consistent\s+with|in\s+line\s+with)\s+"
     r"the\s+prompt\b"
     r"|\bthe\s+prompt's\s+(?:definition|statement|information|numbering|claim|convention|fact)\b",
+    re.IGNORECASE)
+# - these attribute it to something said earlier. With the hint in the prompt, that is the prompt.
+#   With the convention prefilled into the reasoning, it is the base's own earlier sentence, which
+#   the training row keeps: "as noted above, toDayOfWeek is ISO" is then the base quoting itself.
+_AS_STATED = re.compile(
+    r"\bas\s+(?:\w+ly\s+)?(?:stated|noted|mentioned|given|specified|provided|indicated|described|"
+    r"defined)\b"
+    r"|\b(?:stated|noted|mentioned|given|provided|specified|indicated|defined)\s+"
+    r"(?:above|earlier|before)\b",
     re.IGNORECASE)
 # - these attribute what follows, up to the end of the clause: `The prompt says "month of April",
 #   so toMonth(order_ts) = 4` names the function in its own SQL, after the quote.
@@ -240,21 +310,31 @@ def _grams(tokens: list[str], n: int) -> set[tuple[str, ...]]:
     return {tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)}
 
 
-def cites_hint(text: str, hint_text: str, terms: set[str], prompt: str) -> str | None:
+def cites_hint(text: str, hint_text: str, terms: set[str], prompt: str,
+               where: str = "prompt") -> str | None:
     """Why a reply reads as told the hint, or None. `prompt` is the training prompt: what the
-    reply shares with it was never the hint's to give."""
+    reply shares with it was never the hint's to give.
+
+    `where` is where the generation put the hint. In the "prompt", which the training row drops,
+    referring back to it, or copying its wording, cites text that isn't there. In the
+    "reasoning", the prefill stays in the row, so `text` is what the base wrote after it, and
+    only naming a hint or crediting the prompt with the convention reads as told."""
     text = text.replace("\u2019", "'")
     named = _HINT_WORD.search(text)
     if named:
         return f"names a hint: {named.group(0)!r}"
+    attributions = (_FROM_PROMPT, _AS_STATED) if where == "prompt" else (_FROM_PROMPT,)
     for sentence in _SENTENCE.findall(text):
-        stated = _AS_STATED.search(sentence)
-        if stated and terms & set(_tokens(sentence)):
-            return f"{stated.group(0)!r} in a sentence with the hint's terms"
+        for attribution in attributions:
+            stated = attribution.search(sentence)
+            if stated and terms & set(_tokens(sentence)):
+                return f"{stated.group(0)!r} in a sentence with the hint's terms"
         for says in _SAYS.finditer(sentence):
             clause = _CLAUSE_END.split(sentence[says.end():], maxsplit=1)[0]
             if terms & set(_tokens(clause)):
                 return f"{says.group(0)!r} followed by the hint's terms"
+    if where != "prompt":
+        return None
     copied = (_grams(_tokens(text), COPY_RUN) & _grams(_tokens(hint_text), COPY_RUN)
               - _grams(_tokens(prompt), COPY_RUN))
     if copied:
@@ -265,8 +345,8 @@ def cites_hint(text: str, hint_text: str, terms: set[str], prompt: str) -> str |
 def soft_flags(text: str) -> list[str]:
     """The "told" phrases of a reply, citations or not: the pilot reviews them by hand."""
     text = text.replace("\u2019", "'")
-    return sorted([m.group(0) for m in _AS_STATED.finditer(text)]
-                  + [m.group(0) for m in _SAYS.finditer(text)], key=text.find)
+    return sorted([m.group(0) for pattern in (_FROM_PROMPT, _AS_STATED, _SAYS)
+                   for m in pattern.finditer(text)], key=text.find)
 
 
 # --- items ---------------------------------------------------------------------------------------
@@ -336,6 +416,61 @@ def build_items(*, seed: int = SEED, reps: int = PILOT_REPS, n: int = ROWS_PER_T
     return items, report
 
 
+def prefill_items(row: dict, n: int = ROWS_PER_TABLE, k: int = PREFILL_SAMPLES) -> list[dict]:
+    """The prefill pilot's first-phase items for one row: k plain replies, which the `recall`
+    placement later cuts (prefill.splice), and k whose thinking opens with the convention
+    (`start`). A plain item has an empty prefill: it goes through the same raw completion as a
+    prefilled one, so every placement sees the same rendering of the prompt."""
+    plain = make_items(row, n, hinted=False)[0]
+    sentence = recall(row["dialect"])
+    meta = {key: value for key, value in plain["meta"].items() if key not in ("hinted", "teacher")}
+    items = []
+    for j in range(1, k + 1):
+        sample = {**meta, "sample": j, "recall": sentence}
+        items.append({**plain, "id": f"{plain['id']}#{j}", "prefill": "",
+                      "meta": {**sample, "placement": "plain",
+                               "teacher": "none: the base answers"}})
+        items.append({"id": f"targetA_start:{row['id']}#{j}", "pool": "targetA_start",
+                      "messages": plain["messages"], "prefill": sentence,
+                      "verify": {**plain["verify"], "recall": sentence},
+                      "meta": {**sample, "placement": "start",
+                               "teacher": "none: the base's own thinking, opened with the "
+                                          "convention"}})
+    return items
+
+
+def build_prefill_items(*, seed: int = PREFILL_SEED, reps: int = PILOT_REPS,
+                        n: int = ROWS_PER_TABLE, k: int = PREFILL_SAMPLES,
+                        gate: Callable[[dict], str | None] | None = None
+                        ) -> tuple[list[dict], dict]:
+    """(items, report): the prefill pilot's first phase, for each ClickHouse weekday and weekend
+    row the generator verifies."""
+    from dsbench.sftgen.dialect_conventions import generate
+    from dsbench.sftgen.schema import row_to_dict
+
+    rows, generated = generate(seed=seed, reps=reps, n=n, dialects=list(PREFILL_DIALECTS),
+                               families=list(HINTED_FAMILIES), thinking_frac=0.0)
+    missing = set(PREFILL_DIALECTS) - set(generated["engines"])
+    if missing:
+        raise RuntimeError(f"no engine for {sorted(missing)}: bring the sandbox up")
+    items: list[dict] = []
+    rejected: Counter[str] = Counter()
+    for row in map(row_to_dict, rows):
+        group = prefill_items(row, n, k)
+        reason = gate(group[0]) if gate else None  # every item of a row has its training text
+        if reason:
+            rejected[reason.split(" ", 1)[0]] += 1
+            continue
+        items += group
+    cells = Counter(f"{i['meta']['dialect']}/{i['meta']['family']} {i['meta']['placement']}"
+                    for i in items)
+    report = {"seed": seed, "reps": reps, "samples": k, "rows_per_table": n, "rows": len(rows),
+              "generator_rejected": generated["rejected"], "items": len(items),
+              "items_by_cell": dict(sorted(cells.items())), "gate_rejected": dict(rejected),
+              "recall": {d: recall(d) for d in PREFILL_DIALECTS}}
+    return items, report
+
+
 # --- verify --------------------------------------------------------------------------------------
 
 def check_reply(item: dict, rec: dict) -> tuple[str, str | None, str | None]:
@@ -344,10 +479,16 @@ def check_reply(item: dict, rec: dict) -> tuple[str, str | None, str | None]:
     answer = rec.get("answer") or ""
     reasoning = rec.get("reasoning") or ""
     cites = None
+    prompt = "\n".join(m["content"] for m in item.get("train_messages", item["messages"]))
+    terms = hint_terms(item["verify"]["family"], item["verify"]["dialect"])
     if "hint" in item["verify"]:
-        prompt = "\n".join(m["content"] for m in item["train_messages"])
-        cites = cites_hint(f"{reasoning}\n{answer}", item["verify"]["hint"],
-                           hint_terms(item["verify"]["family"], item["verify"]["dialect"]), prompt)
+        cites = cites_hint(f"{reasoning}\n{answer}", item["verify"]["hint"], terms, prompt)
+    elif item.get("prefill"):
+        # Only what the base wrote after the prefill can read as told: the prefill is its own.
+        prefill = item["prefill"]
+        after = reasoning[len(prefill):] if reasoning.startswith(prefill) else reasoning
+        cites = cites_hint(f"{after}\n{answer}", item["verify"]["recall"], terms, prompt,
+                           where="reasoning")
     if rec.get("error") or rec.get("finish_reason") != "stop":
         return "unfinished", None, cites
     if not reasoning.strip():
@@ -411,28 +552,50 @@ def verify(items_path: Path, gen_path: Path, out_path: Path,
     return summarize(records, items)
 
 
+ARMS = ("plain", "hinted", "start", "recall")
+
+
+def _arm(meta: dict) -> str:
+    """How the reply was generated: the hint pilot's items are plain or hinted, the prefill
+    pilot's plain, start or recall."""
+    return meta.get("placement") or ("hinted" if meta.get("hinted") else "plain")
+
+
+def _median(values: list[int]) -> float | None:
+    return st.median(values) if values else None
+
+
 def summarize(records: list[dict], items: dict) -> dict:
-    """Per (dialect, family) cell, plain against hinted: replies, verified, citing, kept, and the
-    median reasoning length where the generation recorded it."""
-    cells: dict[str, dict] = defaultdict(lambda: {"plain": Counter(), "hinted": Counter()})
-    lengths: dict[tuple[str, str], list[int]] = defaultdict(list)
+    """Per (dialect, family) cell and arm: replies, their statuses, citing, kept; the rows with a
+    kept reply (several replies per row in the prefill pilot); and the median reasoning length
+    of all replies and of the kept ones, where the generation recorded it."""
+    cells: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+    rows: dict[tuple[str, str], dict[str, bool]] = defaultdict(dict)
+    lengths: dict[tuple[str, str, bool], list[int]] = defaultdict(list)
     for r in records:
-        meta = items[r["id"]]["meta"]
-        cell = f"{meta['dialect']}/{meta['family']}"
-        side = "hinted" if meta["hinted"] else "plain"
-        c = cells[cell][side]
+        item = items[r["id"]]
+        cell = f"{item['meta']['dialect']}/{item['meta']['family']}"
+        arm = _arm(item["meta"])
+        kept = r["check"]["kept"]
+        c = cells[cell][arm]
         c["replies"] += 1
         c[r["check"]["status"]] += 1
         c["cites"] += r["check"]["cites"] is not None
         c["soft_flagged"] += bool(r["check"]["soft_flags"])
-        c["kept"] += r["check"]["kept"]
+        c["kept"] += kept
+        row_id = item["verify"]["row_id"]
+        rows[(cell, arm)][row_id] = rows[(cell, arm)].get(row_id, False) or kept
         if r.get("reasoning_tokens") is not None:
-            lengths[(cell, side)].append(r["reasoning_tokens"])
+            lengths[(cell, arm, False)].append(r["reasoning_tokens"])
+            if kept:
+                lengths[(cell, arm, True)].append(r["reasoning_tokens"])
     out = {}
-    for cell, sides in sorted(cells.items()):
-        out[cell] = {side: {**dict(counts), "reasoning_tokens_median":
-                            st.median(lengths[(cell, side)]) if lengths[(cell, side)] else None}
-                     for side, counts in sides.items() if counts}
+    for cell, arms in sorted(cells.items()):
+        out[cell] = {arm: {**dict(arms[arm]), "rows": len(rows[(cell, arm)]),
+                           "rows_kept": sum(rows[(cell, arm)].values()),
+                           "reasoning_tokens_median": _median(lengths[(cell, arm, False)]),
+                           "kept_reasoning_tokens_median": _median(lengths[(cell, arm, True)])}
+                     for arm in ARMS if arms[arm]}
     return out
 
 
@@ -447,6 +610,13 @@ def main() -> None:
     b.add_argument("--report", type=Path, required=True)
     b.add_argument("--seed", type=int, default=SEED)
     b.add_argument("--reps", type=int, default=PILOT_REPS)
+    p = sub.add_parser("prefill-items", help="the reasoning-prefill pilot's first phase")
+    p.add_argument("--battery-items", required=True, help="a battery run's items/ dir")
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--report", type=Path, required=True)
+    p.add_argument("--seed", type=int, default=PREFILL_SEED)
+    p.add_argument("--reps", type=int, default=PILOT_REPS)
+    p.add_argument("--samples", type=int, default=PREFILL_SAMPLES)
     v = sub.add_parser("verify")
     v.add_argument("--items", type=Path, required=True)
     v.add_argument("--gen", type=Path, required=True)
@@ -467,16 +637,20 @@ def main() -> None:
                          "sandbox/docker-compose.yml up -d --build clickhouse postgres mysql "
                          "duckdb")
     checked = check_hints(engines)
-    items, report = build_items(seed=args.seed, reps=args.reps,
-                                gate=strict_gate(args.battery_items))
+    gate = strict_gate(args.battery_items)
+    if args.cmd == "items":
+        items, report = build_items(seed=args.seed, reps=args.reps, gate=gate)
+        params = {"copy_run": COPY_RUN, "battery_items": args.battery_items}
+    else:
+        items, report = build_prefill_items(seed=args.seed, reps=args.reps, k=args.samples,
+                                            gate=gate)
+        params = {"battery_items": args.battery_items}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w") as fh:
         for item in items:
             fh.write(json.dumps(item, ensure_ascii=False) + "\n")
     digest = hashlib.sha256(args.out.read_bytes()).hexdigest()
-    args.report.write_text(json.dumps({"params": {"copy_run": COPY_RUN,
-                                                  "battery_items": args.battery_items},
-                                       "hint_checks_passed": checked, **report,
+    args.report.write_text(json.dumps({"params": params, "hint_checks_passed": checked, **report,
                                        "out": str(args.out), "out_sha256": digest},
                                       indent=1) + "\n")
     print(json.dumps({k: report[k] for k in ("rows", "items", "gate_rejected")}))
