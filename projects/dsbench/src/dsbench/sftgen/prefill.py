@@ -21,6 +21,9 @@ Two placements, piloted side by side:
   the base's own opening, and the one sentence it didn't write is the one it gets wrong. This
   needs the plain reply first, so it is a second phase of generation.
 
+The pilot (reports/gate-evals/20261001-target-a-prefill-pilot.md) kept 95 of 96 `recall` replies
+at the base's own length, 92 of 96 `start` replies at two-thirds of it, and 7 of 96 plain ones.
+
 This module is the part that runs on the box, so it needs only the standard library, like
 `reasoning_pilot generate`. It finds the cut and builds the `recall` items from the plain phase's
 replies. The items, the convention's sentence and its checks are in `target_a_hints.py`.

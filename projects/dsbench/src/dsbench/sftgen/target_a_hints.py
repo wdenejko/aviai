@@ -48,7 +48,9 @@ and the convention goes there (`recall`, built on the box by `prefill splice`). 
 is checked as a hinted one is, on what the base wrote after the prefill: the prefill is part of
 the training row, so the base may refer back to it ("as noted above"), but it may not attribute it
 to the prompt, which never said it. The plain replies also measure the other route: how often the
-base, sampled several times, gets ClickHouse right alone.
+base, sampled several times, gets ClickHouse right alone. Run 2026-10-01
+(reports/gate-evals/20261001-target-a-prefill-pilot.md): `recall` kept 95 of 96, `start` 92, and
+plain sampling 7.
 
     uv run python -m dsbench.sftgen.target_a_hints items --battery-items data/battery/items \\
         --out data/sft/rev2_target_a_pilot.jsonl --report data/sft/rev2_target_a_pilot_manifest.json

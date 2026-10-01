@@ -302,7 +302,8 @@ The selection (seed 20260930), 2,646 prompts:
 
 ## Where the reasoning comes from
 
-- **Target A: hint-conditioned generation (STaR's rationalisation).**
+- **Target A: hint-conditioned generation (STaR's rationalisation).** Its pilot ruled it out, and
+  a reasoning prefill is proposed in its place (decision 2). Both are described below, in order.
   - The *generation* prompt states the convention the row tests, for example that ClickHouse's
     `toDayOfWeek` numbers Monday 1 through Sunday 7.
   - A trace is kept if its SQL verifies and it doesn't cite the hint: no reference to having been
@@ -393,7 +394,23 @@ The selection (seed 20260930), 2,646 prompts:
     - the plain replies also measure the other route: how often the base gets a row right alone,
       sampled several times.
 
-    It runs in the next GPU window.
+  **Piloted 2026-10-01** (`reports/gate-evals/20261001-target-a-prefill-pilot.md`), in one
+  66-minute window:
+  - **`recall` supplies the rows.** 95 of 96 replies verify, none cites anything, and every row
+    has kept replies. The traces keep the base's length: a median of 1,541 and 1,561 reasoning
+    tokens, against 1,504 and 1,446 for its plain replies. The one miss is an arithmetic slip
+    under the right numbering.
+  - **`start`** keeps 92 of 96, but its traces run two-thirds of the base's length.
+  - **Plain sampling can't.** 7 of 96 verify, and 18 of the 24 rows were never right in 4 tries;
+    250 rows would take about 19 hours of box time.
+  - **The old belief comes back as a doubt.** About half of the kept prefilled traces raise
+    Sunday = 1 again before settling on ISO ("is there any chance `toDayOfWeek` returns 1 for
+    Sunday"). Keeping only the `recall` traces that don't still leaves a kept reply on 23 of 24
+    rows, at the base's length.
+  - **For scale:**
+    - 250 rows take about 1 hour of box time keeping the doubting traces, 2 without;
+    - paraphrase the sentence;
+    - stop the plain phase at 512 tokens, since every cut fell within about 200.
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -576,10 +593,15 @@ The selection (seed 20260930), 2,646 prompts:
 ## Decisions for the owner
 
 1. **Budget:** 10M tokens (about 15 hours of training and 25-40 of generation), or more.
-2. **Target A's reasoning.** The pilot ruled out the hint-conditioned base as designed: 4-11% of
-   its traces don't cite the hint. Proposed now: pilot a reasoning prefill and plain sampling at
-   scale in the next window, both on-policy and licence-clean, and use a teacher (Ling) if neither
-   yields. The pilot of both is built and waits for a GPU window.
+2. **Target A's reasoning.** The hint pilot ruled out the hint-conditioned base as designed: only
+   4-11% of its traces didn't cite the hint. The prefill pilot (2026-10-01) found the route:
+   - the base's own plain trace, cut where it first turns to the weekday function, the
+     convention written there, and the base continuing (`recall`);
+   - 95 of 96 replies kept, at the base's length, against 7 of 96 for plain sampling.
+
+   Proposed: `recall` for ClickHouse's weekday and weekend rows, and no teacher. Also to decide:
+   whether to drop the traces that raise Sunday = 1 again before settling on ISO, about half.
+   Proposed: drop them; it costs an hour of box time.
 3. **SQL:** SynSQL-2.5M alone (proposed), or also BIRD and Spider train under CC BY-SA 4.0.
 4. **jupyter-agent (559 rows in Gate 2) and DataMind (640):** their answers are other pipelines'
    text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
@@ -633,10 +655,15 @@ The selection (seed 20260930), 2,646 prompts:
      - the hint fixes the answers, but only 4-11% of hinted traces don't cite it;
      - the gap is ClickHouse's weekday numbering alone;
      - the timezone family, measured again, verifies 44 of 48.
-   - [ ] a source of ClickHouse weekday reasoning: a reasoning prefill or plain sampling at scale,
-     piloted in the next GPU window; a teacher if neither yields. **The pilot is built
-     2026-10-01** (`sftgen/prefill.py`, `patches/target_a_prefill_window.sh`): 24 rows, plain,
-     `start` and `recall`, 4 replies each. Plain sampling is measured in the same window.
+   - [x] a source of ClickHouse weekday reasoning: a reasoning prefill or plain sampling at
+     scale; a teacher if neither yields. **Done 2026-10-01**
+     (`reports/gate-evals/20261001-target-a-prefill-pilot.md`):
+     - the `recall` prefill keeps 95 of 96 at the base's length;
+     - `start` keeps 92 of 96, at two-thirds of the base's length;
+     - plain sampling keeps 7 of 96.
+   - [ ] generate Target A's ClickHouse weekday and weekend rows with the `recall` prefill, once
+     decision 2 is taken: the sentence paraphrased into checked variants, the plain phase stopped
+     at 512 tokens, and the doubt filter in `verify` if the owner keeps it.
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
