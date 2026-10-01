@@ -359,6 +359,41 @@ The selection (seed 20260930), 2,646 prompts:
       most of the weekend misses outside ClickHouse, and its wording is fixed.
     - The citation filter was calibrated on the pilot's traces, and flags none of the 272 that
       never saw a hint.
+
+  **The reasoning prefill, built 2026-10-01** (`sftgen/prefill.py`; items from
+  `target_a_hints.py prefill-items`):
+  - The convention is written into the base's thinking block, as if the base had recalled it,
+    and the base continues from there. The training row is the plain prompt and the whole trace,
+    prefill included, so the row holds nothing for the trace to cite.
+  - Two placements, piloted side by side:
+    - `start` opens the thinking block with the convention;
+    - `recall` lets the base answer plain first, cuts its trace at the sentence where it first
+      turns to the weekday function or states a numbering, and writes the convention there. The
+      row keeps the base's own opening, and the one sentence the base didn't write is the one it
+      gets wrong.
+
+    On the hint pilot's 24 plain ClickHouse traces, every cut falls before the base names the
+    function or a numbering, a median of 469 characters in (8% of the trace), and never inside a
+    drafted query.
+  - The sentence is written in the base's own register. It names the alias `dayOfWeek`, which
+    the base names before `toDayOfWeek` in 14 of those 24 traces. It also says that Sunday = 1
+    is MySQL's numbering, the belief's likely source. Each function it names is checked on its
+    engine.
+  - A prefilled reply is checked like a hinted one, on what the base wrote after the prefill. It
+    may refer back to the prefill ("as noted above"), since the row keeps it. It may not credit
+    the prompt with the convention, or name a hint.
+  - A prefill can't go through the chat endpoint: the template closes an assistant message's
+    thinking block. So the server renders the prompt with its own template (`/apply-template`),
+    and `/completion` continues the prefill. Checked locally against the chat endpoint: with
+    nothing prefilled, both paths return the same reply, token for token.
+  - **The pilot:**
+    - 24 ClickHouse rows, 12 weekday and 12 weekend;
+    - each answered 4 times plain, 4 times `start`, and up to 4 times `recall`, cut from the
+      plain replies: at most 288 replies, about an hour of box time;
+    - the plain replies also measure the other route: how often the base gets a row right alone,
+      sampled several times.
+
+    It runs in the next GPU window.
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -544,7 +579,7 @@ The selection (seed 20260930), 2,646 prompts:
 2. **Target A's reasoning.** The pilot ruled out the hint-conditioned base as designed: 4-11% of
    its traces don't cite the hint. Proposed now: pilot a reasoning prefill and plain sampling at
    scale in the next window, both on-policy and licence-clean, and use a teacher (Ling) if neither
-   yields.
+   yields. The pilot of both is built and waits for a GPU window.
 3. **SQL:** SynSQL-2.5M alone (proposed), or also BIRD and Spider train under CC BY-SA 4.0.
 4. **jupyter-agent (559 rows in Gate 2) and DataMind (640):** their answers are other pipelines'
    text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
@@ -599,7 +634,9 @@ The selection (seed 20260930), 2,646 prompts:
      - the gap is ClickHouse's weekday numbering alone;
      - the timezone family, measured again, verifies 44 of 48.
    - [ ] a source of ClickHouse weekday reasoning: a reasoning prefill or plain sampling at scale,
-     piloted in the next GPU window; a teacher if neither yields.
+     piloted in the next GPU window; a teacher if neither yields. **The pilot is built
+     2026-10-01** (`sftgen/prefill.py`, `patches/target_a_prefill_window.sh`): 24 rows, plain,
+     `start` and `recall`, 4 replies each. Plain sampling is measured in the same window.
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
