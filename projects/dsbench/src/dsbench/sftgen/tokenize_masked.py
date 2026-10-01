@@ -27,8 +27,8 @@ map them onto tokens via the fast tokenizer's offset mapping. This is immune to 
 handles tool calls and multi-turn, and the closing `<|im_end|>` is kept trainable so the model
 learns to stop.
 
-**ADR-004 Revision 2: `pack_thinking`, for the thinking-on retrain.** Three changes, each answering
-a measured Gate-2 failure (reports/gate-evals/20260924-gate2-battery.md):
+**ADR-004 Revision 2: `pack_thinking`, for the thinking-on retrain.** Four changes, each answering
+a measured Gate-2 failure (reports/gate-evals/20260924-gate2-battery.md and its addendum):
 
 1. **The label starts where the served prompt ends.** With thinking on, the prompt ends in
    `<|im_start|>assistant\\n<think>\\n`. The model never generates that opener, so it gets no label;
@@ -44,6 +44,10 @@ a measured Gate-2 failure (reports/gate-evals/20260924-gate2-battery.md):
    row, because its label would teach closing the block at once.
 3. **Rows are bin-packed whole** (first-fit decreasing) instead of cut from one stream. Gate 2's
    stream cut 2,158 turns at a block edge, and their ends trained without their prompts.
+4. **Tool calls keep their arguments** (`tool_arguments_as_objects`). The records carry them as
+   JSON strings, and the template renders parameters only from a mapping, so every real tool call
+   Gate 2 trained on was an empty `<function=...>` block. The server parses the string first;
+   training now does the same.
 
 **The tokenizer.** One more fix turned up while building this path. transformers' GGUF converter
 registers only a few ChatML control tokens as added tokens, so `<think>`, `</think>`,
@@ -265,6 +269,44 @@ def last_query_index(messages: list[dict]) -> int:
     return len(messages) - 1
 
 
+def tool_arguments_as_objects(messages: list[dict]) -> list[dict]:
+    """The messages with every tool call's `arguments` as a JSON object, as the server sends them.
+
+    The OpenAI format, which every generator here records, carries `arguments` as a JSON string.
+    This template renders a call's parameters only from a mapping (`tool_call.arguments is
+    mapping`); a string renders as `<function=run_sql>\\n</function>`, a call with no arguments.
+    llama-server parses the string into an object before it applies the template
+    (`func_args_not_string` in llama.cpp's common/chat.cpp), so serving shows the model its
+    parameters. The HF tokenizer doesn't, so the training text has to do it here. Gate 2 didn't:
+    all 6,061 real tool calls in its training tokens rendered empty (2026-10-01).
+
+    A call whose arguments aren't a JSON object rejects the row: it could not have been served.
+    """
+    out = []
+    for message in messages:
+        calls = message.get("tool_calls")
+        if not calls:
+            out.append(message)
+            continue
+        fixed = []
+        for call in calls:
+            function = dict(call.get("function") or {})
+            arguments = function.get("arguments")
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments) if arguments.strip() else {}
+                except json.JSONDecodeError:
+                    raise RowRejected("tool_arguments_not_json") from None
+            if arguments is None:
+                arguments = {}
+            if not isinstance(arguments, dict):
+                raise RowRejected("tool_arguments_not_an_object")
+            function["arguments"] = arguments
+            fixed.append({**call, "function": function})
+        out.append({**message, "tool_calls": fixed})
+    return out
+
+
 def render_thinking(
     tok: Any, messages: list[dict], tools: Any = None, add_generation_prompt: bool = False
 ) -> str:
@@ -282,7 +324,7 @@ def thinking_record(tok: Any, record: dict) -> tuple[list[int], list[int]]:
     (`...<|im_start|>assistant\\n<think>\\n`) through its `<|im_end|>`. That covers the reasoning,
     `</think>`, the answer or tool call, and the stop token.
     """
-    messages, tools = record["messages"], record.get("tools")
+    messages, tools = tool_arguments_as_objects(record["messages"]), record.get("tools")
     text = render_thinking(tok, messages, tools)
     query = last_query_index(messages)
     turns = [i for i in range(query + 1, len(messages)) if messages[i].get("role") == "assistant"]
