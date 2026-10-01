@@ -430,3 +430,33 @@ instructions.
   to Sep 25 16:43: 19.8 h main window with the pi suite, 25 min MTP, 8 h half scale); the
   autoscore loop had been started with a 16-hour deadline, and a successor had to be chained in.
   MMLU-Pro alone is ~3 h per state at this budget (4096 tokens, zero-shot CoT).
+
+## Addendum, 2026-10-01: every tool call trained without its arguments
+
+This was found while building Target C's agentic pilot for the retrain, and confirmed on the tokens
+Gate 2 trained on. The training run is in `~/benchlab/runs/2026-09-23-qwen36-gate2-train/`, under
+`data_tokenized_gate2`.
+
+- **The mechanism.** The mixture records tool calls in the OpenAI format, with `arguments` as a JSON
+  string (all 6,096 of its calls). The model's template renders a call's parameters only when
+  `arguments` is a mapping. Given a string, it renders `<function=run_sql>\n</function>`, a call
+  with no arguments. llama-server parses the string into an object before it applies the
+  template, so in serving the model sees its parameters. The training tokenizer, transformers'
+  `apply_chat_template`, doesn't.
+- **What was trained.** Decoding all 4,423 training blocks:
+  - 6,061 real tool calls were empty: `add_and_execute_jupyter_code_cell` 2,561, `run_sql` 1,851,
+    `run_python` 760, `final_answer` 557 and `finish` 332;
+  - the 888 calls that carry parameters are all the template's own format example,
+    `example_function_name`;
+  - the tool responses were rendered: 30 of 4,724 are empty, as in the source data.
+
+  So the adapter's tool-using rows (jupyter-agent and Target C) taught it to emit calls with no
+  arguments, after reasoning that plans them.
+- **What it may explain.** Not measured separately. The adapter still filled its arguments in on
+  BFCL AST (+3.0) and on the owner's suite, so the base's own behaviour held. The irrelevance
+  regression (−22.1: calls where no tool fits) has a second candidate cause beside "every row
+  that offers tools opens with a call": rows that teach calling as a reflex, with nothing in it.
+- **The fix for the retrain** (ADR-004 Revision 2, "Rendering and packing"):
+  `tokenize_masked.thinking_record` parses the arguments as the server does, and rejects a row
+  whose arguments aren't a JSON object. The legacy path that built Gate 1 and Gate 2 is left as it
+  was, so those runs stay reproducible.
