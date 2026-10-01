@@ -4,8 +4,10 @@ become rows (`selection`), and how quota mode spends its runs. The live parts (l
 ClickHouse, the workspace container) run in the GPU window."""
 from __future__ import annotations
 
+import contextlib
 import json
 
+import httpx
 import pytest
 from dsbench.agentic.access import WITHHELD_TABLE, AgentLogin
 from dsbench.agentic.audit import setup_tables
@@ -92,6 +94,52 @@ def test_the_request_turns_thinking_on_with_qwen_sampling():
     assert (body["max_tokens"], body["seed"], body["stream"]) == (8192, 3, True)
     teacher = mdt.request_body([], model="ling")
     assert "chat_template_kwargs" not in teacher and teacher["temperature"] == 0.3
+
+
+def _server(monkeypatch, outcomes):
+    """httpx.stream replaced: each request takes the next outcome, an exception to raise or an
+    HTTP status to answer with. Returns the clock the requests see, as a list to advance."""
+    now = [0.0]
+
+    @contextlib.contextmanager
+    def stream(method, url, **kw):
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        yield httpx.Response(outcome, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(mdt.httpx, "stream", stream)
+    monkeypatch.setattr(mdt, "_reassemble_stream", lambda r: "the reply")
+    return now
+
+
+def _request(now, **kw):
+    def sleep(seconds):
+        now[0] += seconds
+
+    return mdt._call([], base_url="http://x", model="base", sleep=sleep,
+                     clock=lambda: now[0], **kw)
+
+
+def test_a_dropped_tunnel_is_waited_out_while_it_reconnects(monkeypatch):
+    lost = httpx.ConnectError("connection refused")
+    now = _server(monkeypatch, [lost] * 30 + [200])
+    assert _request(now) == "the reply"  # 30 refusals, 5 s apart: under the 180 s it waits
+    assert now[0] == 150
+
+
+def test_a_connection_that_stays_down_fails_the_request(monkeypatch):
+    now = _server(monkeypatch, [httpx.ReadError("cut")] * 100)
+    with pytest.raises(httpx.ReadError):
+        _request(now, reconnect_s=60)
+    assert now[0] == 60
+
+
+def test_an_http_error_is_retried_only_a_few_times(monkeypatch):
+    now = _server(monkeypatch, [500, 500, 500, 200])
+    with pytest.raises(httpx.HTTPStatusError):
+        _request(now)
+    assert now[0] == 2 + 4  # the third answer fails the request; the fourth is never asked for
 
 
 def test_runs_go_by_run_index_so_overlapping_runs_are_different_tasks():
