@@ -758,7 +758,8 @@ ML_TASKS = [WIDGET, DELIVERY, CHURN, ENERGY, TICKET, CREDIT, UPSELL]
 
 
 def selftest(reps: int = 1) -> int:
-    """Oracle gate: setup -> reference -> check for each task, no model. Returns failure count.
+    """Oracle gate: setup -> reference -> check for each task, no model, plus the agent login's
+    check (`access.check_access`: its answer key out of reach). Returns failure count.
 
     `reps` runs every task on DIFFERENT datasets (the namespace's trailing index feeds `_run_seed`,
     and rep 0 reproduces the base dataset). One rep only proves a task is solvable on one draw --
@@ -769,6 +770,7 @@ def selftest(reps: int = 1) -> int:
     import re
     import statistics
 
+    from dsbench.agentic.access import check_access
     from dsbench.agentic.ch import get_client
     fails = 0
     for p in ML_TASKS:
@@ -781,12 +783,17 @@ def selftest(reps: int = 1) -> int:
             ctx = GradeContext(client=get_client(database=ns), namespace=ns)
             try:
                 p.setup(ctx)
+                # The generator's login: these tasks share no warehouse data, so it gets none.
+                leaks = check_access(p, ctx, shared=None)
                 p.reference(ctx)
                 ok, reason = p.check(ctx)
-                task_fails += 0 if ok else 1
+                task_fails += 0 if ok and not leaks else 1
                 if reps == 1:
-                    print(f"{'PASS' if ok else 'FAIL'} {p.id}: {reason}")
+                    print(f"{'PASS' if ok and not leaks else 'FAIL'} {p.id}: {reason}"
+                          + "".join(f"; agent login: {leak}" for leak in leaks))
                 else:
+                    for leak in leaks:
+                        print(f"FAIL {p.id}: agent login: {leak}", flush=True)
                     m = re.search(r"(-?\d+\.\d+)", reason)
                     if m:
                         vals.append(float(m.group(1)))

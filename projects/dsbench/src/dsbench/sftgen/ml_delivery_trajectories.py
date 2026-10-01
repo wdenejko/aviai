@@ -29,13 +29,20 @@ running together are mostly different tasks.
 start past the indices already used (`--run-offset`). `--oracle-only` runs the oracle on exactly
 the datasets a run will use (setup, reference, check, no model) before any GPU time is spent.
 
+**The agent's own login** (ADR-003 §7). Each task writes its withheld labels into the run's own
+database (`<table>_test_key`), where the oracle reads them. The agent used to run as the sandbox's
+admin and could see them: Gate 2's Ling trajectories listed them in 15 of 350 runs, and read
+none. Since 2026-10-01 it runs as a ClickHouse login made for the run (`access.open_login`). The
+login has its database without the key, which drops out of SHOW TABLES, and no shared data, since
+the tasks are synthetic. Its run_sql client and its run_python credentials are the login's; the
+system prompt already told it to connect with whatever CLICKHOUSE_* holds. The oracle keeps the
+admin's client.
+
 **Which runs become rows** (`selection`). The oracle passing is necessary, not sufficient. With
 thinking on, every assistant turn must carry reasoning, or `thinking_record` rejects the row. No
-tool call may name an answer key: each task writes its withheld labels into the run's own database
-(`<table>_test_key`), where the oracle reads them, so the agent can see them too. Gate 2's Ling
-trajectories listed them in 15 of 350 runs and read none, but a run that reads one passes by
-copying the labels, and its row would teach exactly that. With `--block`, the row must also fit
-the training block; its length comes from the server's own counts.
+tool call may reach for the withheld key or the admin's login (`access.breach`): such a run would
+pass by copying the labels, and its row would teach exactly that. With `--block`, the row must also
+fit the training block; its length comes from the server's own counts.
 
 **Volume: quotas** (`--quota`, `generate_quota`). ADR-004 Revision 2's pilot kept 1 run in 3 for
 credit_leak, energy_load and upsell_join and every run for three other families, so a fixed
@@ -52,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures as cf
+import contextlib
 import hashlib
 import json
 import os
@@ -64,6 +72,7 @@ from typing import Any
 import httpx
 
 from dsbench.agentic import tools as T
+from dsbench.agentic.access import AgentLogin, breach, close_login, open_login
 from dsbench.agentic.ch import get_client
 from dsbench.agentic.loop import _reassemble_stream, grade
 from dsbench.agentic.schema import AgentProblem, GradeContext
@@ -73,10 +82,6 @@ from dsbench.sftgen.ml_tasks import ML_TASKS, SYSTEM_C, TOOL_SCHEMAS_C
 # (reasoning_pilot.SAMPLING). Gate 2's teacher ran at temperature 0.3.
 BASE_SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}
 TEACHER_SAMPLING = {"temperature": 0.3}
-
-# A table of withheld labels. Every ml_tasks setup writes exactly one, named so
-# (test_every_task_writes_one_answer_key_the_guard_catches).
-ANSWER_KEY = re.compile(r"\b\w+_test_key\b")
 
 # Runs that say nothing about a family's yield: its dataset failed its own oracle, or the agent
 # never got a verdict because the server or the sandbox failed.
@@ -130,14 +135,19 @@ def _assistant(content: str, reasoning: str, tool_calls: list | None = None) -> 
 def run_teacher_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str, model: str,
                       verbose: bool = False, sampling: dict | None = None, thinking: bool = False,
                       max_tokens: int = 4096, workdir: str | None = None,
-                      seed: int | None = None) -> dict:
+                      seed: int | None = None, login: AgentLogin | None = None) -> dict:
     """Drive the agent through the sandbox. Returns {passed, status, reason, trajectory, ...}.
 
     `turns` records each model call: its finish reason, token counts, reasoning length, tool calls
     and seconds. A turn cut by `max_tokens` ends the run with status `turn_cap`, never kept: its
     reasoning or call never closed, so the row couldn't be trained.
+
+    The agent's tools run as `login`, which `run_job` always passes. Without one they run as the
+    admin `ctx.client` logs in as. The oracle grades through `ctx.client` either way.
     """
     t0 = time.time()
+    agent_client = login.client() if login else ctx.client
+    agent_env = login.env if login else None
     messages: list = [
         {"role": "system", "content": SYSTEM_C},
         {"role": "user", "content": problem.prompt},
@@ -208,9 +218,10 @@ def run_teacher_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str
                 passed, status, reason = grade(problem, ctx)
                 return done(passed, status, reason, step)
             elif name == "run_sql":
-                obs = T.run_sql(ctx.client, args.get("query", ""))
+                obs = T.run_sql(agent_client, args.get("query", ""))
             elif name == "run_python":
-                obs = T.run_python(args.get("code", ""), ctx.namespace, workdir=workdir)
+                obs = T.run_python(args.get("code", ""), ctx.namespace, workdir=workdir,
+                                   env=agent_env)
             else:
                 obs = f"error: unknown tool {name!r}"
             messages.append({"role": "tool", "tool_call_id": tc.get("id"), "content": obs})
@@ -257,20 +268,21 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
     """Whether a run's trajectory becomes a training row, and if not, why (`why_not`).
 
     In order: the oracle passed (else `why_not` is the run's status); with `reasoning`, every
-    assistant turn carries some (`empty_reasoning`); no tool call names an answer key
-    (`names_answer_key`); with a `block`, the row fits it (`over_block`).
+    assistant turn carries some (`empty_reasoning`); no tool call reaches for a table the run
+    withheld (`res["withheld"]`, set by `run_job`) or the admin's login (`withheld_access`); with a
+    `block`, the row fits it (`over_block`).
 
     The length is the server's: the loop's last request, prompt plus completion, is the whole
     conversation. The training row is at most one token longer, the newline the template writes
     after the final `<|im_end|>`. On the pilot's 21 runs it was exactly one longer on 16 and no
     longer on the other 5, whose `finish` arguments the template rebuilds from the parsed value.
-    A key seen in a tool's output, from `SHOW TABLES` say, is recorded (`saw_answer_key`) but not
-    held against the run: its row shows the agent leaving the key alone.
+    A withheld table seen in a tool's output is recorded (`saw_withheld`) but not held against the
+    run: its row shows the agent leaving it alone. The login keeps the key out of listings, so it
+    now shows up only in the refusal of a call that named it.
     """
     trajectory = res.get("trajectory") or []
+    withheld = tuple(res.get("withheld") or ())
     assistant = [m for m in trajectory if m.get("role") == "assistant"]
-    calls = " ".join((c.get("function") or {}).get("arguments") or ""
-                     for m in assistant for c in m.get("tool_calls") or [])
     last = (res.get("turns") or [{}])[-1]
     served = None
     if last.get("prompt_tokens") is not None and last.get("completion_tokens") is not None:
@@ -280,16 +292,16 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
         "fits": None if block is None else served is not None and served + 1 <= block,
         "reasoning_in_every_turn": bool(assistant) and all(
             (m.get("reasoning_content") or "").strip() for m in assistant),
-        "names_answer_key": bool(ANSWER_KEY.search(calls)),
-        "saw_answer_key": any(ANSWER_KEY.search(m.get("content") or "")
-                              for m in trajectory if m.get("role") == "tool"),
+        "withheld_access": breach(trajectory, withheld),
+        "saw_withheld": any(re.search(rf"\b{re.escape(t)}\b", m.get("content") or "")
+                            for t in withheld for m in trajectory if m.get("role") == "tool"),
     }
     if not res.get("passed"):
         out["why_not"] = res.get("status") or "failed"
     elif reasoning and not out["reasoning_in_every_turn"]:
         out["why_not"] = "empty_reasoning"
-    elif out["names_answer_key"]:
-        out["why_not"] = "names_answer_key"
+    elif out["withheld_access"]:
+        out["why_not"] = "withheld_access"
     elif out["fits"] is False:
         out["why_not"] = "over_block"
     else:
@@ -326,7 +338,10 @@ def run_job(task: AgentProblem, run_ix: int, *, base_url: str, model: str, verbo
             gate: bool = False) -> dict:
     """One run in its own database and working directory, dropped afterwards. With `gate`, the
     dataset first passes its own oracle, or the agent never sees it (`dataset_failed_oracle`).
-    A harness failure is returned as the run's result, never raised."""
+    A harness failure is returned as the run's result, never raised.
+
+    The agent runs as a login made after setup and dropped after the run. The result records the
+    tables it withheld (`withheld`), for `selection`."""
     if gate:
         try:
             ok, reason = dataset_ok(task, run_ix)
@@ -334,18 +349,26 @@ def run_job(task: AgentProblem, run_ix: int, *, base_url: str, model: str, verbo
             return _skipped("harness_error", f"oracle gate: {e}")
         if not ok:
             return _skipped("dataset_failed_oracle", reason)
-    ctx = None
+    ctx = login = None
     try:
         ctx = _prepare(task.id, run_ix)
         workdir = f"/tmp/sftc/{ctx.namespace}"
         T.make_workdir(workdir)
         task.setup(ctx)
-        return run_teacher_agent(task, ctx, base_url=base_url, model=model, verbose=verbose,
-                                 sampling=sampling, thinking=thinking, max_tokens=max_tokens,
-                                 workdir=workdir, seed=_seed(task.id, run_ix))
+        login = open_login(ctx, task.withheld_rows, shared=None)  # synthetic: no shared data
+        res = run_teacher_agent(task, ctx, base_url=base_url, model=model, verbose=verbose,
+                                sampling=sampling, thinking=thinking, max_tokens=max_tokens,
+                                workdir=workdir, seed=_seed(task.id, run_ix), login=login)
+        res["withheld"] = list(login.withheld)
+        return res
     except Exception as e:  # noqa: BLE001
         return _skipped("harness_error", str(e))
     finally:
+        if login is not None:
+            # Best effort, like _drop: a login left behind reaches only its dropped database, and
+            # the next login of its namespace replaces it.
+            with contextlib.suppress(Exception):
+                close_login(login)
         if ctx is not None:
             _drop(ctx.namespace)
 

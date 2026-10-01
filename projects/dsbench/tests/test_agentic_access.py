@@ -12,6 +12,7 @@ from dsbench.agentic import access, audit, loop, pi_runner
 from dsbench.agentic import tools as T
 from dsbench.agentic.loader import load_problems
 from dsbench.agentic.schema import AgentProblem, GradeContext
+from dsbench.sftgen.ml_tasks import ML_TASKS
 from dsbench.sftgen.probe import runner as probe_runner
 from dsbench.sftgen.probe.tasks import PROBE_TASKS
 
@@ -47,8 +48,9 @@ def test_the_env_points_the_agents_python_at_its_login():
 
 def test_every_table_a_setup_writes_is_an_input_or_withheld():
     # A table the prompt names is the agent's input. Any other is the grader's: it holds the test
-    # rows' labels, and only its name keeps it from the agent's login.
-    for problem in load_problems() + PROBE_TASKS:
+    # rows' labels, and only its name keeps it from the agent's login. Target C's tasks
+    # (ml_tasks) run under the same login, in the generator.
+    for problem in load_problems() + PROBE_TASKS + ML_TASKS:
         for table in audit.setup_tables(problem):
             named = re.search(rf"\b{table}\b", problem.prompt) is not None
             withheld = access.WITHHELD_TABLE.search(table) is not None

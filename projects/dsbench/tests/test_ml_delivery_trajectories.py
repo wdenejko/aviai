@@ -7,6 +7,8 @@ from __future__ import annotations
 import json
 
 import pytest
+from dsbench.agentic.access import WITHHELD_TABLE, AgentLogin
+from dsbench.agentic.audit import setup_tables
 from dsbench.agentic.schema import AgentProblem, GradeContext
 from dsbench.sftgen import ml_delivery_trajectories as mdt
 from dsbench.sftgen.ml_tasks import ML_TASKS
@@ -37,8 +39,8 @@ def _run(monkeypatch, replies, **kw):
         return replies[len(sent) - 1]
 
     monkeypatch.setattr(mdt, "_call", fake_call)
-    monkeypatch.setattr(mdt.T, "run_python",
-                        lambda code, ns, workdir=None: ran.append((code, ns, workdir)) or "ok")
+    monkeypatch.setattr(mdt.T, "run_python", lambda code, ns, workdir=None, env=None:
+                        ran.append((code, ns, workdir)) or "ok")
     monkeypatch.setattr(mdt.T, "run_sql", lambda client, q: "1 row")
     res = mdt.run_teacher_agent(kw.pop("problem", _problem()), GradeContext(None, "ns_1"),
                                 base_url="http://x", model="base", thinking=True,
@@ -111,7 +113,8 @@ def test_a_base_run_is_recorded_as_such():
 
 # ---- which runs become rows ----
 
-def _res(passed=True, status="ok", served=4000, reasoning="Plan.", calls=(), tool_output="ok"):
+def _res(passed=True, status="ok", served=4000, reasoning="Plan.", calls=(), tool_output="ok",
+         withheld=("widget_test_key",)):
     """A finished run as run_teacher_agent returns it: one tool turn, then `finish`."""
     def turn(name, args):
         return _assistant_turn(reasoning, [(name, args)])
@@ -121,7 +124,8 @@ def _res(passed=True, status="ok", served=4000, reasoning="Plan.", calls=(), too
     trajectory.append(turn("finish", {}))
     return {"passed": passed, "status": status, "reason": "graded", "trajectory": trajectory,
             "steps": len(calls) + 1, "tool_calls": len(calls) + 1, "latency_s": 1.0,
-            "turns": [{"step": 1, "prompt_tokens": served - 40, "completion_tokens": 40}]}
+            "turns": [{"step": 1, "prompt_tokens": served - 40, "completion_tokens": 40}],
+            "withheld": list(withheld)}
 
 
 def _assistant_turn(reasoning, calls):
@@ -139,9 +143,12 @@ def test_a_clean_passing_run_that_fits_is_kept():
 @pytest.mark.parametrize(("res", "why_not"), [
     (_res(passed=False, status="wrong"), "wrong"),
     (_res(reasoning=""), "empty_reasoning"),
-    (_res(calls=[("run_sql", {"query": "SELECT * FROM widget_test_key"})]), "names_answer_key"),
+    (_res(calls=[("run_sql", {"query": "SELECT * FROM widget_test_key"})]), "withheld_access"),
     (_res(calls=[("run_python", {"code": "client.query_df('SELECT id, label FROM "
-                                         "cust_test_key')"})]), "names_answer_key"),
+                                         "cust_test_key')"})], withheld=("cust_test_key",)),
+     "withheld_access"),
+    (_res(calls=[("run_python", {"code": "get_client(username='avbench', "
+                                         "password='avbench')"})]), "withheld_access"),
     (_res(served=8192), "over_block"),  # the template adds a newline: 8,193 tokens
 ])
 def test_a_run_is_not_kept_for_the_first_reason_that_applies(res, why_not):
@@ -159,31 +166,81 @@ def test_a_key_seen_in_a_listing_is_recorded_but_not_held_against_the_run():
     res = _res(calls=[("run_sql", {"query": "SHOW TABLES"})],
                tool_output="name\nwidget_test\nwidget_test_key\nwidget_train")
     sel = mdt.selection(res, block=8192, reasoning=True)
-    assert (sel["kept"], sel["saw_answer_key"], sel["names_answer_key"]) == (True, True, False)
+    assert (sel["kept"], sel["saw_withheld"], sel["withheld_access"]) == (True, True, None)
 
 
-class _RecordingClient:
-    """Enough of clickhouse_connect for a task's setup: the tables it creates."""
-
-    def __init__(self):
-        self.tables = []
-
-    def command(self, sql):
-        if sql.lstrip().startswith("CREATE TABLE"):
-            self.tables.append(sql.split()[2].split(".")[-1])
-
-    def insert_df(self, table, df):
-        pass
+def test_only_the_runs_own_withheld_tables_count():
+    # The guard matches the tables the run withheld, exactly: not every name ending in _test_key.
+    res = _res(calls=[("run_python", {"code": "X_test_key = X[test]"})])
+    assert mdt.selection(res, block=8192, reasoning=True)["kept"]
 
 
 @pytest.mark.parametrize("task", ML_TASKS, ids=lambda t: t.id)
-def test_every_task_writes_one_answer_key_the_guard_catches(task):
-    client = _RecordingClient()
-    task.setup(GradeContext(client, "sftc_x_1"))
-    keys = [t for t in client.tables if mdt.ANSWER_KEY.fullmatch(t)]
-    assert len(keys) == 1, client.tables
-    assert keys[0] not in task.prompt  # the agent is never told where the labels are
-    assert not any(mdt.ANSWER_KEY.search(t) for t in client.tables if t != keys[0])
+def test_every_task_withholds_exactly_its_answer_key(task):
+    # The login withholds tables by name (access.WITHHELD_TABLE); every other table is an input
+    # its prompt names (test_agentic_access checks that for all three task sets).
+    withheld = [t for t in setup_tables(task) if WITHHELD_TABLE.search(t)]
+    assert len(withheld) == 1 and withheld[0].endswith("_test_key"), withheld
+    assert withheld[0] not in task.prompt  # the agent is never told where the labels are
+
+
+# ---- the agent's own login ----
+
+LOGIN = AgentLogin("dsbench_agent_sftc_x_1", "pw", "sftc_x_1", withheld=("widget_test_key",))
+
+
+def test_the_agents_tools_run_as_its_login(monkeypatch):
+    used = {}
+    monkeypatch.setattr(AgentLogin, "client", lambda self: "agent-client")
+    monkeypatch.setattr(mdt, "_call", lambda messages, **kw: _reply(
+        "Look, then finish.", calls=[("run_sql", {"query": "SELECT 1"}),
+                                     ("run_python", {"code": "print(1)"}), ("finish", {})]))
+    monkeypatch.setattr(mdt.T, "run_sql", lambda client, q: used.setdefault("sql", client))
+    monkeypatch.setattr(mdt.T, "run_python", lambda code, ns, workdir=None, env=None:
+                        used.setdefault("env", env))
+    mdt.run_teacher_agent(_problem(), GradeContext("admin-client", "sftc_x_1"),
+                          base_url="http://x", model="base", login=LOGIN)
+    assert used == {"sql": "agent-client", "env": LOGIN.env}  # never the oracle's admin client
+
+
+def _job(monkeypatch, agent):
+    """run_job with the sandbox replaced; returns its result and what happened, in order."""
+    events = []
+    ctx = GradeContext("admin-client", "sftc_mlc_test_1")
+    monkeypatch.setattr(mdt, "_prepare", lambda task_id, run_ix: events.append("prepare") or ctx)
+    monkeypatch.setattr(mdt.T, "make_workdir", lambda path: None)
+    monkeypatch.setattr(mdt, "open_login", lambda c, rows, shared: events.append(
+        ("open", rows, shared)) or LOGIN)
+    monkeypatch.setattr(mdt, "close_login", lambda login: events.append(("close", login.user)))
+    monkeypatch.setattr(mdt, "_drop", lambda ns: events.append(("drop", ns)))
+    monkeypatch.setattr(mdt, "run_teacher_agent", agent)
+    task = AgentProblem(id="mlc_test", category="ds", difficulty="hard", title="t", prompt="p",
+                        check=lambda c: (True, ""), reference=lambda c: None,
+                        setup=lambda c: events.append("setup"))
+    return mdt.run_job(task, 1, base_url="http://x", model="base"), events
+
+
+def test_run_job_opens_the_login_after_setup_and_closes_it_after_the_run(monkeypatch):
+    logins = []
+
+    def agent(task, ctx, **kw):
+        logins.append(kw["login"])
+        return _res()
+
+    res, events = _job(monkeypatch, agent)
+    assert events == ["prepare", "setup", ("open", (), None), ("close", LOGIN.user),
+                      ("drop", "sftc_mlc_test_1")]
+    assert logins == [LOGIN]
+    assert res["withheld"] == ["widget_test_key"]  # what selection matches tool calls against
+
+
+def test_run_job_closes_the_login_when_the_run_breaks(monkeypatch):
+    def agent(task, ctx, **kw):
+        raise RuntimeError("sandbox gone")
+
+    res, events = _job(monkeypatch, agent)
+    assert (res["status"], res["reason"]) == ("harness_error", "sandbox gone")
+    assert events[-2:] == [("close", LOGIN.user), ("drop", "sftc_mlc_test_1")]
 
 
 # ---- quota mode ----
