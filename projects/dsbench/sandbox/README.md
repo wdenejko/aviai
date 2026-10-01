@@ -21,9 +21,10 @@ db `sftgen`; MySQL: `root`/`avbench-root`. Both have a `sftgen_reader`/`sftgen_r
 at a time (`src/dsbench/sftgen/engines.py`). SQL that reaches outside its table (files, other
 schemas, DDL) fails; `tests/test_sandbox_engines.py` checks it whenever these services are up.
 
-An agent never connects as `avbench`. Each dsbench or probe run makes its own ClickHouse login
-(`src/dsbench/agentic/access.py`), dropped afterwards. It has the run's scratch database, minus
-the grader's label tables, and `aviation`, minus the problem's test rows (ADR-003 §7). The pi
+An agent never connects as `avbench`. Each dsbench, probe or Target C run makes its own
+ClickHouse login (`src/dsbench/agentic/access.py`), dropped afterwards. It has the run's scratch
+database, minus the grader's label tables, and `aviation`, minus the problem's test rows
+(ADR-003 §7). Target C's tasks are synthetic, so its login gets no `aviation` at all. The pi
 wrappers and the workspace's `CLICKHOUSE_*` variables carry that login during a run; `avbench`
 is only their default for use by hand.
 

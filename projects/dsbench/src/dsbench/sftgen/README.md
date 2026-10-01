@@ -152,8 +152,8 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
 # a later window continues where this one stopped: the same command with --resume
 ```
 
-- **Kept** means the oracle passed, every turn carries reasoning, no tool call names an answer key
-  (`*_test_key`), and the row fits `--block` (8,192 by default). The length comes from the
+- **Kept** means the oracle passed, every turn carries reasoning, no tool call names the withheld
+  key or the admin's login (`access.breach`), and the row fits `--block` (8,192 by default). The length comes from the
   server's own counts, so nothing has to be measured on the box.
 - **Every other run goes to `--fail-out`**, with `meta.selection.why_not`. A row that passed the
   oracle but is over the block keeps `oracle_passed: true`, in case a longer step is chosen.
@@ -169,9 +169,15 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
 - **`--resume`** counts the rows already written and starts each family past its highest run
   index. Runs lost in flight leave gaps, never reused indices.
 
-The answer keys are in the agent's own database, because the oracle reads them there.
-- Gate 2's Ling loops listed them in 15 of 350 runs. None read one.
-- A run that does read one would pass by copying the labels, so it is never kept, in either mode.
+The answer keys are in the run's own database, because the oracle reads them there. The agent
+can't reach them:
+- **It runs as its own ClickHouse login** (ADR-003 §7), made after setup and dropped after the
+  run. The key is refused and missing from its SHOW TABLES, and the login has no shared data.
+  Its run_sql and run_python both use it; the oracle keeps the admin's.
+- **Before 2026-10-01 it ran as the admin.** Gate 2's Ling loops listed the keys in 15 of 350
+  runs. None read one.
+- **A run whose tool calls name the key or the admin's login is never kept,** in either mode.
+  The login refuses the key, but such a row would still teach looking for the labels.
 
 The seven families each target a different delivery failure mode: balanced classification
 (`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
