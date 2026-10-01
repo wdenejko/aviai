@@ -140,6 +140,39 @@ Piloted 2026-10-01 (`reports/gate-evals/20261001-target-c-agentic-pilot.md`): 20
 14 fit the 8,192-token block, and every turn carries reasoning. Most of a loop's length is code:
 `run_python` runs each call in a new process, so every fix resends the whole script.
 
+**Volume: a quota per family.** The pilot kept every run of three families and 1 in 3 of three
+others, so a fixed number of runs fills the slice with the easy ones. `--quota` runs each family
+until that many of its rows are kept:
+
+```bash
+uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 --quota 22 \
+    --run-offset 200 --max-tokens 8192 --max-minutes 270 \
+    --base-url http://127.0.0.1:18080/v1 --model base \
+    --out trajectories.jsonl --fail-out failed.jsonl --report report.json
+# a later window continues where this one stopped: the same command with --resume
+```
+
+- **Kept** means the oracle passed, every turn carries reasoning, no tool call names an answer key
+  (`*_test_key`), and the row fits `--block` (8,192 by default). The length comes from the
+  server's own counts, so nothing has to be measured on the box.
+- **Every other run goes to `--fail-out`**, with `meta.selection.why_not`. A row that passed the
+  oracle but is over the block keeps `oracle_passed: true`, in case a longer step is chosen.
+- **Each dataset passes its own oracle first**, so no `--oracle-only` step is needed. A dataset
+  that fails it uses up its run index and costs no agent time.
+- **Slots go to the family furthest from its quota.** Each of its running loops counts at the
+  family's keep rate so far. Simulated on the pilot's keep rates and run times, 22 rows a family
+  took 286 to 336 runs and 3.4 to 4.1 hours, with 7.4 of 8 slots busy.
+- **Stopping:**
+  - `--max-runs` caps a family's datasets (5x the quota by default);
+  - `--max-minutes` stops new runs before the window ends;
+  - consecutive model errors stop everything, since the server is gone.
+- **`--resume`** counts the rows already written and starts each family past its highest run
+  index. Runs lost in flight leave gaps, never reused indices.
+
+The answer keys are in the agent's own database, because the oracle reads them there.
+- Gate 2's Ling loops listed them in 15 of 350 runs. None read one.
+- A run that does read one would pass by copying the labels, so it is never kept, in either mode.
+
 The seven families each target a different delivery failure mode: balanced classification
 (`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
 (`mlc_churn_rare`), a temporal train/test boundary (`mlc_energy_load`), multiclass with a
