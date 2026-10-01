@@ -9,8 +9,9 @@ gap (ADR-004):
                                         against real engines across dialects. Apache-2.0-clean.
   - Target B  `denominator_reasoning` -- conditional-population / ratio-denominator reasoning on
       inline data; a licence-clean teacher trace, execution-filtered against the verified truth.
-  - Target C  `ml_delivery_trajectories` -- agentic ML-workflow delivery discipline; a teacher runs
+  - Target C  `ml_delivery_trajectories` -- agentic ML-workflow delivery discipline; an agent runs
       the sandbox on synthetic ML tasks (`ml_tasks`), and only oracle-passing trajectories are kept.
+      Gate 2's agent was a teacher; Revision 2's is the base itself, thinking on.
 
 Design invariants shared by all three (ADR-004):
   * teach the TRANSFERABLE skill on a distribution that is NOT the aviation benchmark, so the gain

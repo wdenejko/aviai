@@ -123,6 +123,19 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --reps 2 --run-offset 3
     --base-url http://localhost:18080/v1 --model ling-3.0-flash-q6-mtp --out targetC_topup.jsonl
 ```
 
+**ADR-004 Revision 2: the base as the agent.** `--thinking` runs the base itself, thinking on,
+with Qwen's sampling, and keeps every turn's reasoning in the trajectory; `--workers` runs that many
+loops at once, each in its own scratch database and working directory. Gate the exact datasets
+first: the run index is the seed, and a volume run's indices are not the selftest's.
+
+```bash
+uv run python -m dsbench.sftgen.ml_delivery_trajectories --oracle-only --reps 3 --run-offset 101
+# then, with the base served on the box behind the tunnel (patches/target_c_pilot_mac.sh):
+uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 --reps 3 \
+    --run-offset 101 --max-tokens 8192 --base-url http://127.0.0.1:18080/v1 --model base \
+    --out trajectories.jsonl --fail-out failed.jsonl --report report.json
+```
+
 The seven families each target a different delivery failure mode: balanced classification
 (`mlc_widget_defect`), regression against a baseline (`mlc_delivery_time`), rare-event ranking
 (`mlc_churn_rare`), a temporal train/test boundary (`mlc_energy_load`), multiclass with a
