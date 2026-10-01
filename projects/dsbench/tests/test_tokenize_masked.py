@@ -153,6 +153,28 @@ def test_a_tool_loop_trains_every_turn_after_the_query_with_its_reasoning():
     assert "12:00\n</tool_response>" not in trained
 
 
+def _openai_loop(arguments='{"city": "Oslo"}'):
+    """`_loop` as the generators record it: OpenAI format, `arguments` a JSON string."""
+    record = _loop()
+    call = record["messages"][1]["tool_calls"][0]
+    call["function"] = {**call["function"], "arguments": arguments}
+    return record
+
+
+def test_a_tool_call_recorded_as_a_json_string_trains_with_its_arguments():
+    # The template renders parameters only from a mapping. Rendered as recorded, this call is
+    # `<function=get_time>\n</function>`, as all of Gate 2's tool calls were.
+    tok = TemplateTokenizer()
+    record = _openai_loop()
+    raw = tm.render_thinking(tok, record["messages"], TOOLS)
+    assert "<function=get_time>\n</function>" in raw and "<parameter=city>" not in raw
+    assert tm.thinking_record(tok, record) == tm.thinking_record(tok, _loop())
+    assert "<parameter=city>\nOslo\n</parameter>" in _labelled(tok, *tm.thinking_record(
+        tok, record))
+    # the record itself is left as it was
+    assert record["messages"][1]["tool_calls"][0]["function"]["arguments"] == '{"city": "Oslo"}'
+
+
 def test_reasoning_baked_into_the_content_trains_the_same():
     # render.py's rows carry `<think>...</think>` inside the content; the template splits it out.
     tok = TemplateTokenizer()
@@ -166,6 +188,9 @@ def test_reasoning_baked_into_the_content_trains_the_same():
     (_chat(reasoning="   "), "empty_reasoning"),
     (_loop(first_reasoning=""), "empty_reasoning"),
     ({"messages": [{"role": "user", "content": "Hi"}]}, "no_turn_after_last_query"),
+    # A call the server couldn't have rendered either:
+    (_openai_loop('{"city": "Os'), "tool_arguments_not_json"),
+    (_openai_loop('["Oslo"]'), "tool_arguments_not_an_object"),
 ])
 def test_rows_that_would_teach_the_wrong_thing_are_rejected(record, reason):
     with pytest.raises(tm.RowRejected) as err:
