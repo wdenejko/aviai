@@ -7,6 +7,8 @@ record, never in the prompt or the answer.
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 from dsbench.sftgen import synth
 from dsbench.sftgen.conventions import ALL_CONVENTIONS, DIALECT_DISPLAY
@@ -33,3 +35,15 @@ def test_generated_rows_answer_with_the_sql_and_keep_the_number_in_verification(
         assert answer.startswith("```sql\n") and answer.endswith("\n```")
         assert "Answer:" not in answer
         assert row["verification"]["agrees"] and row["verification"]["truth"] is not None
+
+
+def test_no_question_reads_as_a_grouping():
+    # "How many orders fall on a weekend, by order_ts?" was answered with GROUP BY order_ts: a
+    # count per timestamp, where the question wants one total (the Target A hints pilot).
+    rng = np.random.default_rng(3)
+    for conv in ALL_CONVENTIONS:
+        for name in synth.domain_names():
+            domain = synth.build(name, 1, 50)
+            for _ in range(12):  # every variant, by the variant draws' spread
+                question = conv.question(domain, conv.params(rng))
+                assert not re.search(r"\bby\b", question), question

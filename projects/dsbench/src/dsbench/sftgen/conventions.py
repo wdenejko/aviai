@@ -128,7 +128,9 @@ class WeekdayNumbering(Convention):
         return [
             f"How many {lab} have a {col} that falls on a {day}?",
             f"Count the {lab} whose {col} is a {day}.",
-            f"On {day}s specifically, how many {lab} were there (by {col})?",
+            # Not "(by {col})": the base reads "by" as GROUP BY and answers with a count per
+            # timestamp (reports/gate-evals/20260930-target-a-hints-pilot.md).
+            f"On {day}s specifically, how many {lab} were there in total, according to {col}?",
         ][params["variant"]]
 
     def sql(self, domain: Domain, dialect: str, params: dict) -> str:
@@ -246,7 +248,9 @@ class WeekendFlag(Convention):
     def question(self, domain: Domain, params: dict) -> str:
         col, lab = domain.ts_col, domain.label
         return [
-            f"How many {lab} fall on a weekend (Sat or Sun), by {col}?",
+            # Not ", by {col}?": 30 of 32 answers to that wording grouped by the timestamp (the
+            # Target A hints pilot).
+            f"In total, how many {lab} fall on a weekend (Sat or Sun) according to {col}?",
             f"Count the weekend {lab} (Saturday or Sunday {col}).",
             f"Of all {lab}, how many have a {col} on Sat or Sun?",
         ][params["variant"]]
