@@ -488,6 +488,29 @@ The selection (seed 20260930), 2,646 prompts:
     tasks therefore measures yield and length before any volume run.
   - Loops over 8,192 tokens are dropped. If most are, the tasks shrink (fewer turns): a
     16,384-token step would need new kernel keys, as 4096 did.
+
+  **The pilot, built 2026-10-01** (`sftgen/ml_delivery_trajectories.py --thinking`;
+  `patches/target_c_pilot_{window,arm,mac}.sh`; `patches/target-c-pilot/`):
+  - **The agent is the base.** Thinking on, with Qwen's sampling. Every assistant turn keeps its
+    reasoning, and each request resends the earlier turns' reasoning, as the training row will
+    show it. A turn cut by the token limit ends the run, never kept.
+  - **21 runs:** the 7 task families x 3 datasets (run indices 101-103, past Gate 2's 0-62).
+    Before any GPU time, the oracle passed all 21 datasets without a model (`--oracle-only`); at
+    index 100 it failed `mlc_churn_rare`'s own reference (AP 0.149 against a bar of 0.15), so the
+    pilot starts at 101.
+  - **Parallel:** 8 loops at once, one per server slot. Each run has its own ClickHouse database
+    and its own working directory in the workspace container. Without one, an agent's relative
+    files landed in the repo, which the container mounts as its working directory.
+  - **Where it runs:** the box only serves the base; the loop runs on the Mac beside the sandbox,
+    through an SSH tunnel. The window holds the server until the Mac releases it, as the battery's
+    dsbench phase does.
+  - **What it measures** (`measure_trajectories.py`, on the box): each trajectory through
+    `thinking_record`, the code that builds the retrain's blocks. That gives its tokens, whether
+    it fits 8,192, and whether a turn has empty reasoning, which rejects the row. Also measured:
+    yield per family, turns, and failure modes.
+  - **Gate 2's trajectories don't carry over.** Run through the same measurement, a sample of 20
+    Ling trajectories is all rejected: no turn has reasoning. Even without it, 2 of the 20 are
+    over 8,192 tokens (median 2,820).
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
@@ -543,6 +566,20 @@ The selection (seed 20260930), 2,646 prompts:
   trained in the next block without its prompt. **Built 2026-09-29:** on the pilot's 199 finished
   rows, 190 packed into 56 blocks, 97.7% full. Rows are separated by `<|endoftext|>`, and neither
   separator nor padding gets a label.
+- **Tool calls keep their arguments.** Found 2026-10-01, while building the Target C pilot.
+  - **The bug.** The generators record calls in the OpenAI format, with `arguments` as a JSON
+    string. The template renders a call's parameters only from a mapping, so a string renders as
+    `<function=run_sql>\n</function>`, a call with no arguments. llama-server parses the string
+    into an object before applying the template (`func_args_not_string`), so serving shows the
+    model its parameters. The HF tokenizer doesn't.
+  - **What Gate 2 trained on.** Decoding its training tokens: all 6,061 real tool calls were
+    empty, `add_and_execute_jupyter_code_cell` 2,561, `run_sql` 1,851, `run_python` 760,
+    `final_answer` 557 and `finish` 332. The 888 calls with parameters are all the template's own
+    format example, `example_function_name`.
+  - **The fix.** `thinking_record` now parses the arguments as the server does, and rejects a row
+    whose arguments aren't a JSON object. **Built 2026-10-01**
+    (`tokenize_masked.tool_arguments_as_objects`). It covers every Revision 2 row with tool
+    calls: Target C and the tool rows.
 - **Open: rows in a block see each other.** Full attention and the GatedDeltaNet state both carry
   from one row into the next. Checked in the code on 2026-09-29:
   - the model resets the GatedDeltaNet state when given row lengths (`cu_seq_lens_q`);
@@ -632,6 +669,8 @@ The selection (seed 20260930), 2,646 prompts:
      defaults to 8192);
    - [x] tests on rendered examples, with the model's own chat template;
    - [x] found on the way: the tokenizer now splits text as llama.cpp does;
+   - [x] found 2026-10-01: tool-call arguments render as the server renders them. Gate 2 trained
+     every one of its 6,061 tool calls with no arguments;
    - [ ] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
 2. [ ] Target A:
    - [x] offsets stated in the timezone family. **Done 2026-09-29:**
@@ -672,6 +711,8 @@ The selection (seed 20260930), 2,646 prompts:
    gold-call checker. **Done 2026-09-30:** 518 prompts, 0 battery overlaps; generation waits for
    the GPU window with the rest.
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
+   **The pilot is built 2026-10-01**: 21 runs, the base as the agent, the datasets checked by the
+   oracle first. It runs in the next GPU window.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
