@@ -17,7 +17,8 @@ Subcommands, each run where its dependencies live:
 
     items     (Mac)  pick the pilot prompts from the Gate-2 mixture
     generate  (box)  query a llama-server in thinking mode; resumable; stdlib + httpx only, so it
-                     runs in the box's lean batteryvenv
+                     runs in the box's lean batteryvenv. An item with a `prefill` has the model
+                     continue its thinking from it (sftgen/prefill.py)
     verify    (Mac)  execute Target A's ClickHouse answers in the dsbench sandbox against the truth
     report    (Mac)  lengths, fits, throughput and yield, as JSON and a Markdown summary
 """
@@ -137,11 +138,15 @@ def split_reasoning(message: dict) -> tuple[str, str]:
     return reasoning.strip(), content.strip()
 
 
+def _seed(item: dict) -> int:
+    # A fixed per-item seed makes a rerun reproduce the same sample.
+    return int(hashlib.sha1(item["id"].encode()).hexdigest()[:8], 16)
+
+
 def request_body(item: dict, max_tokens: int) -> dict:
-    # A fixed per-item seed makes a rerun reproduce the same sample; `enable_thinking` overrides
-    # the server's thinking-off default (battery_server.sh) for these requests only.
-    seed = int(hashlib.sha1(item["id"].encode()).hexdigest()[:8], 16)
-    body = {"model": "base", "messages": item["messages"], **SAMPLING, "seed": seed,
+    # `enable_thinking` overrides the server's thinking-off default (battery_server.sh) for these
+    # requests only.
+    body = {"model": "base", "messages": item["messages"], **SAMPLING, "seed": _seed(item),
             "max_tokens": max_tokens, "chat_template_kwargs": {"enable_thinking": True}}
     if item.get("tools"):
         # Tool rows (sftgen/tool_rows.py) stream, as the battery's BFCL items do: the fork's
@@ -149,6 +154,61 @@ def request_body(item: dict, max_tokens: int) -> dict:
         body.update(tools=item["tools"], parallel_tool_calls=True, stream=True,
                     stream_options={"include_usage": True})
     return body
+
+
+# A prefilled item (sftgen/prefill.py) can't go through the chat endpoint: the chat template closes
+# an assistant message's thinking block, and a prefill has to leave it open for the base to
+# continue. So the server's own template renders the prompt (/apply-template, thinking on, the
+# same rendering the chat endpoint does), the prefill follows the open <think>, and /completion
+# continues the text. llama-server prints a special token only when the request preserves it, as
+# the chat endpoint does for the template's own tokens. So the request preserves <think> and
+# </think>, and the reply splits at </think>, as the chat endpoint's parser would split it.
+THINK_TOKENS = ["<think>", "</think>"]
+OPEN_THINKING = "<think>\n"
+
+
+def render_prompt(client, item: dict) -> str:
+    """The item's prompt as the server's chat template renders it with thinking on, ending in the
+    open thinking block."""
+    r = client.post("/apply-template", json={"messages": item["messages"],
+                                              "chat_template_kwargs": {"enable_thinking": True}})
+    r.raise_for_status()
+    prompt = r.json()["prompt"]
+    if not prompt.endswith(OPEN_THINKING):
+        raise ValueError(f"the template didn't open a thinking block: ...{prompt[-40:]!r}")
+    return prompt
+
+
+def completion_body(item: dict, prompt: str, max_tokens: int) -> dict:
+    return {"prompt": prompt + item["prefill"], "n_predict": max_tokens, **SAMPLING,
+            "seed": _seed(item), "cache_prompt": True, "preserved_tokens": THINK_TOKENS}
+
+
+def split_completion(prefill: str, text: str) -> tuple[str, str]:
+    """(reasoning, answer) of a prefilled completion. The reasoning is the prefill and what the
+    model wrote before </think>; the answer is what it wrote after. A reply that never closed its
+    thinking (it ran out of tokens) is all reasoning."""
+    reasoning, _, answer = (prefill + text).partition("</think>")
+    return reasoning.strip(), answer.strip()
+
+
+def finish_reason(stop_type: str | None) -> str:
+    """/completion's stop type as the chat endpoint's finish reason: the end of the turn or a stop
+    word is "stop"; the token limit, or anything else, counts as unfinished."""
+    return "stop" if stop_type in ("eos", "word") else "length"
+
+
+def _complete_prefilled(client, item: dict, max_tokens: int) -> tuple[str, str, str, dict, dict]:
+    """(reasoning, answer, finish_reason, usage, timings) of a prefilled item."""
+    body = completion_body(item, render_prompt(client, item), max_tokens)
+    r = client.post("/completion", json=body)
+    r.raise_for_status()
+    data = r.json()
+    reasoning, answer = split_completion(item["prefill"], data.get("content") or "")
+    # The prompt's tokens include the prefill's, so prompt + completion is still the whole row.
+    usage = {"prompt_tokens": data.get("tokens_evaluated"),
+             "completion_tokens": data.get("tokens_predicted")}
+    return reasoning, answer, finish_reason(data.get("stop_type")), usage, data.get("timings") or {}
 
 
 def _count_tokens(client, text: str) -> int:
@@ -180,8 +240,13 @@ def run_one(client, item: dict, max_tokens: int) -> dict:
     record = {"id": item["id"], "pool": item["pool"], "error": ""}
     started = time.time()
     try:
-        message, finish, usage, timings = _complete(client, request_body(item, max_tokens))
-        reasoning, answer = split_reasoning(message)
+        if "prefill" in item:  # an empty prefill too: a plain reply, rendered the same way
+            message = {}
+            reasoning, answer, finish, usage, timings = _complete_prefilled(client, item,
+                                                                            max_tokens)
+        else:
+            message, finish, usage, timings = _complete(client, request_body(item, max_tokens))
+            reasoning, answer = split_reasoning(message)
         record.update(
             reasoning=reasoning, answer=answer, finish_reason=finish,
             prompt_tokens=usage.get("prompt_tokens"),

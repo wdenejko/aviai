@@ -113,3 +113,73 @@ def test_summary_counts_fits_limits_and_yield():
     assert s["target_a_clickhouse"] == {"counts": {"verified": 1, "wrong": 1,
                                                    "rebuild_mismatch": 1},
                                         "judged": 2, "yield": 0.5}
+
+
+# --- the prefilled path (sftgen/prefill.py) ------------------------------------------------------
+
+
+class _Response:
+    def __init__(self, data):
+        self._data = data
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._data
+
+
+class _Server:
+    """/apply-template, /completion and /tokenize, answered as llama-server answers them."""
+
+    def __init__(self, content, stop_type="eos", prompt="<|im_start|>assistant\n<think>\n"):
+        self.content, self.stop_type, self.prompt, self.sent = content, stop_type, prompt, {}
+
+    def post(self, path, json):
+        self.sent[path] = json
+        if path == "/apply-template":
+            return _Response({"prompt": self.prompt})
+        if path == "/completion":
+            return _Response({"content": self.content, "stop_type": self.stop_type,
+                              "tokens_evaluated": 30, "tokens_predicted": 12,
+                              "timings": {"predicted_per_second": 20.0}})
+        return _Response({"tokens": json["content"].split()})  # /tokenize: a token a word
+
+
+PREFILLED = {"id": "targetA_start:A-x#1", "pool": "targetA_start",
+             "messages": [{"role": "user", "content": "Sundays?"}],
+             "prefill": "Sunday is 7 in ClickHouse."}
+
+
+def test_a_prefilled_item_continues_its_own_thinking():
+    server = _Server(" So `= 7`.\n</think>\n\n```sql\nSELECT 1\n```")
+    record = rp.run_one(server, PREFILLED, 512)
+    assert server.sent["/apply-template"]["chat_template_kwargs"] == {"enable_thinking": True}
+    body = server.sent["/completion"]
+    assert body["prompt"] == "<|im_start|>assistant\n<think>\nSunday is 7 in ClickHouse."
+    assert body["preserved_tokens"] == ["<think>", "</think>"]  # or </think> prints as nothing
+    assert body["n_predict"] == 512 and body["temperature"] == 0.6
+    assert body["seed"] == rp.request_body(PREFILLED, 1)["seed"]  # as the chat path seeds it
+    assert record["reasoning"] == "Sunday is 7 in ClickHouse. So `= 7`."  # the prefill included
+    assert record["answer"] == "```sql\nSELECT 1\n```"
+    assert record["finish_reason"] == "stop" and record["error"] == ""
+    assert (record["prompt_tokens"], record["completion_tokens"]) == (30, 12)
+    assert record["reasoning_tokens"] == 8  # the whole trace, as the training row holds it
+
+
+def test_a_prefilled_reply_that_runs_out_is_all_reasoning_and_unfinished():
+    record = rp.run_one(_Server(" and so on", stop_type="limit"), PREFILLED, 4)
+    assert (record["reasoning"], record["answer"]) == ("Sunday is 7 in ClickHouse. and so on", "")
+    assert record["finish_reason"] == "length"
+
+
+def test_a_template_that_does_not_open_the_thinking_block_is_an_error():
+    record = rp.run_one(_Server("x", prompt="<|im_start|>assistant\n"), PREFILLED, 4)
+    assert "thinking block" in record["error"]
+
+
+@pytest.mark.parametrize("stop_type, finish", [("eos", "stop"), ("word", "stop"),
+                                               ("limit", "length"), ("none", "length"),
+                                               (None, "length")])
+def test_the_completion_stop_type_maps_to_the_chat_finish_reason(stop_type, finish):
+    assert rp.finish_reason(stop_type) == finish
