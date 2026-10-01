@@ -28,6 +28,25 @@ running together are mostly different tasks.
 **Seeds.** The run index is the dataset's seed (`ml_tasks._run_seed`), and topping a slice up must
 start past the indices already used (`--run-offset`). `--oracle-only` runs the oracle on exactly
 the datasets a run will use (setup, reference, check, no model) before any GPU time is spent.
+
+**Which runs become rows** (`selection`). The oracle passing is necessary, not sufficient. With
+thinking on, every assistant turn must carry reasoning, or `thinking_record` rejects the row. No
+tool call may name an answer key: each task writes its withheld labels into the run's own database
+(`<table>_test_key`), where the oracle reads them, so the agent can see them too. Gate 2's Ling
+trajectories listed them in 15 of 350 runs and read none, but a run that reads one passes by
+copying the labels, and its row would teach exactly that. With `--block`, the row must also fit
+the training block; its length comes from the server's own counts.
+
+**Volume: quotas** (`--quota`, `generate_quota`). ADR-004 Revision 2's pilot kept 1 run in 3 for
+credit_leak, energy_load and upsell_join and every run for three other families, so a fixed
+number of runs per family fills the slice mostly with the easy ones. In quota mode each family
+runs until it has its rows:
+- run indices count up from `--run-offset`, per family, and each dataset passes its own oracle
+  before the agent sees it;
+- a free slot goes to the family furthest from its quota, counting each of its running loops at
+  its keep rate so far;
+- `--max-minutes` stops new runs before the GPU window ends, `--resume` continues from the
+  output files, and a run of consecutive model errors (the server gone) stops it.
 """
 from __future__ import annotations
 
@@ -35,8 +54,11 @@ import argparse
 import concurrent.futures as cf
 import hashlib
 import json
+import os
+import re
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -51,6 +73,14 @@ from dsbench.sftgen.ml_tasks import ML_TASKS, SYSTEM_C, TOOL_SCHEMAS_C
 # (reasoning_pilot.SAMPLING). Gate 2's teacher ran at temperature 0.3.
 BASE_SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}
 TEACHER_SAMPLING = {"temperature": 0.3}
+
+# A table of withheld labels. Every ml_tasks setup writes exactly one, named so
+# (test_every_task_writes_one_answer_key_the_guard_catches).
+ANSWER_KEY = re.compile(r"\b\w+_test_key\b")
+
+# Runs that say nothing about a family's yield: its dataset failed its own oracle, or the agent
+# never got a verdict because the server or the sandbox failed.
+NO_VERDICT = ("dataset_failed_oracle", "model_error", "harness_error")
 
 
 def request_body(messages: list, *, model: str, sampling: dict | None = None,
@@ -214,12 +244,119 @@ def _record(task: AgentProblem, res: dict, model: str, run_ix: int,
             "provenance": {"generator": "ml_delivery_trajectories", "method": method,
                            "teacher": model, "thinking": thinking,
                            "sampling": sampling or TEACHER_SAMPLING, "licence": "Apache-2.0"},
-            "verification": {"engine": "clickhouse", "oracle_passed": True, "reason": res["reason"],
-                             "status": res["status"], "steps": res["steps"],
-                             "tool_calls": res["tool_calls"], "latency_s": res["latency_s"]},
+            "verification": {"engine": "clickhouse", "oracle_passed": bool(res.get("passed")),
+                             "reason": res["reason"], "status": res["status"],
+                             "steps": res["steps"], "tool_calls": res["tool_calls"],
+                             "latency_s": res["latency_s"]},
             "turns": res.get("turns", []),
         },
     }
+
+
+def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -> dict:
+    """Whether a run's trajectory becomes a training row, and if not, why (`why_not`).
+
+    In order: the oracle passed (else `why_not` is the run's status); with `reasoning`, every
+    assistant turn carries some (`empty_reasoning`); no tool call names an answer key
+    (`names_answer_key`); with a `block`, the row fits it (`over_block`).
+
+    The length is the server's: the loop's last request, prompt plus completion, is the whole
+    conversation. The training row is at most one token longer, the newline the template writes
+    after the final `<|im_end|>`. On the pilot's 21 runs it was exactly one longer on 16 and no
+    longer on the other 5, whose `finish` arguments the template rebuilds from the parsed value.
+    A key seen in a tool's output, from `SHOW TABLES` say, is recorded (`saw_answer_key`) but not
+    held against the run: its row shows the agent leaving the key alone.
+    """
+    trajectory = res.get("trajectory") or []
+    assistant = [m for m in trajectory if m.get("role") == "assistant"]
+    calls = " ".join((c.get("function") or {}).get("arguments") or ""
+                     for m in assistant for c in m.get("tool_calls") or [])
+    last = (res.get("turns") or [{}])[-1]
+    served = None
+    if last.get("prompt_tokens") is not None and last.get("completion_tokens") is not None:
+        served = last["prompt_tokens"] + last["completion_tokens"]
+    out = {
+        "block": block, "served_tokens": served,
+        "fits": None if block is None else served is not None and served + 1 <= block,
+        "reasoning_in_every_turn": bool(assistant) and all(
+            (m.get("reasoning_content") or "").strip() for m in assistant),
+        "names_answer_key": bool(ANSWER_KEY.search(calls)),
+        "saw_answer_key": any(ANSWER_KEY.search(m.get("content") or "")
+                              for m in trajectory if m.get("role") == "tool"),
+    }
+    if not res.get("passed"):
+        out["why_not"] = res.get("status") or "failed"
+    elif reasoning and not out["reasoning_in_every_turn"]:
+        out["why_not"] = "empty_reasoning"
+    elif out["names_answer_key"]:
+        out["why_not"] = "names_answer_key"
+    elif out["fits"] is False:
+        out["why_not"] = "over_block"
+    else:
+        out["why_not"] = None
+    out["kept"] = out["why_not"] is None
+    return out
+
+
+def _skipped(status: str, reason: str) -> dict:
+    """A run that never reached a verdict from the agent, in run_teacher_agent's result shape."""
+    return {"passed": False, "status": status, "reason": reason[:200], "trajectory": [],
+            "steps": 0, "tool_calls": 0, "turns": [], "latency_s": 0}
+
+
+def dataset_ok(task: AgentProblem, run_ix: int) -> tuple[bool, str]:
+    """setup -> reference -> check on one run's dataset, with no model, in that run's database.
+
+    `ml_tasks.selftest` checks the base seeds, and a volume run uses run indices past them. A
+    dataset whose own reference fails its bar would cost an agent run and say nothing about the
+    agent: `mlc_churn_rare` at run index 100 has AP 0.149 against a bar of 0.15.
+    """
+    ctx = _prepare(task.id, run_ix)
+    try:
+        task.setup(ctx)
+        ctx.answer = task.reference(ctx)
+        ok, _, reason = grade(task, ctx)
+    finally:
+        _drop(ctx.namespace)
+    return ok, reason
+
+
+def run_job(task: AgentProblem, run_ix: int, *, base_url: str, model: str, verbose: bool = False,
+            sampling: dict | None = None, thinking: bool = False, max_tokens: int = 4096,
+            gate: bool = False) -> dict:
+    """One run in its own database and working directory, dropped afterwards. With `gate`, the
+    dataset first passes its own oracle, or the agent never sees it (`dataset_failed_oracle`).
+    A harness failure is returned as the run's result, never raised."""
+    if gate:
+        try:
+            ok, reason = dataset_ok(task, run_ix)
+        except Exception as e:  # noqa: BLE001
+            return _skipped("harness_error", f"oracle gate: {e}")
+        if not ok:
+            return _skipped("dataset_failed_oracle", reason)
+    ctx = None
+    try:
+        ctx = _prepare(task.id, run_ix)
+        workdir = f"/tmp/sftc/{ctx.namespace}"
+        T.make_workdir(workdir)
+        task.setup(ctx)
+        return run_teacher_agent(task, ctx, base_url=base_url, model=model, verbose=verbose,
+                                 sampling=sampling, thinking=thinking, max_tokens=max_tokens,
+                                 workdir=workdir, seed=_seed(task.id, run_ix))
+    except Exception as e:  # noqa: BLE001
+        return _skipped("harness_error", str(e))
+    finally:
+        if ctx is not None:
+            _drop(ctx.namespace)
+
+
+def _drop(namespace: str) -> None:
+    # Best effort: a database left behind is dropped by the next `_prepare` of its namespace, and
+    # an error here must not replace the run's result.
+    try:
+        get_client(database="default").command(f"DROP DATABASE IF EXISTS {namespace}")
+    except Exception:  # noqa: BLE001, S110
+        pass
 
 
 def jobs_for(tasks: list[str] | None, reps: int, run_offset: int) -> list[tuple[int, AgentProblem]]:
@@ -229,20 +366,10 @@ def jobs_for(tasks: list[str] | None, reps: int, run_offset: int) -> list[tuple[
 
 
 def oracle_gate(jobs: list[tuple[int, AgentProblem]]) -> dict:
-    """setup -> reference -> check, no model, on exactly the datasets `jobs` will generate.
-
-    `ml_tasks.selftest` checks the base seeds; a volume run uses run indices past them. A dataset
-    whose own reference fails would discard a good trajectory, so it is caught before the run.
-    """
+    """`dataset_ok` on exactly the datasets `jobs` will generate, before any GPU time is spent."""
     out: dict[str, Any] = {"passed": 0, "failed": []}
     for run_ix, task in jobs:
-        ctx = _prepare(task.id, run_ix)
-        try:
-            task.setup(ctx)
-            ctx.answer = task.reference(ctx)
-            ok, _, reason = grade(task, ctx)
-        finally:
-            get_client(database="default").command(f"DROP DATABASE IF EXISTS {ctx.namespace}")
+        ok, reason = dataset_ok(task, run_ix)
         if ok:
             out["passed"] += 1
         else:
@@ -250,70 +377,216 @@ def oracle_gate(jobs: list[tuple[int, AgentProblem]]) -> dict:
     return out
 
 
+def _new_report() -> dict[str, Any]:
+    return {"emitted": 0, "failed": 0, "by_task": {}, "statuses": {}, "why_not": {},
+            "fail_reasons": [], "runs": []}
+
+
+def _settle(task: AgentProblem, run_ix: int, res: dict, *, report: dict, records: list,
+            model: str, thinking: bool, sampling: dict | None, block: int | None,
+            sink=None, fail_sink=None, verbose: bool = False) -> dict:
+    """Record one finished run: its row goes to `sink` if `selection` keeps it, else to
+    `fail_sink`. Returns the selection."""
+    sel = selection(res, block=block, reasoning=thinking)
+    rec = _record(task, res, model, run_ix, thinking, sampling)
+    rec["meta"]["selection"] = sel
+    report["statuses"][res["status"]] = report["statuses"].get(res["status"], 0) + 1
+    report["runs"].append({"task": task.id, "run_ix": run_ix, "status": res["status"],
+                           "passed": res["passed"], "kept": sel["kept"], "why_not": sel["why_not"],
+                           "served_tokens": sel["served_tokens"], "steps": res["steps"],
+                           "tool_calls": res["tool_calls"], "latency_s": res["latency_s"]})
+    if sel["kept"]:
+        records.append(rec)
+        if sink is not None:
+            sink(rec)
+        report["emitted"] += 1
+        report["by_task"][task.id] = report["by_task"].get(task.id, 0) + 1
+    else:
+        report["failed"] += 1
+        report["why_not"][sel["why_not"]] = report["why_not"].get(sel["why_not"], 0) + 1
+        report["fail_reasons"].append({"task": task.id, "status": res["status"],
+                                       "why_not": sel["why_not"], "reason": res["reason"][:120]})
+        # Not training data, but discarding these silently makes a low-yield family
+        # undiagnosable: the report gives the metric and nothing about the reasoning that produced
+        # it. mlc_energy_load ran at ~64% yield with no way to see why. A row that passed the
+        # oracle but is over the block keeps `oracle_passed: true`, for a longer step later.
+        if fail_sink is not None:
+            fail_sink(rec)
+    if verbose:
+        note = "" if sel["kept"] else f" (not kept: {sel['why_not']})"
+        print(f"[{len(report['runs'])}] {task.id} #{run_ix}: {res['status']}{note} "
+              f"steps={res['steps']} tokens={sel['served_tokens']} {res['latency_s']}s",
+              flush=True)
+    return sel
+
+
 def generate(*, base_url: str, model: str, reps: int = 1, tasks: list[str] | None = None,
              verbose: bool = False, sink=None, run_offset: int = 0,
              fail_sink=None, workers: int = 1, thinking: bool = False,
-             sampling: dict | None = None, max_tokens: int = 4096) -> tuple[list[dict], dict]:
-    # `sink(record)` is called as each trajectory passes the oracle -- the caller writes+flushes it,
-    # so a multi-hour run never loses a delivered trajectory to a crash.
+             sampling: dict | None = None, max_tokens: int = 4096,
+             block: int | None = None) -> tuple[list[dict], dict]:
+    # `sink(record)` is called as each kept trajectory arrives -- the caller writes+flushes it, so
+    # a multi-hour run never loses a delivered trajectory to a crash.
     #
     # `run_offset` exists because the run index IS the dataset seed (ml_tasks._run_seed reads it off
     # the namespace). Topping an existing slice up therefore has to START past the indices already
     # generated -- otherwise a second pass silently re-creates the same datasets and the pool fills
     # with duplicate trajectories that nothing downstream would flag: the assembler decontaminates
     # against dsbench, not against targetC itself.
-    report: dict[str, Any] = {"emitted": 0, "failed": 0, "by_task": {},
-                              "statuses": {}, "fail_reasons": [], "runs": []}
+    report = _new_report()
     records: list[dict] = []
     lock = threading.Lock()
 
     def one(job: tuple[int, AgentProblem]) -> None:
         run_ix, task = job
-        ctx = None
-        try:
-            ctx = _prepare(task.id, run_ix)
-            workdir = f"/tmp/sftc/{ctx.namespace}"
-            T.make_workdir(workdir)
-            task.setup(ctx)
-            res = run_teacher_agent(task, ctx, base_url=base_url, model=model, verbose=verbose,
-                                    sampling=sampling, thinking=thinking, max_tokens=max_tokens,
-                                    workdir=workdir, seed=_seed(task.id, run_ix))
-        except Exception as e:  # noqa: BLE001 - a harness failure is recorded, not a crash
-            res = {"passed": False, "status": "harness_error", "reason": str(e)[:200],
-                   "trajectory": [], "steps": 0, "tool_calls": 0, "turns": [], "latency_s": 0}
-        finally:
-            if ctx is not None:
-                get_client(database="default").command(f"DROP DATABASE IF EXISTS {ctx.namespace}")
-        rec = _record(task, res, model, run_ix, thinking, sampling)
+        res = run_job(task, run_ix, base_url=base_url, model=model, verbose=verbose,
+                      sampling=sampling, thinking=thinking, max_tokens=max_tokens)
         with lock:
-            report["statuses"][res["status"]] = report["statuses"].get(res["status"], 0) + 1
-            report["runs"].append({"task": task.id, "run_ix": run_ix, "status": res["status"],
-                                   "passed": res["passed"], "steps": res["steps"],
-                                   "tool_calls": res["tool_calls"],
-                                   "latency_s": res["latency_s"]})
-            if res["passed"]:
-                records.append(rec)
-                if sink is not None:
-                    sink(rec)
-                report["emitted"] += 1
-                report["by_task"][task.id] = report["by_task"].get(task.id, 0) + 1
-            else:
-                report["failed"] += 1
-                report["fail_reasons"].append({"task": task.id, "status": res["status"],
-                                               "reason": res["reason"][:120]})
-                # Failures are NOT training data, but discarding them silently makes a low-yield
-                # family undiagnosable: the report gives the metric and nothing about the
-                # reasoning that produced it. mlc_energy_load ran at ~64% yield with no way to
-                # see why.
-                if fail_sink is not None:
-                    rec["meta"]["verification"]["oracle_passed"] = False
-                    fail_sink(rec)
-            if verbose:
-                print(f"[{len(report['runs'])}] {task.id} #{run_ix}: {res['status']} "
-                      f"steps={res['steps']} {res['latency_s']}s", flush=True)
+            _settle(task, run_ix, res, report=report, records=records, model=model,
+                    thinking=thinking, sampling=sampling, block=block, sink=sink,
+                    fail_sink=fail_sink, verbose=verbose)
 
     with cf.ThreadPoolExecutor(max(1, workers)) as pool:
         list(pool.map(one, jobs_for(tasks, reps, run_offset)))
+    return records, report
+
+
+@dataclass
+class _Family:
+    """One task family's progress toward its quota."""
+
+    task: AgentProblem
+    next_ix: int
+    started: int = 0  # run indices used, whatever came of them
+    running: int = 0
+    judged: int = 0  # runs that reached a verdict (not in NO_VERDICT)
+    kept: int = 0
+    skipped: int = 0  # datasets that failed their own oracle
+    errors: int = 0  # model or harness errors
+
+    def need(self, quota: int) -> float:
+        # Rows still missing, counting each running loop at the family's keep rate so far
+        # (Laplace's estimate: 1/2 before any verdict). A family whose loops are mostly kept
+        # waits for them; one that keeps 1 in 3 gets more slots near the end.
+        rate = (self.kept + 1) / (self.judged + 2)
+        return quota - self.kept - self.running * rate
+
+
+def _pick(families: list[_Family], quota: int, max_runs: int | None) -> _Family | None:
+    """The family furthest from its quota that may still start a run; ties go to ML_TASKS order."""
+    best, best_need = None, 0.0
+    for fam in families:
+        if fam.kept >= quota or (max_runs is not None and fam.started >= max_runs):
+            continue
+        need = fam.need(quota)
+        if need > best_need:
+            best, best_need = fam, need
+    return best
+
+
+def read_records(path: str) -> list[dict]:
+    """The records in a JSONL output, or none if the file isn't there."""
+    if not path or not os.path.exists(path):
+        return []
+    with open(path) as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
+def generate_quota(*, base_url: str, model: str, quota: int, tasks: list[str] | None = None,
+                   run_offset: int = 0, max_runs: int | None = None, block: int | None = 8192,
+                   workers: int = 1, thinking: bool = False, sampling: dict | None = None,
+                   max_tokens: int = 4096, max_seconds: float | None = None,
+                   prior: list[dict] = (), sink=None, fail_sink=None, verbose: bool = False,
+                   clock=time.monotonic) -> tuple[list[dict], dict]:
+    """Run each family until `quota` of its rows are kept (`selection`), `max_runs` datasets are
+    used, or `max_seconds` pass; runs already started finish either way.
+
+    `prior` holds the records of an earlier pass (`--resume`): their kept rows count toward the
+    quota, and each family starts past the highest run index they used. Indices of runs lost in
+    flight are skipped, never reused, so no dataset appears twice.
+
+    The run stops early after `max(3, workers)` consecutive runs end in a model or harness error:
+    the server or the sandbox is gone, and every further run would use up a dataset in seconds.
+    """
+    picked = [t for t in ML_TASKS if not tasks or t.id in tasks]
+    families = {t.id: _Family(task=t, next_ix=run_offset) for t in picked}
+    prior_counts: dict[str, dict[str, int]] = {}
+    for rec in prior:
+        meta = rec["meta"]
+        fam = families.get(meta["task"])
+        if fam is None:
+            continue
+        if "selection" not in meta:
+            raise ValueError(f"{meta['id']}: no selection record; --resume needs quota-mode output")
+        status = meta["verification"]["status"]
+        fam.started += 1
+        fam.next_ix = max(fam.next_ix, meta["run_ix"] + 1)
+        fam.kept += bool(meta["selection"]["kept"])
+        fam.judged += status not in NO_VERDICT
+        fam.skipped += status == "dataset_failed_oracle"
+        counts = prior_counts.setdefault(meta["task"], {"runs": 0, "kept": 0})
+        counts["runs"] += 1
+        counts["kept"] += bool(meta["selection"]["kept"])
+
+    report = _new_report()
+    report.update({"mode": "quota", "quota": quota, "block": block, "run_offset": run_offset,
+                   "max_runs": max_runs, "max_seconds": max_seconds, "prior": prior_counts})
+    records: list[dict] = []
+    t0 = clock()
+    stop = None
+    error_streak = 0
+    order = list(families.values())
+    with cf.ThreadPoolExecutor(max(1, workers)) as pool:
+        running: dict[cf.Future, tuple[_Family, int]] = {}
+        while True:
+            while stop is None and len(running) < max(1, workers):
+                if max_seconds is not None and clock() - t0 >= max_seconds:
+                    stop = "time limit"
+                    break
+                fam = _pick(order, quota, max_runs)
+                if fam is None:
+                    break
+                run_ix = fam.next_ix
+                fam.next_ix += 1
+                fam.started += 1
+                fam.running += 1
+                future = pool.submit(run_job, fam.task, run_ix, base_url=base_url, model=model,
+                                     verbose=verbose, sampling=sampling, thinking=thinking,
+                                     max_tokens=max_tokens, gate=True)
+                running[future] = (fam, run_ix)
+            if not running:
+                break
+            finished, _ = cf.wait(list(running), return_when=cf.FIRST_COMPLETED)
+            for future in finished:
+                fam, run_ix = running.pop(future)
+                res = future.result()
+                fam.running -= 1
+                status = res["status"]
+                fam.judged += status not in NO_VERDICT
+                fam.skipped += status == "dataset_failed_oracle"
+                fam.errors += status in ("model_error", "harness_error")
+                error_streak = error_streak + 1 if status in ("model_error", "harness_error") else 0
+                sel = _settle(fam.task, run_ix, res, report=report, records=records, model=model,
+                              thinking=thinking, sampling=sampling, block=block, sink=sink,
+                              fail_sink=fail_sink, verbose=verbose)
+                fam.kept += sel["kept"]
+                if verbose:
+                    print(f"    {fam.task.id}: {fam.kept}/{quota} kept, {fam.running} running",
+                          flush=True)
+            if stop is None and error_streak >= max(3, workers):
+                stop = f"{error_streak} consecutive model or harness errors"
+    if stop is None:
+        short = [f.task.id for f in order if f.kept < quota]
+        stop = "quotas filled" if not short else f"max runs reached: {', '.join(short)}"
+    report["stop"] = stop
+    report["elapsed_s"] = round(clock() - t0, 1)
+    report["families"] = {
+        f.task.id: {"kept": f.kept, "shortfall": max(0, quota - f.kept),
+                    "runs_with_a_verdict": f.judged, "datasets_used": f.started,
+                    "skipped_datasets": f.skipped, "errors": f.errors,
+                    "keep_rate": round(f.kept / f.judged, 3) if f.judged else None,
+                    "next_run_ix": f.next_ix}
+        for f in order}
     return records, report
 
 
@@ -335,19 +608,53 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=1, help="loops at once (the server's slots)")
     ap.add_argument("--oracle-only", action="store_true",
                     help="run the oracle on the run's datasets (no model) and exit")
-    ap.add_argument("--out", default="")
+    ap.add_argument("--quota", type=int,
+                    help="run each family until this many of its rows are kept, instead of --reps "
+                         "runs; each dataset passes its own oracle first")
+    ap.add_argument("--block", type=int,
+                    help="training block in tokens: a kept row must fit it (default 8192 with "
+                         "--quota, no limit otherwise)")
+    ap.add_argument("--max-runs", type=int,
+                    help="with --quota: datasets per family at most (default 5x the quota)")
+    ap.add_argument("--max-minutes", type=float,
+                    help="with --quota: start no run after this many minutes; running ones finish. "
+                         "Leave room for the longest run before the GPU window ends")
+    ap.add_argument("--resume", action="store_true",
+                    help="with --quota: append to --out and --fail-out, counting their rows toward "
+                         "the quota and starting past their run indices")
+    ap.add_argument("--out", default="", help="kept rows (meta.selection.kept)")
     ap.add_argument("--fail-out", default="",
-                    help="also write REJECTED trajectories here, for diagnosing a low-yield family "
-                         "(never training data -- meta.verification.oracle_passed is false)")
+                    help="every other run, for diagnosing a family: failed the oracle, or passed "
+                         "but not kept (meta.selection.why_not). Never training data; a row over "
+                         "the block keeps meta.verification.oracle_passed true")
     ap.add_argument("--report", default="")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
     tasks = [t for t in args.tasks.split(",") if t] or None
 
     if args.oracle_only:
+        if args.quota:
+            ap.error("--oracle-only takes --reps: quota mode gates each dataset as it runs")
         gate = oracle_gate(jobs_for(tasks, args.reps, args.run_offset))
         print(json.dumps(gate, indent=1))
         raise SystemExit(1 if gate["failed"] else 0)
+
+    quota_mode = args.quota is not None
+    if quota_mode:
+        if args.quota < 1:
+            ap.error("--quota must be at least 1")
+        if not (args.out and args.fail_out):
+            # --resume rebuilds the run indices from both files; without the failures it would
+            # start a family on an index a failed run already used.
+            ap.error("--quota needs --out and --fail-out")
+        if not args.resume:
+            for path in (args.out, args.fail_out):
+                if os.path.exists(path) and os.path.getsize(path):
+                    ap.error(f"{path} already has rows: pass --resume to continue from them, or "
+                             f"choose another path")
+    elif args.resume or args.max_runs or args.max_minutes:
+        ap.error("--resume, --max-runs and --max-minutes go with --quota")
+    block = args.block if args.block is not None else (8192 if quota_mode else None)
 
     sampling = dict(BASE_SAMPLING if args.thinking else TEACHER_SAMPLING)
     for key, value in (("temperature", args.temperature), ("top_p", args.top_p),
@@ -355,10 +662,12 @@ def main() -> None:
         if value is not None:
             sampling[key] = value
 
-    out_fh = open(args.out, "w") if args.out else None  # closed in the finally below
-    fail_fh = open(args.fail_out, "w") if args.fail_out else None
+    prior = read_records(args.out) + read_records(args.fail_out) if args.resume else []
+    mode = "a" if args.resume else "w"
+    out_fh = open(args.out, mode) if args.out else None  # closed in the finally below
+    fail_fh = open(args.fail_out, mode) if args.fail_out else None
 
-    def _sink(rec) -> None:  # write+flush each passing trajectory immediately
+    def _sink(rec) -> None:  # write+flush each kept trajectory immediately
         out_fh.write(json.dumps(rec) + "\n")
         out_fh.flush()
 
@@ -366,13 +675,18 @@ def main() -> None:
         fail_fh.write(json.dumps(rec) + "\n")
         fail_fh.flush()
 
+    common = dict(base_url=args.base_url, model=args.model, tasks=tasks, verbose=args.verbose,
+                  sink=_sink if out_fh else None, fail_sink=_fail_sink if fail_fh else None,
+                  run_offset=args.run_offset, workers=args.workers, thinking=args.thinking,
+                  sampling=sampling, max_tokens=args.max_tokens, block=block)
     try:
-        records, report = generate(
-            base_url=args.base_url, model=args.model, reps=args.reps, tasks=tasks,
-            verbose=args.verbose, sink=_sink if out_fh else None, run_offset=args.run_offset,
-            fail_sink=_fail_sink if fail_fh else None, workers=args.workers,
-            thinking=args.thinking, sampling=sampling, max_tokens=args.max_tokens,
-        )
+        if quota_mode:
+            records, report = generate_quota(
+                quota=args.quota, max_runs=args.max_runs or 5 * args.quota,
+                max_seconds=None if args.max_minutes is None else args.max_minutes * 60,
+                prior=prior, **common)
+        else:
+            records, report = generate(reps=args.reps, **common)
     finally:
         if out_fh:
             out_fh.close()
@@ -380,14 +694,21 @@ def main() -> None:
             fail_fh.close()
     report["params"] = {"model": args.model, "thinking": args.thinking, "sampling": sampling,
                         "max_tokens": args.max_tokens, "workers": args.workers,
-                        "reps": args.reps, "run_offset": args.run_offset}
+                        "reps": None if quota_mode else args.reps, "quota": args.quota,
+                        "block": block, "run_offset": args.run_offset, "resume": args.resume}
     if args.report:
         with open(args.report, "w") as fh:
             json.dump(report, fh, indent=2)
-    print(f"emitted: {report['emitted']}  failed: {report['failed']}")
-    print(f"by task: {report['by_task']}  statuses: {report['statuses']}")
+    print(f"kept: {report['emitted']}  not kept: {report['failed']}")
+    print(f"by task: {report['by_task']}  statuses: {report['statuses']}  "
+          f"not kept because: {report['why_not']}")
+    if quota_mode:
+        print(f"stop: {report['stop']} after {report['elapsed_s']}s")
+        for task_id, fam in report["families"].items():
+            print(f"  {task_id}: {fam['kept']}/{args.quota} kept, {fam['datasets_used']} datasets, "
+                  f"keep rate {fam['keep_rate']}, next run index {fam['next_run_ix']}")
     for fr in report["fail_reasons"][:8]:
-        print(f"  FAIL [{fr['task']}/{fr['status']}] {fr['reason']}")
+        print(f"  NOT KEPT [{fr['task']}/{fr['why_not']}] {fr['reason']}")
 
 
 if __name__ == "__main__":
