@@ -14,7 +14,8 @@
 set -euo pipefail
 # Pass the full ClickHouse connection into the container so the agent's code can connect without
 # guessing. Host is `clickhouse` (the avnet service name) as seen from INSIDE the container — not
-# localhost. Defaults match the sandbox creds; override via env if the compose config changes.
+# localhost. In a dsbench run the user is the run's own login (dsbench.agentic.access); the
+# sandbox's admin is only the default for using the wrapper by hand.
 exec docker exec -i \
   -e "CLICKHOUSE_HOST=${CLICKHOUSE_HOST:-clickhouse}" \
   -e "CLICKHOUSE_PORT=${CLICKHOUSE_PORT:-8123}" \

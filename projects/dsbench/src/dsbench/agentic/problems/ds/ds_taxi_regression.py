@@ -23,6 +23,10 @@ _POOL = (
     f"Dest, CRSDepTime, Distance, TaxiOut, {_BUCKET} AS b FROM aviation.flights "
     f"WHERE Origin IN {_HUBS} AND Cancelled = 0 AND TaxiOut IS NOT NULL)"
 )
+# The test flights' outcomes are in aviation.flights too: a test row joins back to its flight on
+# date, carrier, route and scheduled time. The agent's login hides every hub flight in the test
+# buckets (access.login_statements), which covers the test set whatever the pool's other filters.
+_TEST_FLIGHTS = f"Origin IN {_HUBS} AND {_BUCKET} < 8"
 _COLS = ("FlightDate AS fl_date, Reporting_Airline AS carrier, Origin AS origin, Dest AS dest, "
          "CRSDepTime AS crs_dep_time, Distance AS distance")
 
@@ -135,4 +139,5 @@ PROBLEM = AgentProblem(
     title="Predict taxi-out minutes (MAE)", prompt=PROMPT,
     check=check, reference=reference, setup=setup, max_steps=24,
     tags=("ml", "regression", "mae"),
+    withheld_rows=(("aviation.flights", _TEST_FLIGHTS),),
 )

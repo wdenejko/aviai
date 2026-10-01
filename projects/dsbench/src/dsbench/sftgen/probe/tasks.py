@@ -363,7 +363,9 @@ PROBE_TASKS = [PROBE_WEEKDAY, PROBE_UTC, PROBE_SHARE, PROBE_POOLED, PROBE_LOAN, 
 
 
 def selftest() -> int:
-    """Oracle gate: setup -> reference -> check per probe task, no model. Returns the fail count."""
+    """Oracle gate: setup -> reference -> check per probe task, no model, plus the agent login's
+    check (`access.check_access`: nothing withheld in its reach). Returns the fail count."""
+    from dsbench.agentic.access import check_access
     from dsbench.agentic.ch import get_client
     fails = 0
     for p in PROBE_TASKS:
@@ -378,8 +380,10 @@ def selftest() -> int:
             if ans is not None:
                 ctx.answer = str(ans)  # answer-graded tasks: feed the reference value to check
             ok, reason = p.check(ctx)
-            print(f"{'PASS' if ok else 'FAIL'} {p.id}: {reason or 'ok'}")
-            fails += 0 if ok else 1
+            leaks = check_access(p, ctx)
+            print(f"{'PASS' if ok and not leaks else 'FAIL'} {p.id}: {reason or 'ok'}"
+                  + "".join(f"; agent login: {leak}" for leak in leaks))
+            fails += 0 if ok and not leaks else 1
         finally:
             get_client(database="default").command(f"DROP DATABASE IF EXISTS {ns}")
     return fails

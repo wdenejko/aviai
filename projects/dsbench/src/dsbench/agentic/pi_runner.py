@@ -16,6 +16,7 @@ Run:  uv run --package dsbench dsbench-pi-run --ids de_hub_daily --verbose
 from __future__ import annotations
 
 import argparse
+import contextlib
 import dataclasses
 import datetime as dt
 import json
@@ -27,6 +28,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
 
+from dsbench.agentic.access import breach, close_login, open_login
 from dsbench.agentic.loader import load_problems
 from dsbench.agentic.loop import SCHEMA_DOC, grade, prepare_context
 from dsbench.agentic.schema import AgentProblem, AgentResult, GradeContext
@@ -47,8 +49,9 @@ little. ClickHouse has no correlated subqueries — use JOINs.
   run_python   (reads Python 3 from STDIN, e.g.  run_python < script.py)
       Runs in a container with pandas, numpy, scipy, scikit-learn, clickhouse_connect. To reach \
 ClickHouse use exactly:  client = clickhouse_connect.get_client(host='clickhouse', port=8123, \
-username='avbench', password='avbench', database=os.environ['CLICKHOUSE_DB'])  (do NOT use \
-host='localhost' inside the container). Read with client.query_df('SELECT ... FROM aviation.x'). \
+username=os.environ['CLICKHOUSE_USER'], password=os.environ['CLICKHOUSE_PASSWORD'], \
+database=os.environ['CLICKHOUSE_DB'])  (do NOT use host='localhost' inside the container). \
+Read with client.query_df('SELECT ... FROM aviation.x'). \
 To WRITE a result table, create it then insert a DataFrame: \
 client.command('CREATE TABLE t (col Type, ...) ENGINE = MergeTree ORDER BY col'); \
 client.insert_df('t', df)  (df columns must match, in order). It defaults to your scratch DB.
@@ -132,7 +135,6 @@ def run_pi_agent(problem: AgentProblem, ctx: GradeContext, *, provider: str, mod
     workdir = Path(tempfile.mkdtemp(prefix=f"pi-{problem.id}-"))
     env = os.environ.copy()
     env["PATH"] = f"{_BIN}:{env['PATH']}"
-    env["CLICKHOUSE_DB"] = ctx.namespace  # run_sql/run_python default to this problem's scratch DB
     cmd = [
         "pi", "--print", "--mode", "json", "--no-session", "--no-context-files",
         "--provider", provider, "--model", model, "--thinking", thinking,
@@ -146,11 +148,21 @@ def run_pi_agent(problem: AgentProblem, ctx: GradeContext, *, provider: str, mod
                            reason=reason, steps=steps, tool_calls=tool_calls, answer=ctx.answer,
                            trajectory=traj or [], latency_s=round(time.time() - t0, 1))
 
+    # The agent's wrappers connect as this run's own login (CLICKHOUSE_USER/PASSWORD/DB): its
+    # scratch database is the default, and the labels the grader holds back are out of its reach.
+    try:
+        login = open_login(ctx, problem.withheld_rows)
+    except Exception as e:  # noqa: BLE001
+        return result(False, "setup_error", f"agent login: {str(e)[:200]}")
+    env.update(login.env)
     try:
         p = subprocess.run(cmd, cwd=workdir, env=env, capture_output=True, text=True,
                            timeout=timeout)
     except subprocess.TimeoutExpired:
         return result(False, "timeout", f"pi exceeded {timeout:.0f}s")
+    finally:
+        with contextlib.suppress(Exception):  # a login left behind is replaced by the next run
+            close_login(login)
     (workdir / "events.json").write_text(p.stdout or "")
     (workdir / "pi.err").write_text(p.stderr or "")
 
@@ -171,6 +183,9 @@ def run_pi_agent(problem: AgentProblem, ctx: GradeContext, *, provider: str, mod
     passed, status, reason = grade(problem, ctx)
     if not passed and tr["tool_errors"]:
         reason = f"{reason} [{tr['tool_errors']} tool error(s) during run]".strip()
+    why = breach(tr["messages"], login.withheld)
+    if why:
+        passed, status, reason = False, "withheld_access", why
     return result(passed, status, reason, tr["steps"], tr["tool_calls"], tr["messages"])
 
 

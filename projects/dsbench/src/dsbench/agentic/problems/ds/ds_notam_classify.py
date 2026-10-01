@@ -17,6 +17,9 @@ from dsbench.agentic.schema import AgentProblem, GradeContext
 THRESHOLD = 0.55  # test majority-class baseline ~0.18; a decent tfidf+linear model clears 0.55
 _TEST_IDS = ("SELECT row_number() OVER (ORDER BY text, label_id) AS id, {cols} "
              "FROM aviation.notam WHERE split = 'test'")
+# The test split's categories sit in aviation.notam beside the train split the agent learns from.
+# Its login sees only the train split (access.login_statements); the grader reads both.
+_TEST_SPLIT = "split = 'test'"
 
 
 def setup(ctx: GradeContext) -> None:
@@ -77,4 +80,5 @@ PROBLEM = AgentProblem(
     title="NOTAM text classification", prompt=PROMPT,
     check=check, reference=reference, setup=setup, max_steps=24,
     tags=("ml", "text", "notam"),
+    withheld_rows=(("aviation.notam", _TEST_SPLIT),),
 )

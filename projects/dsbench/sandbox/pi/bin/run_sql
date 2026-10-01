@@ -12,10 +12,16 @@
 #
 # Usage:  run_sql "SELECT count() FROM aviation.flights"
 #         run_sql < query.sql
+#
+# It connects as CLICKHOUSE_USER / CLICKHOUSE_PASSWORD: in a dsbench run, the run's own login
+# (dsbench.agentic.access), which can't read the labels the grader holds back. The sandbox's admin
+# is only the default for using the wrapper by hand.
 set -euo pipefail
 db="${CLICKHOUSE_DB:-aviation}"
 host="${CLICKHOUSE_HTTP:-http://localhost:8123}"
 q="${*:-}"
 [ -z "$q" ] && q="$(cat)"
-curl -sS "${host}/?user=avbench&password=avbench&database=${db}&default_format=PrettyCompact" \
+curl -sS "${host}/?database=${db}&default_format=PrettyCompact" \
+  -H "X-ClickHouse-User: ${CLICKHOUSE_USER:-avbench}" \
+  -H "X-ClickHouse-Key: ${CLICKHOUSE_PASSWORD:-avbench}" \
   --data-binary "$q"

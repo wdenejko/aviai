@@ -23,7 +23,10 @@ from typing import Any
 class GradeContext:
     """Everything a setup/reference/check needs to touch the stack for one problem."""
 
-    client: Any  # clickhouse-connect client whose DEFAULT database is `namespace`
+    # clickhouse-connect client whose DEFAULT database is `namespace`. It logs in as the sandbox's
+    # admin, so setup, reference and check read everything, the withheld labels included. The
+    # agent never gets it: it runs as its own login (`access.open_login`).
+    client: Any
     namespace: str  # per-problem scratch DB, e.g. "prob_da_hub_delay"
     answer: Any = None  # the value the agent finished with (for answer-graded problems)
 
@@ -48,6 +51,11 @@ class AgentProblem:
     setup: SetupFn | None = None
     max_steps: int = 16
     tags: tuple[str, ...] = field(default_factory=tuple)
+    # Rows of the shared data the agent must not see, as (table, SQL condition) pairs: the held-out
+    # labels of a problem built from the warehouse. The agent's login gets a row policy hiding them
+    # (`access.login_statements`). Tables in the scratch namespace named like an answer key
+    # (`*_test_key`, `*_test_full`) are withheld without being declared.
+    withheld_rows: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass
@@ -56,7 +64,8 @@ class AgentResult:
     category: str
     difficulty: str
     passed: bool
-    # ok | wrong | error | model_error | truncated | setup_error
+    # ok | wrong | error | model_error | truncated | setup_error | withheld_access (the agent's
+    # tool calls named a withheld table or used the admin's login: `access.breach`)
     status: str
     reason: str = ""
     steps: int = 0
