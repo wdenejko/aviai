@@ -208,3 +208,50 @@ launchers do, and has an arming script that starts it once the owner has stopped
   `localhost:18080` to it and runs the agent loop beside the sandbox.
 - `target-c-pilot/measure_trajectories.py`: puts each trajectory through `thinking_record` on the
   box, giving its tokens, whether it fits 8,192 and whether it is trainable.
+
+## Target C's volume run (ADR-004 Revision 2, action item 5)
+
+The pilot's window, held for hours and safe to repeat. On the box, in
+`~/benchlab/scripts/target-c-volume/`: `target_c_volume_window.sh` as `window.sh`,
+`target_c_volume_arm.sh` as `arm.sh`, `target_c_volume_hold.sh` as `hold.sh`, and
+`battery_server.sh`. On the Mac, from `projects/dsbench`: `target_c_volume_mac.sh`, which runs
+the generator's quota mode (22 rows a family, 8,192-token rows) into `data/sft/rev2_target_c/`.
+
+What changed against the pilot's scripts:
+- **The hold lasts 5 hours** (`HOLD_MAX`), and its deadline goes into the hold's `ready` marker.
+  The Mac starts no run in its last 30 minutes (`DRAIN_MIN`), so the last ones finish in time.
+- **The hold ends early** when the Mac hasn't started 20 minutes after the server came up, when
+  the server has had no request for 15 minutes since (the Mac died mid-run), or when the server
+  dies: production is down only while the box works.
+- **One window or two.** Each window holds in its own directory, `hold/<stamp>/` (`hold.sh`), so
+  a second one can't mistake the first one's markers for its own. The Mac resumes from its
+  output files, past the run indices already used.
+- **A dropped tunnel doesn't end the run.** The tunnel restarts itself, the generator waits out
+  a lost connection, and after a run of errors the Mac starts another pass once the server and
+  the sandbox answer (`PASSES`, 3 in all).
+- **The box's clock is about 2 hours behind** (found 2026-10-01: NTP off, the RTC in local
+  time). The Mac measures the difference and converts the deadline into its own clock.
+
+Deploy, then start the Mac side before arming: it checks the sandbox, the tunnel's port, the
+box scripts and the tasks' oracle gate, then waits for the hold.
+
+```bash
+ssh dashi 'mkdir -p ~/benchlab/scripts/target-c-volume'
+scp patches/target_c_volume_window.sh dashi:benchlab/scripts/target-c-volume/window.sh
+scp patches/target_c_volume_arm.sh dashi:benchlab/scripts/target-c-volume/arm.sh
+scp patches/target_c_volume_hold.sh dashi:benchlab/scripts/target-c-volume/hold.sh
+scp patches/battery_server.sh dashi:benchlab/scripts/target-c-volume/battery_server.sh
+docker compose -f sandbox/docker-compose.yml up -d --no-build clickhouse workspace
+nohup caffeinate -is patches/target_c_volume_mac.sh >/dev/null 2>&1 &
+ssh dashi 'nohup setsid ~/benchlab/scripts/target-c-volume/arm.sh </dev/null >/dev/null 2>&1 &'
+```
+
+A second window is the same two last commands. Progress is in `data/sft/rev2_target_c/mac.log`,
+each run in its `generate.log`, and the box side in `~/benchlab/logs/target-c-volume-*`.
+
+Rehearsed 2026-10-01 against a stand-in on the box (a hold made by hand and a server that answers
+only `/health`, in `~/benchlab/scratch/target-c-volume-rehearsal/`): the Mac converted the
+deadline across the clock difference, tunnelled, ran two passes that each stopped on 8 errors in a
+row, resumed the second past every index the first used, and released the hold. Killed mid-pass,
+it released the hold and closed its tunnel. `hold.sh wait` was tested on its five ways out: done,
+timeout, no client, idle (a stand-in `/metrics`), and server gone.

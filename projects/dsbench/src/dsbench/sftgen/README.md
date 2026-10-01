@@ -153,8 +153,8 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
 ```
 
 - **Kept** means the oracle passed, every turn carries reasoning, no tool call names the withheld
-  key or the admin's login (`access.breach`), and the row fits `--block` (8,192 by default). The length comes from the
-  server's own counts, so nothing has to be measured on the box.
+  key or the admin's login (`access.breach`), and the row fits `--block` (8,192 by default). The
+  length comes from the server's own counts, so nothing has to be measured on the box.
 - **Every other run goes to `--fail-out`**, with `meta.selection.why_not`. A row that passed the
   oracle but is over the block keeps `oracle_passed: true`, in case a longer step is chosen.
 - **Each dataset passes its own oracle first**, so no `--oracle-only` step is needed. A dataset
@@ -165,9 +165,15 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
 - **Stopping:**
   - `--max-runs` caps a family's datasets (5x the quota by default);
   - `--max-minutes` stops new runs before the window ends;
-  - consecutive model errors stop everything, since the server is gone.
+  - consecutive model or harness errors stop everything, since the server or the sandbox is gone.
 - **`--resume`** counts the rows already written and starts each family past its highest run
   index. Runs lost in flight leave gaps, never reused indices.
+- **A lost connection is waited out** for 3 minutes. The volume run reaches the box through an SSH
+  tunnel that restarts itself, and without the wait one drop would fail every loop in flight. An
+  HTTP error is still retried only 3 times.
+- **The GPU window:** `patches/target_c_volume_*.sh` (see `patches/README.md`). Its Mac side runs
+  this command with `--resume` into `data/sft/rev2_target_c/`, takes `--max-minutes` from the
+  window's deadline, and resumes after a run of errors once the server and the sandbox answer.
 
 The answer keys are in the run's own database, because the oracle reads them there. The agent
 can't reach them:

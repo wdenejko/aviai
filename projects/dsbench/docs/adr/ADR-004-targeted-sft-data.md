@@ -570,6 +570,18 @@ The selection (seed 20260930), 2,646 prompts:
       login.
   - **For the window,** the default 4-hour hold is tight. Either one window with a 5-hour hold
     and `--max-minutes 270`, or two windows with `--resume`.
+  - **The window's scripts, built 2026-10-01** (`patches/target_c_volume_*.sh`, described in
+    `patches/README.md`). They take either way:
+    - the hold lasts 5 hours by default, and the Mac reads its deadline: no run starts in its
+      last 30 minutes;
+    - the hold ends early if the Mac never starts, stops sending requests, or the server dies;
+    - each window holds in its own directory, and every pass runs with `--resume`, so a second
+      window continues the first;
+    - the tunnel restarts itself, the generator waits out a lost connection (3 minutes), and a
+      run of errors leads to another pass once the server and the sandbox answer.
+
+    Rehearsed against a stand-in on the box. The rehearsal found the box's clock about 2 hours
+    behind (NTP off); the Mac converts the deadline into its own clock.
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
@@ -797,8 +809,10 @@ The selection (seed 20260930), 2,646 prompts:
    - [x] the agent's own ClickHouse login (ADR-003 §7). **Done 2026-10-01**: the key is out of
      its reach, checked live and by `ml_tasks`' oracle gate.
    - [ ] if decision 7 masks failed turns: a per-turn mark that `thinking_record` reads.
-   - [ ] the volume run, about 4 hours for 150 rows: the window scripts with a longer hold, or
-     two windows.
+   - [x] the window scripts. **Built 2026-10-01** (`patches/target_c_volume_*.sh`): a 5-hour hold
+     whose deadline the Mac reads, early ends, a second window that resumes the first; rehearsed
+     against a stand-in.
+   - [ ] the volume run, about 4 hours for 150 rows: one 5-hour window, or two shorter ones.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
