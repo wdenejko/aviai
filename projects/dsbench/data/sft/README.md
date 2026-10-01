@@ -118,6 +118,11 @@ uv run python -m dsbench.sftgen.target_a_hints prefill-items --battery-items dat
     --report data/sft/rev2_target_a_prefill_pilot_manifest.json
 ```
 
+`rev2_target_c/` (git-ignored, a directory) is where Target C's volume run writes, through
+`patches/target_c_volume_mac.sh`: `trajectories.jsonl` (the kept rows), `failed.jsonl` (every
+other run, with `meta.selection.why_not`), a report per generator pass, and the logs. A second
+GPU window resumes from these files. Its manifest is written once the run is done.
+
 ## Provenance discipline (every row earns its place)
 
 - **Target A** emits a row only when its SQL, executed on the real engine, equals the independent
