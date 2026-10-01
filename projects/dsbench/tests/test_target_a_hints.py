@@ -47,8 +47,10 @@ def test_the_timezone_hint_is_the_direction_the_truth_uses():
 
 def test_the_checks_cover_every_day_and_three_months():
     checks = th.hint_checks("clickhouse")
-    assert [expected for _, expected in checks] == [1, 2, 3, 4, 5, 6, 7, 1, 7, 12]
+    week = [1, 2, 3, 4, 5, 6, 7]
+    assert [expected for _, expected in checks] == week + week + [1, 7, 12]  # and the alias
     assert checks[6][0] == "SELECT toDayOfWeek(toDate('2024-01-07'))"  # a Sunday
+    assert checks[13][0] == "SELECT dayOfWeek(toDate('2024-01-07'))"
     assert len(th.hint_checks("mysql")) == 7 + 7 + 3
 
 
@@ -56,8 +58,29 @@ def test_the_hints_hold_on_the_sandboxed_engines():
     engines = {e.name: e for e in available_engines(sandboxed=True)}
     if set(th.DIALECTS) - set(engines):
         pytest.skip("the sandbox's four engines are not all running")
-    assert th.check_hints(engines) == {"clickhouse": 10, "duckdb": 17, "postgres": 17,
+    assert th.check_hints(engines) == {"clickhouse": 17, "duckdb": 17, "postgres": 17,
                                        "mysql": 17}
+
+
+# --- the reasoning prefill's sentence ------------------------------------------------------------
+
+
+def test_the_recall_sentence_states_the_checked_numberings():
+    sentence = th.recall("clickhouse")
+    assert sentence == (
+        "In ClickHouse, `toDayOfWeek(date)` (alias `dayOfWeek`) returns 1 for Monday, 2 for "
+        "Tuesday, ..., 7 for Sunday: the ISO numbering. (MySQL's `DAYOFWEEK` is the one that "
+        "starts at Sunday = 1.)")
+    # Each function it names is checked on its engine, with the numbering it states.
+    ch, alias, mysql = (th.WEEKDAY_FUNCTIONS["clickhouse"][0], th.ALIASES["clickhouse"][0],
+                        th.WEEKDAY_FUNCTIONS["mysql"][0])
+    assert (ch.scheme, alias.scheme, mysql.scheme) == ("iso", "iso", "sun1")
+    assert mysql.shown == _dow_expr("mysql", "date") and _dow_int("mysql", 6) == 1  # Sunday
+
+
+def test_only_clickhouse_gets_a_prefill():
+    with pytest.raises(ValueError):
+        th.recall("duckdb")
 
 
 # --- the citation filter -------------------------------------------------------------------------
@@ -101,6 +124,30 @@ def test_the_base_quoting_the_question_is_not_a_citation():
                          th.hint("month-bucket", "clickhouse"), terms, "April") is not None
 
 
+RECALL = th.recall("clickhouse")
+
+
+@pytest.mark.parametrize("text, in_prompt, in_reasoning", [
+    # The base quoting its own earlier sentence: the prefill stays in the training row.
+    ("As noted above, toDayOfWeek returns 7 for Sunday, so `= 7`.", True, False),
+    ("toDayOfWeek is ISO, as stated earlier, so Saturday is 6.", True, False),
+    (RECALL, True, False),  # repeated word for word
+    # Crediting the prompt with the convention: the prompt never said it.
+    ("The prompt says toDayOfWeek is ISO.", True, True),
+    ("I was told toDayOfWeek numbers Monday 1.", True, True),
+    ("According to the prompt, toDayOfWeek returns 7 for Sunday.", True, True),
+    ("As instructed, toDayOfWeek returns 7 for Sunday.", True, True),
+    # Naming a hint, or a note it was given.
+    ("The note says Monday is 1.", True, True),
+    # The base's own reasoning about the question.
+    ("The user wants Sundays, so toDayOfWeek(order_ts) = 7.", False, False),
+])
+def test_a_prefilled_reply_may_quote_itself_but_not_the_prompt(text, in_prompt, in_reasoning):
+    assert (th.cites_hint(text, RECALL, CH_TERMS, PROMPT) is not None) is in_prompt
+    assert (th.cites_hint(text, RECALL, CH_TERMS, PROMPT, where="reasoning")
+            is not None) is in_reasoning
+
+
 def test_the_question_s_own_premise_may_be_quoted():
     terms = th.hint_terms("timezone-direction", "duckdb")
     said = "We're told New York is UTC-4, as stated in the question, so add 4 hours."
@@ -140,6 +187,26 @@ def test_a_row_becomes_a_plain_item_and_its_hinted_twin():
     assert th.make_items(_row(), n=200, hinted=False) == [plain]
 
 
+def test_a_row_becomes_plain_samples_and_start_prefills():
+    items = th.prefill_items(_row(), n=200, k=2)
+    plain = th.make_items(_row(), n=200, hinted=False)[0]
+    assert [i["id"] for i in items] == [
+        "targetA:A-weekend-flag-clickhouse-retail_orders-7#1",
+        "targetA_start:A-weekend-flag-clickhouse-retail_orders-7#1",
+        "targetA:A-weekend-flag-clickhouse-retail_orders-7#2",
+        "targetA_start:A-weekend-flag-clickhouse-retail_orders-7#2"]
+    first, start = items[0], items[1]
+    # Both go through the raw completion: the plain one with nothing prefilled.
+    assert (first["prefill"], start["prefill"]) == ("", RECALL)
+    assert first["messages"] == start["messages"] == plain["messages"]  # no hint in any prompt
+    assert "recall" not in first["verify"] and start["verify"]["recall"] == RECALL
+    assert first["verify"]["gold_sql"] == plain["verify"]["gold_sql"]
+    assert [i["meta"]["placement"] for i in items] == ["plain", "start"] * 2
+    assert [i["meta"]["sample"] for i in items] == [1, 1, 2, 2]
+    assert first["meta"]["recall"] == RECALL  # what prefill.splice writes after the cut
+    assert all("hinted" not in i["meta"] for i in items)
+
+
 # --- verify --------------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -177,11 +244,46 @@ def test_verify_keeps_a_verified_reply_that_does_not_read_as_told(tmp_path, duck
                         engines={"duckdb": DuckDBEngine()})
     cell = summary["duckdb/weekend-flag"]
     assert cell["plain"] == {"replies": 4, "verified": 1, "unfinished": 1, "no_reasoning": 1,
-                             "error": 1, "cites": 0, "soft_flagged": 0, "kept": 1,
-                             "reasoning_tokens_median": 40}
+                             "error": 1, "cites": 0, "soft_flagged": 0, "kept": 1, "rows": 1,
+                             "rows_kept": 1, "reasoning_tokens_median": 40,
+                             "kept_reasoning_tokens_median": 40}
     assert cell["hinted"] == {"replies": 4, "verified": 2, "wrong": 1, "not_sql_only": 1,
-                              "cites": 1, "soft_flagged": 1, "kept": 1,
-                              "reasoning_tokens_median": 40}
+                              "cites": 1, "soft_flagged": 1, "kept": 1, "rows": 1,
+                              "rows_kept": 1, "reasoning_tokens_median": 40,
+                              "kept_reasoning_tokens_median": 40}
     out = [json.loads(line) for line in (tmp_path / "out.jsonl").open()]
     kept = [r for r in out if r["check"]["kept"]]
     assert all(r["train_messages"] == plain["messages"] for r in kept)  # never the hint
+
+
+def test_verify_judges_a_prefilled_reply_on_what_follows_the_prefill(tmp_path, duckdb_pair):
+    # The prefill pilot runs on ClickHouse, which CI doesn't have: a DuckDB row stands in, with a
+    # prefill written the way prefill_items and prefill.splice write one.
+    plain, _ = duckdb_pair
+    said = "In DuckDB, dayofweek(date) numbers Sunday 0 through Saturday 6."
+    start = {**plain, "id": "targetA_start:x#1", "prefill": said,
+             "verify": {**plain["verify"], "recall": said},
+             "meta": {**plain["meta"], "placement": "start", "sample": 1}}
+    recall = {**start, "id": "targetA_recall:x#1", "prefill": f"The user wants weekends. {said}",
+              "meta": {**start["meta"], "placement": "recall"}}
+    (tmp_path / "items.jsonl").write_text(json.dumps(start) + "\n" + json.dumps(recall) + "\n")
+    gold = plain["verify"]["gold_sql"]
+
+    def rec(item, after, tokens):
+        return {"id": item["id"], "reasoning": f"{item['prefill']} {after}",
+                "finish_reason": "stop", "answer": f"```sql\n{gold}\n```",
+                "reasoning_tokens": tokens}
+
+    gens = [rec(start, "As noted above, dayofweek is 6 or 0 on a weekend.", 300),
+            rec(start, "The prompt says dayofweek numbers Sunday 0, so 0 and 6.", 200),
+            rec(recall, "So the weekend is dayofweek 6 and 0.", 900)]
+    (tmp_path / "gen.jsonl").write_text("".join(json.dumps(g) + "\n" for g in gens))
+    summary = th.verify(tmp_path / "items.jsonl", tmp_path / "gen.jsonl", tmp_path / "out.jsonl",
+                        engines={"duckdb": DuckDBEngine()})
+    cell = summary["duckdb/weekend-flag"]
+    assert cell["start"]["verified"] == 2 and cell["start"]["cites"] == 1
+    assert (cell["start"]["kept"], cell["start"]["rows_kept"]) == (1, 1)
+    assert cell["start"]["kept_reasoning_tokens_median"] == 300
+    assert (cell["recall"]["kept"], cell["recall"]["reasoning_tokens_median"]) == (1, 900)
+    cites = [json.loads(line)["check"]["cites"] for line in (tmp_path / "out.jsonl").open()]
+    assert cites[0] is None and "prompt says" in cites[1]
