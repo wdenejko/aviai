@@ -175,13 +175,15 @@ setup and dropped after the run:
   The grader, on the admin login, still sees every row;
 - **no table function that reaches another server or a file.**
 
-The native loop, pi and the probe all run the agent this way. The pi and probe prompts now read
-the credentials from the environment instead of naming the admin's.
+The native loop, pi, the probe and Target C's generator (ADR-004) all run the agent this way.
+Target C's tasks are synthetic, so its login gets no `aviation`. The pi and probe prompts now
+read the credentials from the environment instead of naming the admin's.
 
 **Kept honest by tests and gates:**
 - a test checks that every table a setup writes is either named in its prompt or withheld;
-- both oracle gates (`dsbench-agent-selftest`, the probe's) check each login on the live sandbox:
-  inputs listed, labels refused, withheld rows invisible, scratch writable;
+- the oracle gates (`dsbench-agent-selftest`, the probe's, Target C's `ml_tasks`) check each
+  login on the live sandbox: inputs listed, labels refused, withheld rows invisible, scratch
+  writable;
 - a guard fails a run whose tool calls name a withheld table or the admin's login
   (`withheld_access`).
 
@@ -215,7 +217,7 @@ any run that uses it.
 | BTS PREZIP schema/URL drift or TLS quirks | Low | Ingest breaks | Pin the month + checksum a manifest; relaxed TLS; snapshot committed-by-manifest |
 | NOTAM operational fitness (avtext sets are extraction-labeled) | Med | Weak NOTAM problems | Evaluate Zenodo CC-BY set for operational fields; align to the chosen month/airports |
 | Arbitrary code execution escaping the sandbox | Low | Host risk | Exec only inside containers; no host mounts beyond the repo workdir; network-restricted; own-model-only |
-| The agent reads the labels its grader holds back | Seen (2 of 692 saved runs) | Inflated scores; leaked SFT data | A login per run, row policies on the shared data, a guard on tool calls, both oracle gates check the logins (§7) |
+| The agent reads the labels its grader holds back | Seen (2 of 692 saved runs) | Inflated scores; leaked SFT data | A login per run, row policies on the shared data, a guard on tool calls, the oracle gates check the logins (§7) |
 | Agent overfits the exact tool wrapper | Low | Unfair scores | Keep tool schemas stable + documented; grade outcomes, not tool syntax |
 
 ## Action items — phased
@@ -228,7 +230,8 @@ any run that uses it.
 5. [x] 6 problems across de/da/ds using all five tables — answer- and table-graded, incl. a NOTAM-ML task with a `setup()`-seeded unlabeled test set graded on real held-out accuracy; independent oracles + negative controls; `dsbench-agent-selftest` green 6/6.
 6. [x] Baseline Ornith-1.5 (native loop, thinking off): **1/2** — but its `da_hub_delay` "fail" was a `finish(answer=)` artifact, not the model. **Superseded by the Gate-0 baseline in §6** (public harness, thinking on, k=5): **37/50 runs, 8/10 by majority.**
 
-7. [x] **Withheld labels (2026-10-01, §7):** the agent runs as its own ClickHouse login; label tables and test rows are out of its reach; a guard fails runs that reach for them; `python -m dsbench.agentic.audit` audits saved runs (692 audited, no score changes).
+7. [x] **Withheld labels (2026-10-01, §7):** the agent runs as its own ClickHouse login; label tables and test rows are out of its reach; a guard fails runs that reach for them; `python -m dsbench.agentic.audit` audits saved runs (692 audited, no score changes). Target C's
+   generator runs the same way.
 
 **Phase 1 + Gate 0 complete** (data foundation + agent harness + **10** problems + an authoritative public-harness baseline; see §6). Next: **Phase 2 — live Airflow + MLflow** (problems that build/trigger a DAG and log an experiment, graded on live service state); keep growing the set and re-baseline as it grows.
 

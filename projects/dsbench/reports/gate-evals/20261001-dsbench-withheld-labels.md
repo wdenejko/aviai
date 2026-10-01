@@ -59,7 +59,8 @@ and its numbers are in `20261001-dsbench-withheld-labels.json`.
 - **The NOTAM route.** The NOTAM task tells the agent the test split exists in `aviation.notam`.
   Its grader reads the test labels from there.
 - **Target C too.** The seven synthetic Target C tasks keep `<x>_test_key` in the run's database.
-  The generator's guard, built the same day, already refuses to keep a run that names one.
+  The generator's guard, built the same day, already refuses to keep a run that names one. Later
+  that day the generator moved to the same per-run login, with no `aviation` grant (ADR-004).
 
 ## What the saved runs did
 

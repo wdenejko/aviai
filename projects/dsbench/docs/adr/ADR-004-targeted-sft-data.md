@@ -543,7 +543,7 @@ The selection (seed 20260930), 2,646 prompts:
   - **A row is kept** when:
     - the oracle passes;
     - every turn carries reasoning;
-    - no tool call names an answer key;
+    - no tool call names the withheld key or the admin's login;
     - the server's count fits the block.
 
     The other runs go to `--fail-out` with the reason. Rows over the block keep `oracle_passed`,
@@ -557,14 +557,17 @@ The selection (seed 20260930), 2,646 prompts:
   - **Stopping and resuming.** `--max-minutes` stops new runs before the window ends. `--resume`
     continues from the output files and never reuses a run index. Consecutive model errors stop
     the run.
-  - **Found: the answer keys are visible to the agent.** Each task writes its withheld labels
+  - **Found: the answer keys were visible to the agent.** Each task writes its withheld labels
     into the run's own database, where the oracle reads them.
     - Gate 2's Ling loops listed them in 15 of 350 runs and read none. The base never listed
       tables in the pilot.
     - A run that read a key would pass by copying the labels, so its row is now never kept, in
       either mode.
-    - A ClickHouse user per run, limited to its own tables, would hide the keys. For the data,
-      the guard is enough.
+    - **Fixed the same day:** the agent runs as its own ClickHouse login, as in dsbench and the
+      probe (ADR-003 §7). The key is refused and drops out of SHOW TABLES; the login has no
+      shared data. Checked live: a scripted agent's read of the key was refused, its deliverable
+      still graded, and nothing was left behind. `ml_tasks`' oracle gate checks every task's
+      login.
   - **For the window,** the default 4-hour hold is tight. Either one window with a 5-hour hold
     and `--max-minutes 270`, or two windows with `--resume`.
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
@@ -791,6 +794,8 @@ The selection (seed 20260930), 2,646 prompts:
      - each dataset is gated by its own oracle;
      - a run can be resumed;
      - a run that names an answer key is never kept.
+   - [x] the agent's own ClickHouse login (ADR-003 §7). **Done 2026-10-01**: the key is out of
+     its reach, checked live and by `ml_tasks`' oracle gate.
    - [ ] if decision 7 masks failed turns: a per-turn mark that `thinking_record` reads.
    - [ ] the volume run, about 4 hours for 150 rows: the window scripts with a longer hold, or
      two windows.
