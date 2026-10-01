@@ -1,0 +1,451 @@
+{
+ "run": "dashi ~/benchlab/runs/2026-09-30-qwen36-target-a-hints-pilot",
+ "items": {
+  "rows": 192,
+  "seed": 20260930,
+  "rows_per_table": 1500,
+  "pass1_items_sha256": "e45fcf1e48d172dce46cc7c61a068cb44887014493fc2b7355cbc4d68038f89b"
+ },
+ "serving": "Qwen3.6-35B-A3B APEX I-Mini, no LoRA, thinking on, temperature 0.6 top-p 0.95 top-k 20, 8 slots, max 16384",
+ "pass1": {
+  "framing": "the hint plainly in the system prompt, before its answer line",
+  "generation": {
+   "replies": 384,
+   "errors": 0,
+   "completion_tokens": 801681,
+   "wall_minutes": 103.2,
+   "tokens_per_second": 129.5,
+   "hit_limit": 4,
+   "rows_over_8192": 8
+  },
+  "plain": {
+   "clickhouse/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "clickhouse/timezone-direction": {
+    "replies": 12,
+    "verified": 11,
+    "cites": 0,
+    "kept": 11,
+    "grouped": 1,
+    "by_col_question": 0,
+    "error": 1
+   },
+   "clickhouse/weekday-numbering": {
+    "replies": 12,
+    "wrong": 11,
+    "cites": 0,
+    "kept": 1,
+    "grouped": 1,
+    "by_col_question": 5,
+    "verified": 1
+   },
+   "clickhouse/weekend-flag": {
+    "replies": 12,
+    "wrong": 10,
+    "cites": 0,
+    "kept": 0,
+    "grouped": 3,
+    "by_col_question": 4,
+    "error": 2
+   },
+   "duckdb/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "duckdb/timezone-direction": {
+    "replies": 12,
+    "verified": 9,
+    "cites": 0,
+    "kept": 9,
+    "grouped": 0,
+    "by_col_question": 0,
+    "error": 2,
+    "unfinished": 1
+   },
+   "duckdb/weekday-numbering": {
+    "replies": 12,
+    "verified": 9,
+    "cites": 0,
+    "kept": 9,
+    "grouped": 0,
+    "by_col_question": 5,
+    "unfinished": 1,
+    "wrong": 2
+   },
+   "duckdb/weekend-flag": {
+    "replies": 12,
+    "verified": 6,
+    "cites": 0,
+    "kept": 6,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 5,
+    "error": 1
+   },
+   "mysql/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "mysql/timezone-direction": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "mysql/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "mysql/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 0,
+    "kept": 8,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   },
+   "postgres/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "postgres/timezone-direction": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 0,
+    "kept": 12,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "postgres/weekday-numbering": {
+    "replies": 12,
+    "verified": 11,
+    "cites": 0,
+    "kept": 11,
+    "grouped": 0,
+    "by_col_question": 5,
+    "unfinished": 1
+   },
+   "postgres/weekend-flag": {
+    "replies": 12,
+    "verified": 7,
+    "cites": 0,
+    "kept": 7,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4,
+    "unfinished": 1
+   }
+  },
+  "hinted": {
+   "clickhouse/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 10,
+    "kept": 2,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "clickhouse/timezone-direction": {
+    "replies": 12,
+    "verified": 10,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 1,
+    "by_col_question": 0,
+    "wrong": 1,
+    "error": 1
+   },
+   "clickhouse/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 10,
+    "kept": 2,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "clickhouse/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 9,
+    "kept": 2,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   },
+   "duckdb/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "duckdb/timezone-direction": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "duckdb/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "duckdb/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   },
+   "mysql/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "mysql/timezone-direction": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "mysql/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 10,
+    "kept": 2,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "mysql/weekend-flag": {
+    "replies": 12,
+    "verified": 9,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 3,
+    "by_col_question": 4,
+    "wrong": 3
+   },
+   "postgres/month-bucket": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 0,
+    "by_col_question": 0
+   },
+   "postgres/timezone-direction": {
+    "replies": 12,
+    "verified": 11,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 1,
+    "by_col_question": 0,
+    "wrong": 1
+   },
+   "postgres/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 9,
+    "kept": 3,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "postgres/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   }
+  },
+  "citations": {
+   "copies the hint": 79,
+   "attributes the hint's terms to the prompt": 64,
+   "names a hint": 33
+  },
+  "reasoning_tokens": {
+   "plain": {
+    "month-bucket": {
+     "median": 972.5,
+     "p90": 1454
+    },
+    "timezone-direction": {
+     "median": 3678.0,
+     "p90": 5128
+    },
+    "weekday-numbering": {
+     "median": 1329.5,
+     "p90": 1946
+    },
+    "weekend-flag": {
+     "median": 1775.5,
+     "p90": 2684
+    }
+   },
+   "hinted": {
+    "month-bucket": {
+     "median": 706.5,
+     "p90": 964
+    },
+    "timezone-direction": {
+     "median": 3370.0,
+     "p90": 4321
+    },
+    "weekday-numbering": {
+     "median": 817.0,
+     "p90": 1168
+    },
+    "weekend-flag": {
+     "median": 1282.5,
+     "p90": 2552
+    }
+   }
+  }
+ },
+ "pass2": {
+  "framing": "Treat the following as your own knowledge of the engine. Don't quote it or mention where it came from: <hint>",
+  "generation": {
+   "replies": 96,
+   "errors": 0,
+   "completion_tokens": 165616,
+   "wall_minutes": 21.2,
+   "tokens_per_second": 130.0,
+   "hit_limit": 1,
+   "rows_over_8192": 2
+  },
+  "hinted": {
+   "clickhouse/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "clickhouse/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   },
+   "duckdb/weekday-numbering": {
+    "replies": 12,
+    "verified": 11,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 1,
+    "by_col_question": 5,
+    "wrong": 1
+   },
+   "duckdb/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   },
+   "mysql/weekday-numbering": {
+    "replies": 12,
+    "verified": 11,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 0,
+    "by_col_question": 5,
+    "unfinished": 1
+   },
+   "mysql/weekend-flag": {
+    "replies": 12,
+    "verified": 10,
+    "cites": 11,
+    "kept": 1,
+    "grouped": 2,
+    "by_col_question": 4,
+    "wrong": 2
+   },
+   "postgres/weekday-numbering": {
+    "replies": 12,
+    "verified": 12,
+    "cites": 10,
+    "kept": 2,
+    "grouped": 0,
+    "by_col_question": 5
+   },
+   "postgres/weekend-flag": {
+    "replies": 12,
+    "verified": 8,
+    "cites": 12,
+    "kept": 0,
+    "grouped": 4,
+    "by_col_question": 4,
+    "wrong": 4
+   }
+  },
+  "citations": {
+   "names a hint": 71,
+   "attributes the hint's terms to the prompt": 17,
+   "copies the hint": 4
+  },
+  "reasoning_tokens": {
+   "hinted": {
+    "weekday-numbering": {
+     "median": 1167.5,
+     "p90": 2307
+    },
+    "weekend-flag": {
+     "median": 1247.0,
+     "p90": 2805
+    }
+   }
+  }
+ },
+ "filter_false_positives": {
+  "unhinted_traces": 272,
+  "flagged": 0,
+  "note": "80 from the 2026-09-28 reasoning pilot, 192 plain replies of this pilot"
+ }
+}

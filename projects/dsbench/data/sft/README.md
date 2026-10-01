@@ -87,11 +87,13 @@ uv run --with huggingface_hub python -m dsbench.sftgen.synsql build \
     --out data/sft/rev2_sql_prompts.jsonl --report data/sft/rev2_sql_prompts_manifest.json
 ```
 
-`rev2_target_a_pilot.jsonl` holds the Target A pilot's items (`sftgen/target_a_hints.py`): each
-generated row as a plain item and a hinted twin, whose generation prompt states the convention
-and whose `train_messages` don't. `rev2_target_a_pilot_manifest.json` (tracked) records the hints,
-the checks they passed on the engines, the counts per cell and the output's hash. It needs the
-sandbox's four engines. Rebuild with:
+`rev2_target_a_pilot.jsonl` holds the Target A pilot's items (`sftgen/target_a_hints.py`): 192
+rows as plain items, and the weekday and weekend rows as hinted twins too, whose generation prompt
+states the convention and whose `train_messages` don't
+(`reports/gate-evals/20260930-target-a-hints-pilot.md`). `rev2_target_a_pilot_manifest.json`
+(tracked) records the hints, the checks they passed on the engines, the counts per cell and the
+output's hash. It records the pilot as run. Two question phrasings have been reworded since, so a
+rebuild now differs. It needs the sandbox's four engines. Rebuild with:
 
 ```bash
 docker compose -f sandbox/docker-compose.yml up -d --build clickhouse postgres mysql duckdb
