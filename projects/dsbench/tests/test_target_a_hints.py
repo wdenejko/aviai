@@ -70,6 +70,15 @@ PROMPT = ("You are writing SQL for a ClickHouse database. Answer with a single S
 
 @pytest.mark.parametrize("text, cites", [
     ("The hint says the week starts on Monday.", True),
+    # From the pilot's first pass, where the hint sat plainly in the system prompt:
+    ('Yes, that matches the prompt: "toDayOfWeek(date) numbers Monday 1 through Sunday 7".', True),
+    ("The prompt explicitly says `toDayOfWeek(date)` numbers Monday 1.", True),
+    ("`IN (6, 7)` is explicit and matches the prompt's hint.", True),
+    ("I'll treat this as my own knowledge: toDayOfWeek is ISO.", True),
+    ("The weekend is 6 and 7; toDayOfWeek(date) numbers Monday 1 through Sunday 7.", True),  # 8
+    # ...and from traces that never saw a hint:
+    ('The prompt explicitly says "by order_ts", so filter on order_ts with toDayOfWeek.', False),
+    ("The time zone is not mentioned, so toDayOfWeek works on the stored value.", False),
     ("As stated, toDayOfWeek numbers Monday 1, so the weekend is 6 and 7.", True),
     ("The system prompt says toDayOfWeek is ISO.", True),
     ("We’re told that toDayOfWeek returns 7 for Sunday.", True),
@@ -122,13 +131,13 @@ def test_a_row_becomes_a_plain_item_and_its_hinted_twin():
     assert hinted["id"] == "targetA_hint:A-weekend-flag-clickhouse-retail_orders-7"
     assert hinted["train_messages"] == plain["messages"]  # the row trains without the hint
     system = hinted["messages"][0]["content"]
-    assert system == ("You are writing SQL for a ClickHouse database. There is one table `t`. "
-                      f"{CH_HINT} Answer with a single SQL query in a ```sql code block.")
+    assert system == (f"{plain['messages'][0]['content']}\n\n{th.FRAMING} {CH_HINT}")
     assert plain["verify"]["gold_sql"] == "SELECT count(*) FROM t WHERE toDayOfWeek(ts) IN (6, 7)"
     assert plain["verify"]["n"] == 200 and "hint" not in plain["verify"]
     assert hinted["verify"]["hint"] == CH_HINT
     assert (plain["meta"]["hinted"], hinted["meta"]["hinted"]) == (False, True)
     assert (plain["meta"]["domain"], plain["meta"]["seed"]) == ("retail_orders", 7)
+    assert th.make_items(_row(), n=200, hinted=False) == [plain]
 
 
 # --- verify --------------------------------------------------------------------------------------
