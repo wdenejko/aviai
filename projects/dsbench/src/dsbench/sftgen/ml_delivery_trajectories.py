@@ -41,8 +41,10 @@ admin's client.
 **Which runs become rows** (`selection`). The oracle passing is necessary, not sufficient. With
 thinking on, every assistant turn must carry reasoning, or `thinking_record` rejects the row. No
 tool call may reach for the withheld key or the admin's login (`access.breach`): such a run would
-pass by copying the labels, and its row would teach exactly that. With `--block`, the row must also
-fit the training block; its length comes from the server's own counts.
+pass by copying the labels, and its row would teach exactly that. The agent must have ended the
+loop itself, with `finish` or a final reply: a run that used up its steps after writing a passing
+table teaches tool calls that never stop, which Gate 2's battery found. With `--block`, the row
+must also fit the training block; its length comes from the server's own counts.
 
 **Volume: quotas** (`--quota`, `generate_quota`). ADR-004 Revision 2's pilot kept 1 run in 3 for
 credit_leak, energy_load and upsell_join and every run for three other families, so a fixed
@@ -169,9 +171,11 @@ def run_teacher_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str
     turns: list[dict] = []
     n_tool = 0
 
-    def done(passed: bool, status: str, reason: str, step: int) -> dict:
+    def done(passed: bool, status: str, reason: str, step: int, finished: bool = False) -> dict:
+        # `finished`: the agent ended the loop itself (`finish`, or a reply in text). The oracle
+        # also grades a run that used up its steps, as the measurement loop does.
         return {"passed": passed, "status": status, "reason": reason, "trajectory": messages,
-                "steps": step, "tool_calls": n_tool, "turns": turns,
+                "steps": step, "tool_calls": n_tool, "turns": turns, "finished": finished,
                 "latency_s": round(time.time() - t0, 1)}
 
     for step in range(1, problem.max_steps + 1):
@@ -206,7 +210,7 @@ def run_teacher_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str
             messages.append(_assistant(content, reasoning))
             ctx.answer = content.strip()
             passed, status, reason = grade(problem, ctx)
-            return done(passed, status, reason, step)
+            return done(passed, status, reason, step, finished=True)
         # Malformed-tool-call recovery, mirroring the measurement loop.
         parsed: list[dict | None] = []
         for tc in tool_calls:
@@ -230,7 +234,7 @@ def run_teacher_agent(problem: AgentProblem, ctx: GradeContext, *, base_url: str
             elif name == "finish":
                 ctx.answer = args.get("answer")
                 passed, status, reason = grade(problem, ctx)
-                return done(passed, status, reason, step)
+                return done(passed, status, reason, step, finished=True)
             elif name == "run_sql":
                 obs = T.run_sql(agent_client, args.get("query", ""))
             elif name == "run_python":
@@ -283,13 +287,18 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
 
     In order: the oracle passed (else `why_not` is the run's status); with `reasoning`, every
     assistant turn carries some (`empty_reasoning`); no tool call reaches for a table the run
-    withheld (`res["withheld"]`, set by `run_job`) or the admin's login (`withheld_access`); with a
-    `block`, the row fits it (`over_block`).
+    withheld (`res["withheld"]`, set by `run_job`) or the admin's login (`withheld_access`); the
+    agent ended the loop itself (`res["finished"]`, else `out_of_steps`); with a `block`, the row
+    fits it (`over_block`).
 
     The length is the server's: the loop's last request, prompt plus completion, is the whole
     conversation. The training row is at most one token longer, the newline the template writes
     after the final `<|im_end|>`. On the pilot's 21 runs it was exactly one longer on 16 and no
-    longer on the other 5, whose `finish` arguments the template rebuilds from the parsed value.
+    longer on the other 5, whose `finish` arguments the template rebuilds from the parsed value;
+    on the volume run's 282, the same, except where tool output follows the last request. A turn
+    that calls a tool beside `finish` ends the row on that tool's output, which no request
+    carried: it counts as at most a token a character (numeric output tokenizes digit by digit),
+    plus the response's wrapper (`_unsent_tail`).
     A withheld table seen in a tool's output is recorded (`saw_withheld`) but not held against the
     run: its row shows the agent leaving it alone. The login keeps the key out of listings, so it
     now shows up only in the refusal of a call that named it.
@@ -301,9 +310,11 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
     served = None
     if last.get("prompt_tokens") is not None and last.get("completion_tokens") is not None:
         served = last["prompt_tokens"] + last["completion_tokens"]
+    tail = _unsent_tail(trajectory)
     out = {
-        "block": block, "served_tokens": served,
-        "fits": None if block is None else served is not None and served + 1 <= block,
+        "block": block, "served_tokens": served, "unsent_tail_max": tail,
+        "fits": None if block is None else served is not None and served + 1 + tail <= block,
+        "finished": res.get("finished", True),
         "reasoning_in_every_turn": bool(assistant) and all(
             (m.get("reasoning_content") or "").strip() for m in assistant),
         "withheld_access": breach(trajectory, withheld),
@@ -316,12 +327,25 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
         out["why_not"] = "empty_reasoning"
     elif out["withheld_access"]:
         out["why_not"] = "withheld_access"
+    elif not out["finished"]:
+        out["why_not"] = "out_of_steps"
     elif out["fits"] is False:
         out["why_not"] = "over_block"
     else:
         out["why_not"] = None
     out["kept"] = out["why_not"] is None
     return out
+
+
+def _unsent_tail(trajectory: list) -> int:
+    """At most how many tokens the tool output after the last request adds to the row. In the
+    volume run, 521 characters of numeric output took 504 tokens with their wrapper."""
+    tail = 0
+    for message in reversed(trajectory):
+        if message.get("role") != "tool":
+            break
+        tail += len(message.get("content") or "") + 16
+    return tail
 
 
 def _skipped(status: str, reason: str) -> dict:
