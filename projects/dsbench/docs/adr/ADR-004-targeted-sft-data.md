@@ -290,11 +290,28 @@ The selection (seed 20260930), 2,646 prompts:
 | SciRIFF | 0.20 | 337 | 4,223 | 670 long, 9 duplicates |
 | GSM8K | 0.20 | 337 | 7,473 | none |
 | FLAN v2 | 0 | 0 | 2,361 | (decision 5) |
-| opencoder | 0.75 | 750 | 8,225 | 1,731 duplicates, 44 battery |
+| opencoder | 0.75 | 750 | 8,142 | 1,719 duplicates, 100 battery, 39 tests (below) |
 | SWE-Swiss | 0.25 | 211 | 1,609 | 639 long, 11 duplicates, 8 battery |
 
 - 249 of the oasst1 prompts carry history.
 - Expected after generation: about 1,600 replay rows and 800 code rows.
+- **OpenCoder's prompts now show a test (2026-10-02).** The tests call the function by the name
+  the dataset's own answer gave it, and expect that answer's return format, but only 19 of the
+  750 prompts first selected named the function. A right answer under another name would have
+  failed every test. Each prompt now ends with its first test, as MBPP's prompts show theirs
+  ("Your code should pass this test, and others like it"), and the check runs all of them.
+  - Duplicates are still found by the instruction alone.
+  - The battery gate sees the shown test, and drops 56 more rows. Every test it catches holds a
+    literal list of small numbers (a run of numbers, a 0/1 grid, the permutations of [1, 2, 3],
+    a small matrix), shared with DS-1000, LCB, HumanEval+ or BFCL items, at most 16% of one.
+  - 39 rows are dropped whose tests span several lines (building a tree): the dataset stores
+    those lines out of order.
+  - The new candidates change the sample: 58 of the 750 instructions are the same. Nothing had
+    been generated. The other pools' 1,896 prompts are unchanged, ids included.
+  - The dataset's own answers pass their tests on 748 of the 750 items, run through the same
+    extraction and sandbox as the base's replies (`replay_verify.py --gold`, in docker on the
+    Mac). One answer needs sympy, which the sandbox lacks; the other returns a set's order. Both
+    items stay: the base's reply is judged on its own.
 - Each pool draws from its own seeded generator: SWE-Swiss's new pool left the other 2,435
   prompts unchanged.
 - `data/sft/rev2_prompts_manifest.json` records the parameters, each pool's counts, languages
@@ -625,7 +642,41 @@ The selection (seed 20260930), 2,646 prompts:
   - `reasoning_pilot.py generate` sends an item's tools and streams the reply, as the battery
     does for BFCL. The stream reassembler dropped `reasoning_content`; it keeps it now.
 - **Replay, code and SWE.** The base's answers, sampled as in the pilot (temperature 0.6, top-p
-  0.95, top-k 20), one per prompt.
+  0.95, top-k 20), one per prompt. **The checks, built 2026-10-02** (`sftgen/replay_verify.py`):
+  - every pool: the reply finished, with reasoning and an answer, and its answer holds no think
+    tag;
+  - GSM8K: the final number is the gold one (decision 5's proposal; the match is recorded either
+    way, so the other choice is a filter at assembly);
+  - OpenCoder: the reply's code passes every test, in the battery's sandbox. The prompts show
+    their first test (above);
+  - SciRIFF: where the prompt says "Only output the JSON object" (its NER tasks, 115 of 337
+    prompts), the answer is that JSON alone. A reply that wraps it in a fence or a sentence would
+    teach the model to break an explicit format instruction, which IFEval measures;
+  - oasst1, Aya and SWE-Swiss: finishing is the check. SWE-Swiss has no tests.
+
+**The single-turn generation, built 2026-10-02:** the SQL pool, the tool rows, code and replay,
+4,276 prompts, one window or several (`patches/rev2_generate_window.sh`):
+- **The bare base answers**, thinking on, through `reasoning_pilot.py generate`.
+- **No reply runs past what its row can hold** (`--block 8192`). Before each request the server
+  renders the prompt with its own template, tools included, and counts it. The reply may then
+  take the block less the prompt, plus 16 tokens of slack, since the row is rendered again for
+  training. Every pool drops rows over the block anyway; the cap stops the replies that loop. In
+  the mini-battery's calibration, 7 of 120 BFCL replies looped to 12,288 tokens and took 43.5%
+  of the pass's tokens.
+- **Rows are written whole, as they finish**, in one write each. A window's time limit stops a
+  step mid-run, and the next window resumes it: answered items are skipped, failed ones run
+  again. A checker reads one row an item (`latest_rows`), so a retried item counts once.
+- **Sampling is sent explicitly.** Every Revision 2 generation so far sampled with llama-server's
+  default `min_p` of 0.05, because none sent one (found 2026-10-02 on the battery server's
+  `/props`): the pilots, the prefill pilot and Target C's 154 rows. Qwen recommends 0, and the
+  mini-battery measures at 0. The generator now sends 0.05, so the data stays as piloted and a
+  different server default can't change it (decision 8).
+- **Rehearsed on the Mac** against a stand-in server: 100 items over the four pools. A pass
+  stopped mid-run left 35 whole rows and resumed the other 5, with no duplicates. Every budget
+  followed the rule, and the checkers read the replies, the tool rows' streamed calls and
+  OpenCoder's tests in a sandbox included. Whether the real server counts the prompt as the
+  rendering does, tools included, shows in the first rows of a real window: each row records
+  both counts (`rendered_prompt_tokens`, `prompt_tokens`).
 
 ## Rendering and packing
 
@@ -821,6 +872,12 @@ The selection (seed 20260930), 2,646 prompts:
    measured both: 154 rows and 0.80M tokens at 8,192; 247 rows and 1.87M tokens at 16,384, with
    58 of credit_leak's 71 loops instead of 22. Its rows are already generated. In the kept rows,
    20.5% of the assistant text sits in turns whose call failed.
+8. **The data's sampling.** Every Revision 2 row so far was sampled with `min_p` 0.05,
+   llama-server's default, while Qwen recommends 0 and the mini-battery measures at 0.
+   - Proposed: keep 0.05 for the rest of the generation. Target C's 154 rows and the pilots'
+     yields and lengths were measured with it, and the base's distribution with its least likely
+     tokens trimmed is still its own.
+   - Or: 0, as Qwen recommends, for the rows not yet generated. Target C's rows stay as they are.
 
 ## Action items (Revision 2)
 
@@ -876,10 +933,11 @@ The selection (seed 20260930), 2,646 prompts:
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
-   variants of each. Generation waits for the GPU window with the rest.
+   variants of each. Generation waits for the GPU window with the rest; its window is built
+   (item 6).
 4. [x] Tool rows: generators for tool lists, gold calls and requests (fitting and not), and the
    gold-call checker. **Done 2026-09-30:** 518 prompts, 0 battery overlaps; generation waits for
-   the GPU window with the rest.
+   the GPU window with the rest; its window is built (item 6).
 5. [ ] Target C: the agentic pilot (about 20 tasks, thinking on) for yield and length, then volume.
    - [x] the pilot. **Run 2026-10-01** (`reports/gate-evals/20261001-target-c-agentic-pilot.md`):
      20 of 21 pass, 14 fit 8,192 tokens, every turn has reasoning, no teacher needed.
@@ -901,6 +959,12 @@ The selection (seed 20260930), 2,646 prompts:
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
    generate.
+   - [x] the checks and the generation window for the single-turn pools (SQL, tools, code,
+     replay). **Built 2026-10-02:** `replay_verify.py`; `reasoning_pilot.py generate --block`;
+     `patches/rev2_generate_window.sh`; rehearsed against a stand-in. OpenCoder's prompts now show
+     their first test, and the dataset's own answers pass 748 of 750 items.
+   - [ ] the generation windows: 4,276 prompts, 21-29 hours by the budget above, so about three
+     windows of 9 hours.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
