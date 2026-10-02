@@ -42,8 +42,10 @@ code and replay that decision 6 proposes (`--share POOL=W`). A budget counts who
 prompts included, because training time is paid per token. The manifest also gives each pool's
 reply tokens, the part that is trained on.
 
-Not applied here: decision 7. `thinking_record` labels every assistant turn of a Target C loop,
-the failed calls included, until a per-turn mark exists (ADR-004 action item 5).
+Decision 7, Target C's failed calls: a turn whose call failed (`agentic.tools.is_error`: 141 of
+the kept rows' 1,158 turns, 72,885 of their 378,639 reply tokens) is marked `"loss": False` by
+default, as proposed. It stays in the row, so the fix that follows trains with its cause in view,
+but it isn't trained on. `--target-c-failed-turns train` trains every turn, as the loop happened.
 
     uv run python -m dsbench.sftgen.assemble_rev2 --battery-items data/battery/items \\
         --verified ITEMS VERIFIED [--verified ITEMS VERIFIED ...] \\
@@ -61,6 +63,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from dsbench.agentic.tools import is_error
 from dsbench.sftgen.decontaminate import DenyList, _row_text, build_denylist, scan_text
 from dsbench.sftgen.reasoning_pilot import latest_rows
 
@@ -140,13 +143,39 @@ def single_turn(item: dict, rec: dict) -> Row:
     return Row(record, tokens, rec.get("completion_tokens") or 0)
 
 
-def trajectory(record: dict) -> Row:
+def failed_turns(messages: list[dict]) -> list[int]:
+    """The indices of the assistant turns whose tool calls were answered by an error: any of the
+    tool messages that follow the turn, for parallel calls."""
+    failed = []
+    for i, message in enumerate(messages):
+        if message.get("role") != "assistant":
+            continue
+        j = i + 1
+        while j < len(messages) and messages[j].get("role") == "tool":
+            if is_error(messages[j].get("content") or ""):
+                failed.append(i)
+                break
+            j += 1
+    return failed
+
+
+def trajectory(record: dict, mask_failed: bool = True) -> Row:
     """A Target C loop, as its selection measured it: the last request's tokens, and the newline
-    after the last turn."""
+    after the last turn. With `mask_failed` (decision 7), the turns whose call failed carry
+    `"loss": False`, and the reply tokens count only the turns that train. The selection's
+    per-turn counts follow the assistant turns in order."""
     meta = record["meta"]
     served = (meta.get("selection") or {}).get("served_tokens")
-    reply = sum(t.get("completion_tokens") or 0 for t in meta.get("turns") or [])
-    record = {**record, "meta": {**meta, "pool": "target_c"}}
+    messages = record["messages"]
+    masked = set(failed_turns(messages)) if mask_failed else set()
+    if masked:
+        messages = [{**m, "loss": False} if i in masked else m for i, m in enumerate(messages)]
+    assistant = [i for i, m in enumerate(messages) if m.get("role") == "assistant"]
+    reply = sum(t.get("completion_tokens") or 0
+                for i, t in zip(assistant, meta.get("turns") or [], strict=False)
+                if i not in masked)
+    record = {**record, "messages": messages,
+              "meta": {**meta, "pool": "target_c", "masked_turns": sorted(masked)}}
     return Row(record, served + 1 if served is not None else None, reply)
 
 
@@ -271,6 +300,8 @@ def main() -> None:
     ap.add_argument("--gsm8k", choices=("gold", "finished"), default="gold",
                     help="decision 5: GSM8K's replies that reach the gold number, or every "
                          "finished one")
+    ap.add_argument("--target-c-failed-turns", choices=("mask", "train"), default="mask",
+                    help="decision 7: Target C's turns whose call failed")
     ap.add_argument("--target-a-doubts", choices=("drop", "keep"), default="drop",
                     help="decision 2: Target A's traces that state Sunday = 1 again after the "
                          "convention")
@@ -292,7 +323,8 @@ def main() -> None:
     for path in args.trajectories:
         loops = [json.loads(line) for line in path.open() if line.strip()]
         read["target_c"] += len(loops)
-        rows += [trajectory(loop) for loop in loops]  # kept by their own selection already
+        mask = args.target_c_failed_turns == "mask"
+        rows += [trajectory(loop, mask) for loop in loops]  # kept by their own selection
 
     deny = build_denylist(battery_items=args.battery_items)
     mixture, result = assemble(rows, read, deny, pools=pools, scale=args.scale, seed=args.seed)
@@ -304,13 +336,12 @@ def main() -> None:
         "params": {"seed": args.seed, "block": BLOCK, "scale": args.scale,
                    "shares": {p.name: p.share for p in pools}, "gsm8k": args.gsm8k,
                    "target_a_doubts": args.target_a_doubts,
+                   "target_c_failed_turns": args.target_c_failed_turns,
                    "battery_items": args.battery_items},
         "inputs": [{"items": str(i), "verified": str(v), "verified_sha256": _sha256(v)}
                    for i, v in args.verified]
                   + [{"trajectories": str(t), "sha256": _sha256(t)} for t in args.trajectories],
         **result,
-        "not_applied": ["decision 7: every assistant turn of a Target C loop trains, the failed "
-                        "calls included (no per-turn mark yet)"],
         "out": str(args.out), "out_sha256": _sha256(args.out),
     }
     args.report.write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + "\n")

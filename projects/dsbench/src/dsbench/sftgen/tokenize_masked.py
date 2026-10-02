@@ -348,6 +348,10 @@ def thinking_record(tok: Any, record: dict) -> tuple[list[int], list[int]]:
     Labelled: every assistant turn after the last user query, from the end of the served prompt
     (`...<|im_start|>assistant\\n<think>\\n`) through its `<|im_end|>`. That covers the reasoning,
     `</think>`, the answer or tool call, and the stop token.
+
+    A turn marked `"loss": False` stays in the row as context and is not labelled: ADR-004
+    decision 7's Target C turns whose call failed (`assemble_rev2.py`). It is still checked like
+    the others, so a row is rendered the same either way.
     """
     messages, tools = tool_arguments_as_objects(record["messages"]), record.get("tools")
     text = render_thinking(tok, messages, tools)
@@ -371,7 +375,10 @@ def thinking_record(tok: Any, record: dict) -> tuple[list[int], list[int]]:
             raise RowRejected("reasoning_not_closed")
         if not reasoning.strip():
             raise RowRejected("empty_reasoning")
-        spans.append((len(prompt), end + len(TURN_END)))
+        if messages[i].get("loss") is not False:
+            spans.append((len(prompt), end + len(TURN_END)))
+    if not spans:
+        raise RowRejected("no_labelled_turn")
 
     encoded = tok(text, add_special_tokens=False, return_offsets_mapping=True)
     ids = [int(t) for t in encoded["input_ids"]]
