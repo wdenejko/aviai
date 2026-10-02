@@ -1,0 +1,111 @@
+{
+ "params": {
+  "battery_items": "data/battery/items",
+  "plain_phase_tokens": 512
+ },
+ "hint_checks_passed": {
+  "clickhouse": 17,
+  "duckdb": 17,
+  "postgres": 17,
+  "mysql": 17
+ },
+ "seed": 20261002,
+ "rows_per_table": 1500,
+ "ta_plain": {
+  "draws": [
+   {
+    "seed": 20261002,
+    "reps": 75,
+    "families": [
+     "weekday-numbering"
+    ],
+    "rows": 450,
+    "generator_rejected": 0
+   },
+   {
+    "seed": 20261004,
+    "reps": 12,
+    "families": [
+     "weekend-flag"
+    ],
+    "rows": 72,
+    "generator_rejected": 0
+   }
+  ],
+  "items": 522,
+  "items_by_cell": {
+   "clickhouse/weekday-numbering": 450,
+   "clickhouse/weekend-flag": 72
+  },
+  "prompts_by_cell": {
+   "clickhouse/weekday-numbering": 124,
+   "clickhouse/weekend-flag": 18
+  },
+  "recall_wordings": {
+   "0": 134,
+   "1": 129,
+   "2": 129,
+   "3": 130
+  },
+  "out": "data/sft/rev2_target_a/ta_plain.jsonl",
+  "out_sha256": "dba2334ecad39fbd11c17491bcf9554fddf8a523f9632205ec6ebd6560a2937d"
+ },
+ "ta_cells": {
+  "draws": [
+   {
+    "seed": 20261003,
+    "reps": 3,
+    "families": [
+     "weekday-numbering",
+     "weekend-flag",
+     "timezone-direction",
+     "month-bucket"
+    ],
+    "rows": 288,
+    "generator_rejected": 0
+   }
+  ],
+  "items": 252,
+  "items_by_cell": {
+   "clickhouse/month-bucket": 18,
+   "clickhouse/timezone-direction": 18,
+   "duckdb/month-bucket": 18,
+   "duckdb/timezone-direction": 18,
+   "duckdb/weekday-numbering": 18,
+   "duckdb/weekend-flag": 18,
+   "mysql/month-bucket": 18,
+   "mysql/timezone-direction": 18,
+   "mysql/weekday-numbering": 18,
+   "mysql/weekend-flag": 18,
+   "postgres/month-bucket": 18,
+   "postgres/timezone-direction": 18,
+   "postgres/weekday-numbering": 18,
+   "postgres/weekend-flag": 18
+  },
+  "prompts_by_cell": {
+   "clickhouse/month-bucket": 18,
+   "clickhouse/timezone-direction": 17,
+   "duckdb/month-bucket": 18,
+   "duckdb/timezone-direction": 17,
+   "duckdb/weekday-numbering": 15,
+   "duckdb/weekend-flag": 14,
+   "mysql/month-bucket": 18,
+   "mysql/timezone-direction": 17,
+   "mysql/weekday-numbering": 15,
+   "mysql/weekend-flag": 14,
+   "postgres/month-bucket": 18,
+   "postgres/timezone-direction": 17,
+   "postgres/weekday-numbering": 15,
+   "postgres/weekend-flag": 14
+  },
+  "out": "data/sft/rev2_target_a/ta_cells.jsonl",
+  "out_sha256": "64c9345e3e9afba12f7b29a9f6a6f6273860ddd7ec7e327972977879636033b7"
+ },
+ "gate_rejected": {},
+ "recall": [
+  "In ClickHouse, `toDayOfWeek(date)` (alias `dayOfWeek`) returns 1 for Monday, 2 for Tuesday, ..., 7 for Sunday: the ISO numbering. (MySQL's `DAYOFWEEK` is the one that starts at Sunday = 1.)",
+  "Let me recall ClickHouse's numbering: `toDayOfWeek(date)`, also callable as `dayOfWeek`, returns 1 for Monday, 2 for Tuesday, ..., 7 for Sunday, which is ISO. Sunday = 1 is MySQL's `DAYOFWEEK`, not ClickHouse's.",
+  "ClickHouse's `toDayOfWeek(date)` (same as `dayOfWeek`) follows ISO: it returns 1 for Monday, 2 for Tuesday, ..., 7 for Sunday. The numbering that starts at Sunday = 1 is MySQL's `DAYOFWEEK`.",
+  "For ClickHouse, `toDayOfWeek(date)` and its alias `dayOfWeek` use the ISO numbering, so they return 1 for Monday, 2 for Tuesday, ..., 7 for Sunday. (It's MySQL's `DAYOFWEEK` that counts from Sunday = 1.)"
+ ]
+}
