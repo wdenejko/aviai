@@ -2,6 +2,9 @@
 
 Writes a HF dataset with `input_ids`, `labels` and `num_tokens`, which the patched recipe collator
 consumes directly (see patches/recipe-train-assistant-only-loss.patch), plus a JSON build report.
+Revision 2's blocks also carry `seq_lens`, each row's length with its separator and then the
+padding. With patches/recipe-train-packed-rows.patch, the collator turns them into row boundaries,
+so a row attends only to itself.
 Every block is `--block` tokens. The training kernels are keyed on exact token counts, and 2048,
 4096 and 8192 are the keyed lengths (reports/gate-evals/20260928-seq4096-enablement.md).
 
@@ -98,13 +101,16 @@ def main() -> None:
         {"input_ids": i, "labels": lab, "num_tokens": len(i)}
         for i, lab in zip(id_blocks, label_blocks, strict=True)
     ]
-    features = Features(
-        {
-            "input_ids": Sequence(Value("int32")),
-            "labels": Sequence(Value("int32")),
-            "num_tokens": Value("int32"),
-        }
-    )
+    columns = {
+        "input_ids": Sequence(Value("int32")),
+        "labels": Sequence(Value("int32")),
+        "num_tokens": Value("int32"),
+    }
+    if not args.legacy:  # the legacy stream cuts rows anywhere: it has no boundaries to keep
+        for row, seq_lens in zip(rows, stats["block_seq_lens"], strict=True):
+            row["seq_lens"] = seq_lens
+        columns["seq_lens"] = Sequence(Value("int32"))
+    features = Features(columns)
     shutil.rmtree(args.out, ignore_errors=True)
     Dataset.from_list(rows, features=features).save_to_disk(args.out)
     report = args.report or args.out.rstrip("/") + ".report.json"

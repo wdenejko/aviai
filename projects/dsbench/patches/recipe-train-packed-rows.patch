@@ -1,0 +1,51 @@
+--- train_qwen3_5_35b.py.bak
++++ train_qwen3_5_35b.py
+@@ -27,6 +27,7 @@
+ from fla_tuning import configure_qwen35_fla
+ from gguf_dequant_compile import configure_compiled_gguf_dequantize
+ from gguf_liger_loss import apply_gguf_liger_fused_linear_cross_entropy
++from packed_rows import add_segments, configure_qwen35_packed_conv
+ from qwen3_5_fused_norms import configure_qwen35_fused_norms
+ 
+ script_dir = Path(__file__).resolve().parent
+@@ -34,6 +35,9 @@
+ 
+ # I usually preprocess the dataset into chunks with fixed length. You may change this with your dataset
+ def fixed_length_lm_collator(examples):
++    # Revision 2 blocks list their rows' lengths (`seq_lens`); they become row boundaries below.
++    # default_data_collator can't stack lists of different lengths, so they leave first.
++    seq_lens = [example.pop("seq_lens", None) for example in examples]
+     batch = default_data_collator(examples)
+     input_ids = batch["input_ids"].long()
+     num_tokens = batch.pop("num_tokens").long()
+@@ -48,7 +52,9 @@
+         batch["labels"] = batch["labels"].long().masked_fill(~valid_tokens, -100)
+     else:
+         batch["labels"] = input_ids.masked_fill(~valid_tokens, -100)
+-    return batch
++    # Each packed row attends only to itself (packed_rows.py). A dataset without `seq_lens`
++    # (Gate 1/2's stream) trains as before.
++    return add_segments(batch, seq_lens)
+ 
+ 
+ def main():
+@@ -65,6 +71,7 @@
+     configure_compiled_gguf_dequantize()
+     configure_qwen35_flash_attention_2()
+     configure_qwen35_fla()
++    configure_qwen35_packed_conv()
+ 
+     tokenizer = cast(
+         Any,
+@@ -136,6 +143,11 @@
+     dataset = load_from_disk(dataset_dir)
+     if not isinstance(dataset, Dataset):
+         raise TypeError(f"expected a Dataset at {dataset_dir}, got DatasetDict")
++    # Row boundaries reach attention only through flash attention's variable-length path. Under
++    # any other implementation, packed rows would attend to each other again, silently.
++    attn = str(model.config._attn_implementation)
++    if "seq_lens" in dataset.column_names and "flash" not in attn:
++        raise ValueError(f"packed rows need flash attention, not {attn} (QWEN35_ATTN_IMPL)")
+ 
+     training_args = TrainingArguments(
+         output_dir=str(output_dir),

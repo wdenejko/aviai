@@ -255,13 +255,19 @@ def test_pack_thinking_fills_exact_blocks_with_whole_rows():
     assert stats["rejected"] == {"empty_reasoning": 1}
     assert stats["too_long"] == ["huge"]
     assert sorted(r for rows in stats["block_rows"] for r in rows) == sorted(sizes)
-    for ids, labels, names in zip(id_blocks, label_blocks, stats["block_rows"], strict=True):
+    for ids, labels, names, seq_lens in zip(id_blocks, label_blocks, stats["block_rows"],
+                                            stats["block_seq_lens"], strict=True):
         cursor = 0
-        for name in names:  # each row sits whole, then its unlabelled separator
+        for name, seq_len in zip(names, seq_lens, strict=False):
+            # each row sits whole, then its unlabelled separator: one segment of the block
+            assert seq_len == sizes[name] + 1
             cursor += sizes[name]
             assert ids[cursor] == end and labels[cursor] == tm.IGNORE
             cursor += 1
         assert all(lab == tm.IGNORE for lab in labels[cursor:])  # padding trains nothing
+        # the segments cover the block: the rows, then the padding as one more, if there is any
+        assert sum(seq_lens) == block
+        assert seq_lens[len(names):] == ([block - cursor] if cursor < block else [])
     expected = sum(sum(lab != tm.IGNORE for lab in tm.thinking_record(tok, r)[1])
                    for r in records[:4])
     assert sum(lab != tm.IGNORE for b in label_blocks for lab in b) == expected
