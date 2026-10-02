@@ -1,0 +1,331 @@
+{
+ "what": "ADR-004 Revision 2, action item 1: packed rows keep to their boundaries. See 20261002-packed-rows-check.md.",
+ "box_run_dir": "~/benchlab/runs/2026-10-02-qwen36-packed-rows/",
+ "times_cest": {
+  "note": "real time; the box clock runs 7,131 s behind (box = real - 1:58:51)",
+  "window_armed": "09:32:05",
+  "production": "already down when armed",
+  "ocr_stopped": "09:33:08",
+  "check": [
+   "09:33:10",
+   "09:40:34"
+  ],
+  "ocr_restored": "09:40:44",
+  "kernels_forward_during_window": [
+   "09:39:23",
+   "09:40:46"
+  ],
+  "kernels_forward_and_backward": [
+   "09:47:48",
+   "09:48:17"
+  ],
+  "thermostat": "never intervened"
+ },
+ "collator": {
+  "script": "patches/packing/check_collator.py",
+  "result": "ok",
+  "records": 199,
+  "rows": 199,
+  "too_long": 9,
+  "blocks": 56,
+  "rows_packed": 190,
+  "rows_per_block_max": 9,
+  "fill_pct": 97.7,
+  "trainable_token_pct": 87.0
+ },
+ "check": {
+  "block": 8192,
+  "started": "2026-10-02 07:34:19",
+  "rows": [
+   {
+    "id": "C-mlc_churn_rare-221",
+    "tokens": 2978,
+    "labelled": 1188
+   },
+   {
+    "id": "C-mlc_widget_defect-215",
+    "tokens": 3182,
+    "labelled": 1153
+   },
+   {
+    "id": "targetA:A-weekday-numbering-clickhouse-support_tickets-200013",
+    "tokens": 1029,
+    "labelled": 938
+   },
+   {
+    "id": "targetA:A-month-bucket-clickhouse-iot_readings-329661",
+    "tokens": 842,
+    "labelled": 753
+   }
+  ],
+  "seq_lens": [
+   2979,
+   3183,
+   1030,
+   843,
+   157
+  ],
+  "cu_seq_lens": [
+   0,
+   2979,
+   6162,
+   7192,
+   8035,
+   8192
+  ],
+  "versions": {
+   "torch": "2.12.0a0+rocm7.13.0a20260411",
+   "transformers": "5.17.0.dev0",
+   "fla": "0.5.2"
+  },
+  "attn_implementation": "kernels-community/aiter-flash-attn",
+  "load_s": 4.1,
+  "seconds": {
+   "hidden_packed": 56.4,
+   "hidden_today": 14.3,
+   "hidden_alone_0": 5.4,
+   "hidden_alone_1": 5.4,
+   "hidden_alone_2": 5.5,
+   "hidden_alone_3": 5.5,
+   "hidden_packed_again": 5.3,
+   "step_packed": 113.3,
+   "step_today": 76.3,
+   "step_alone_0": 25.3,
+   "step_alone_1": 25.2,
+   "step_alone_2": 27.8,
+   "step_alone_3": 29.2,
+   "step_packed_again": 23.6
+  },
+  "hidden": {
+   "noise": {
+    "rel_l2": 0.0,
+    "max_abs": 0.0,
+    "cos": 1.0013749599456787
+   },
+   "rows": [
+    {
+     "id": "C-mlc_churn_rare-221",
+     "packed": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0000584125518799
+     },
+     "packed_head": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0000053644180298
+     },
+     "today": {
+      "rel_l2": 0.28600645065307617,
+      "max_abs": 30.78125,
+      "cos": 0.9591119885444641
+     },
+     "today_head": {
+      "rel_l2": 0.1435585469007492,
+      "max_abs": 5.6328125,
+      "cos": 0.9897139668464661
+     }
+    },
+    {
+     "id": "C-mlc_widget_defect-215",
+     "packed": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0001270771026611
+     },
+     "packed_head": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0000053644180298
+     },
+     "today": {
+      "rel_l2": 0.7055140733718872,
+      "max_abs": 43.9375,
+      "cos": 0.7455134987831116
+     },
+     "today_head": {
+      "rel_l2": 1.1398015022277832,
+      "max_abs": 43.9375,
+      "cos": 0.3496926724910736
+     }
+    },
+    {
+     "id": "targetA:A-weekday-numbering-clickhouse-support_tickets-200013",
+     "packed": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 0.9998970031738281
+     },
+     "packed_head": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0000030994415283
+     },
+     "today": {
+      "rel_l2": 0.38591268658638,
+      "max_abs": 41.4375,
+      "cos": 0.923859179019928
+     },
+     "today_head": {
+      "rel_l2": 0.8470957279205322,
+      "max_abs": 41.4375,
+      "cos": 0.6481204628944397
+     }
+    },
+    {
+     "id": "targetA:A-month-bucket-clickhouse-iot_readings-329661",
+     "packed": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 0.9999052882194519
+     },
+     "packed_head": {
+      "rel_l2": 0.0,
+      "max_abs": 0.0,
+      "cos": 1.0000030994415283
+     },
+     "today": {
+      "rel_l2": 0.4088479280471802,
+      "max_abs": 47.5,
+      "cos": 0.9154157638549805
+     },
+     "today_head": {
+      "rel_l2": 0.8870545625686646,
+      "max_abs": 47.5,
+      "cos": 0.5995864868164062
+     }
+    }
+   ]
+  },
+  "loss": {
+   "packed": 0.15418851375579834,
+   "packed_again": 0.15418851375579834,
+   "today": 0.22086678445339203,
+   "alone": [
+    0.14345380663871765,
+    0.1084023118019104,
+    0.19392894208431244,
+    0.19172881543636322
+   ],
+   "alone_weighted": 0.15418852517189133
+  },
+  "grads": {
+   "noise": {
+    "attention": {
+     "rel_l2": 0.0,
+     "max_abs": 0.0,
+     "cos": 1.0000098943710327,
+     "tensors": 40
+    },
+    "experts": {
+     "rel_l2": 0.0,
+     "max_abs": 0.0,
+     "cos": 1.0211371183395386,
+     "tensors": 80
+    },
+    "gdn": {
+     "rel_l2": 0.0,
+     "max_abs": 0.0,
+     "cos": 1.0001741647720337,
+     "tensors": 90
+    },
+    "shared_mlp": {
+     "rel_l2": 0.0,
+     "max_abs": 0.0,
+     "cos": 0.9999799728393555,
+     "tensors": 120
+    }
+   },
+   "packed": {
+    "attention": {
+     "rel_l2": 0.013924024999141693,
+     "max_abs": 3.825942985713482e-05,
+     "cos": 0.9999269247055054,
+     "tensors": 40
+    },
+    "experts": {
+     "rel_l2": 0.016553547233343124,
+     "max_abs": 1.540785888209939e-05,
+     "cos": 1.0209695100784302,
+     "tensors": 80
+    },
+    "gdn": {
+     "rel_l2": 0.014816180802881718,
+     "max_abs": 0.00012135086581110954,
+     "cos": 1.0001126527786255,
+     "tensors": 90
+    },
+    "shared_mlp": {
+     "rel_l2": 0.012360685504972935,
+     "max_abs": 1.6686448361724615e-05,
+     "cos": 0.9999200105667114,
+     "tensors": 120
+    }
+   },
+   "today": {
+    "attention": {
+     "rel_l2": 1.3376003503799438,
+     "max_abs": 0.004313782323151827,
+     "cos": 0.30047306418418884,
+     "tensors": 40
+    },
+    "experts": {
+     "rel_l2": 1.214880108833313,
+     "max_abs": 0.0008587634074501693,
+     "cos": 0.32142871618270874,
+     "tensors": 80
+    },
+    "gdn": {
+     "rel_l2": 1.271080732345581,
+     "max_abs": 0.005211250856518745,
+     "cos": 0.245917409658432,
+     "tensors": 90
+    },
+    "shared_mlp": {
+     "rel_l2": 1.1154940128326416,
+     "max_abs": 0.0015950259985402226,
+     "cos": 0.46165716648101807,
+     "tensors": 120
+    }
+   }
+  },
+  "memory_gib": {
+   "allocated_peak": 17.0,
+   "reserved_peak": 17.2
+  },
+  "finished": "2026-10-02 07:41:43"
+ },
+ "kernels": {
+  "T": 1024,
+  "split": 600,
+  "attention": {
+   "plain_vs_causal": 0.001971513728492386,
+   "plain_vs_noncausal": 2.071711415299176,
+   "varlen_vs_causal": 0.001971513728492386,
+   "varlen_vs_noncausal": 2.071711415299176,
+   "varlen_second_vs_causal_alone": 0.001955366767145576,
+   "plain_pos0_vs_causal": 0.0,
+   "varlen_pos0_vs_causal": 0.0,
+   "bwd_into_first_varlen": 0.0,
+   "bwd_into_first_plain": 1.0859375,
+   "bwd_second_varlen_vs_alone": 0.0
+  },
+  "gated_delta_rule": {
+   "varlen_vs_plain_first": 0.0,
+   "varlen_second_vs_alone": 0.0,
+   "plain_second_vs_alone": 0.03399832709458762,
+   "bwd_into_first_varlen": 0.0,
+   "bwd_into_first_plain": 0.1162109375,
+   "bwd_second_varlen_vs_alone": 6.576206557567628e-07
+  },
+  "convolution": {
+   "fla_vs_torch_first": 0.0031182437488121956,
+   "fla_second_vs_torch_alone": 0.0031246316142652503,
+   "torch_second_vs_alone": 0.060148504278733785,
+   "bwd_into_first_fla": 0.0,
+   "bwd_into_first_torch": 5.84375,
+   "bwd_second_fla_vs_fla_alone": 0.0,
+   "bwd_second_fla_vs_torch_alone": 0.0027301591139196136
+  }
+ }
+}

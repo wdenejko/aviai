@@ -547,7 +547,8 @@ The selection (seed 20260930), 2,646 prompts:
     - the agent ended the loop itself, with `finish` or a final reply (added after the volume
       run, below);
     - the server's count fits the block, with any tool output after the last request counted
-      at a token a character (also added after the volume run).
+      at a token a character (also added after the volume run), and the separator that follows
+      the row in its block (added 2026-10-02; no kept row was within a token of the edge).
 
     The other runs go to `--fail-out` with the reason. Rows over the block keep `oracle_passed`,
     for a longer step later.
@@ -670,14 +671,43 @@ The selection (seed 20260930), 2,646 prompts:
     Served, the grammar holds the model to JSON, so it wrote `true`. A boolean or null now passes
     as its JSON text (`_as_written`). 30 of the tool rows' 295 fit prompts call a tool with a
     boolean parameter.
-- **Open: rows in a block see each other.** Full attention and the GatedDeltaNet state both carry
-  from one row into the next. Checked in the code on 2026-09-29:
-  - the model resets the GatedDeltaNet state when given row lengths (`cu_seq_lens_q`);
-  - its 4-tap convolution's fallback ignores boundaries;
-  - attention's variable-length path is unverified for the aiter kernel;
-  - the recipe's collator passes no lengths.
+- **Rows in a block see each other, unless the model is told where they end.** Full attention,
+  the GatedDeltaNet state and its 4-tap convolution all carry from one row into the next. Found
+  in the code on 2026-09-29. **Built and checked 2026-10-02**
+  (`reports/gate-evals/20261002-packed-rows-check.md`):
+  - **The dataset** lists each block's segments, `seq_lens`: each row with its separator, then
+    the padding (`pack_thinking`, `build_masked_dataset`).
+  - **The collator** turns them into the model's packed-sequence arguments
+    (`patches/recipe-train-packed-rows.patch`, `patches/packing/packed_rows.py`). Position ids
+    restart at each row, as each conversation's do when it is served, and `cu_seq_lens` mark the
+    boundaries. The batch stays one block.
+  - **Traced in the box's code:**
+    - with an all-ones mask, flash attention takes its variable-length path;
+    - the GatedDeltaNet rule gets the boundaries as `cu_seqlens`;
+    - the convolution runs transformers' torch fallback, which ignores them (the box has no
+      `causal-conv1d`), so it now goes to FLA's `causal_conv1d` when they are given;
+    - the loss ignores the extra arguments.
+  - **A guard:** the recipe refuses `seq_lens` under any attention but flash's. Under any other,
+    rows would attend to each other again, silently.
+  - **Checked on the CPU, on the box** (`patches/packing/check_collator.py`): the patched
+    collator over a Revision 2 dataset of the pilot's rows, 56 blocks and 190 rows. The
+    segments, positions, separators and labels all reach the model as built.
+  - **Checked on the GPU** (`patches/packing/check_packed_rows.py`, a window of under 9
+    minutes). A block of four real rows ran with its boundaries, without them and row by row.
+    - With boundaries, each row's last hidden state equals the row alone, bit for bit.
+    - The block's loss equals the rows' weighted loss, to 7 digits (0.15419).
+    - Its LoRA gradients match the rows' weighted gradients within 1.2-1.7%, the rounding of a
+      backward pass run at another loss scale.
+    - Without boundaries, the later rows move 39-71%, the loss rises to 0.221, and the gradients
+      share a cosine of only 0.25-0.46 with the rows' own.
+  - **The kernels on their own** (`patches/packing/check_kernels.py`):
+    - attention's variable-length path computes what the plain one does, and both are causal;
+    - with boundaries, the rule is bit for bit the same, and the convolution differs only by
+      rounding;
+    - no gradient crosses a boundary through any of the three.
 
-  A GPU check (a block with row lengths against its rows run alone) and a collator patch are next.
+    Without boundaries, a block's first row still moves 29%: the convolution's 0.3% rounding
+    difference, carried through 40 routed layers.
 
 ## Budget and time (estimated from the pilot's throughput)
 
@@ -764,8 +794,9 @@ The selection (seed 20260930), 2,646 prompts:
 
 ## Action items (Revision 2)
 
-1. [ ] Rendering and packing. **Done 2026-09-29 except the last point**
-   (`reports/gate-evals/20260929-thinking-rendering-packing.md`):
+1. [x] Rendering and packing. **Done 2026-09-29; the last point 2026-10-02**
+   (`reports/gate-evals/20260929-thinking-rendering-packing.md`,
+   `reports/gate-evals/20261002-packed-rows-check.md`):
    - [x] the `<think>\n` opener stays in the prompt;
    - [x] no labels before the last user message;
    - [x] bin-packing into 8,192-token blocks without splitting rows (`build_masked_dataset.py` now
@@ -776,7 +807,11 @@ The selection (seed 20260930), 2,646 prompts:
      every one of its 6,061 tool calls with no arguments;
    - [x] found 2026-10-01 in the Target C pilot: a boolean or null argument renders as the JSON
      the model wrote, not Python's `True` or `None`;
-   - [ ] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
+   - [x] rows in a block see each other: a GPU check and a collator patch that passes row lengths.
+     **Done 2026-10-02:**
+     - the dataset's `seq_lens`, the collator patch, and boundaries for the convolution;
+     - checks of the collator (CPU), the model (GPU) and the kernels (GPU);
+     - packed, each row trains exactly as if it were alone.
 2. [ ] Target A:
    - [x] offsets stated in the timezone family. **Done 2026-09-29:**
      - the question states each city's offset, daylight or standard time, drawn per instance,
