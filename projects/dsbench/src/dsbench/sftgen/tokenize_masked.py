@@ -49,6 +49,11 @@ a measured Gate-2 failure (reports/gate-evals/20260924-gate2-battery.md and its 
    Gate 2 trained on was an empty `<function=...>` block. The server parses the string first;
    training now does the same. A boolean or null argument is passed as its JSON text, which the
    model wrote; the template would print Python's `True` or `None`.
+5. **Each block records where its rows end** (`stats["block_seq_lens"]`): every row with its
+   separator, then the padding. Packed without them, a row attends to the rows before it in its
+   block, and the GatedDeltaNet state and convolution carry over from one row into the next.
+   `build_masked_dataset` writes them as `seq_lens`, and the recipe's collator turns them into row
+   boundaries (patches/recipe-train-packed-rows.patch).
 
 **The tokenizer.** One more fix turned up while building this path. transformers' GGUF converter
 registers only a few ChatML control tokens as added tokens, so `<think>`, `</think>`,
@@ -424,6 +429,9 @@ def pack_thinking(
     Every block is exactly `block` tokens, because the training kernels are keyed on exact token
     counts. The separator and the padding get no label. A row must leave room for its separator,
     so the longest row that fits is `block - 1` tokens.
+
+    `stats["block_seq_lens"]` holds each block's segments in order: each row's length plus its
+    separator, then the padding, if any. They sum to `block`.
     """
     rows: list[tuple[list[int], list[int]]] = []
     names: list[str] = []
@@ -439,6 +447,7 @@ def pack_thinking(
     bins, too_long = bin_pack([len(ids) + 1 for ids, _ in rows], block)
     id_blocks: list[list[int]] = []
     label_blocks: list[list[int]] = []
+    seq_lens: list[list[int]] = []
     for members in bins:
         ids: list[int] = []
         labels: list[int] = []
@@ -448,6 +457,7 @@ def pack_thinking(
         padding = block - len(ids)
         id_blocks.append(ids + [pad_id] * padding)
         label_blocks.append(labels + [IGNORE] * padding)
+        seq_lens.append([len(rows[i][0]) + 1 for i in members] + ([padding] if padding else []))
 
     total = block * len(id_blocks)
     content = sum(len(rows[i][0]) + 1 for members in bins for i in members)
@@ -464,5 +474,6 @@ def pack_thinking(
         "fill_pct": round(100.0 * content / total, 1) if total else 0.0,
         "trainable_token_pct": round(100.0 * trained / total, 1) if total else 0.0,
         "block_rows": [[names[i] for i in members] for members in bins],
+        "block_seq_lens": seq_lens,
     }
     return id_blocks, label_blocks, stats
