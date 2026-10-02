@@ -428,6 +428,33 @@ The selection (seed 20260930), 2,646 prompts:
     - 250 rows take about 1 hour of box time keeping the doubting traces, 2 without;
     - paraphrase the sentence;
     - stop the plain phase at 512 tokens, since every cut fell within about 200.
+
+  **The volume, built 2026-10-02** (`target_a_hints.py volume-items`, as decision 2 proposes;
+  `data/sft/rev2_target_a_manifest.json`):
+  - **ClickHouse's weekday and weekend rows go through `recall`.**
+    - The sentence comes in 4 wordings, drawn per row. Each makes the pilot sentence's claims,
+      filled in from the checked functions: the function, its alias, its numbering, that the
+      numbering is ISO, and that Sunday = 1 is MySQL's.
+    - The plain phase stops at 512 tokens (`max_tokens` on the item). The window's `splice`
+      step cuts each reply and writes the convention there, and the base continues.
+  - **The rows follow the prompts.** The model sees only the question, never the table, so a
+    family has only as many prompts as questions times domains: 126 weekday prompts but 18
+    weekend ones. Equal rows a family would have repeated each weekend prompt about 16 times. So
+    weekdays get 450 rows and weekends 72 (124 and 18 prompts drawn). That is about 2 kept traces
+    a prompt in both, once the doubting traces are dropped.
+  - **The other 14 cells** come from the base's plain replies, 18 rows a cell (227 distinct
+    prompts), kept where they verify.
+  - **The doubt filter.** It is now `target_a_hints.doubts`: a sentence after the prefill that
+    states Sunday = 1 and doesn't name MySQL, counted only in ClickHouse's weekday and weekend
+    rows.
+    - `verify` records the count. The assembler drops those rows by default, as proposed;
+      `--target-a-doubts keep` keeps them.
+    - On the pilot's kept replies it reproduces the report's counts exactly: 49 of 95 `recall`,
+      40 of 92 `start`, 7 of 7 plain.
+  - **The items.** 522 plain-phase items and 252 cell items. Every hint check passed on the four
+    sandboxed engines, and neither the generator nor the battery gate rejected a row.
+  - **About 3.5 hours of box time**, by the pilot's lengths: 0.3M tokens for the plain phase,
+    0.8M for recall and 0.4M for the cells.
 - **SQL.** SynSQL-2.5M was generated with open-source models, per its card. It has 16,583 SQLite
   databases, and its rows are keyed by database. Each prompt is therefore built from its row's
   database in the battery's BIRD format: the DDL and three rows per table, with SQLite named. A row
@@ -868,9 +895,10 @@ it; the generated rows will tell.
      convention written there, and the base continuing (`recall`);
    - 95 of 96 replies kept, at the base's length, against 7 of 96 for plain sampling.
 
-   Proposed: `recall` for ClickHouse's weekday and weekend rows, and no teacher. Also to decide:
+   Proposed: `recall` for ClickHouse's weekday and weekend rows, and no teacher (its volume is
+   built, "Where the reasoning comes from"). Also to decide:
    whether to drop the traces that raise Sunday = 1 again before settling on ISO, about half.
-   Proposed: drop them; it costs an hour of box time.
+   Proposed: drop them; it costs an hour of box time (the assembler's `--target-a-doubts`).
 3. **SQL:** SynSQL-2.5M alone (proposed), or also BIRD and Spider train under CC BY-SA 4.0.
 4. **jupyter-agent (559 rows in Gate 2) and DataMind (640):** their answers are other pipelines'
    text, which principle 2 excludes. Drop them (proposed: Target C, the SQL pool and the tool rows
@@ -957,9 +985,11 @@ it; the generated rows will tell.
      - the `recall` prefill keeps 95 of 96 at the base's length;
      - `start` keeps 92 of 96, at two-thirds of the base's length;
      - plain sampling keeps 7 of 96.
-   - [ ] generate Target A's ClickHouse weekday and weekend rows with the `recall` prefill, once
-     decision 2 is taken: the sentence paraphrased into checked variants, the plain phase stopped
-     at 512 tokens, and the doubt filter in `verify` if the owner keeps it.
+   - [x] the volume's items and tooling. **Built 2026-10-02:** 4 checked wordings of the
+     sentence; the plain phase stopped at 512 tokens; the doubt filter, recorded by `verify` and
+     applied by the assembler; rows spread over the prompts; the window's `splice` step.
+   - [ ] generate Target A's rows in a window (`ta_cells ta_plain splice:ta_plain:ta_recall
+     ta_recall`), once decision 2 is taken.
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
