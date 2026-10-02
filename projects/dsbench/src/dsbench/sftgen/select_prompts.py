@@ -12,8 +12,9 @@ A row is eligible when its prompt
   doing, and its quota allows for it (below);
 - shares nothing with the battery: no 13-gram of any item, and no short item whole. A row below
   rule 4's line would pass the assembly gate, but skipping it here costs a few rows in thousands;
-- carries what its check needs (opencoder: its tests), and no tools: a tool conversation needs a
-  real rollout, not one reply;
+- carries what its check needs (opencoder: its tests, each one `assert` line), and no tools: a
+  tool conversation needs a real rollout, not one reply. An opencoder prompt also shows its first
+  test (`EXAMPLE_TEST`);
 - is not a prompt already taken, from this pool or an earlier one.
 
 Each pool's quota is its share of its bucket's kept-row target (ADR-004's table: replay 1,600,
@@ -75,6 +76,20 @@ POOLS: tuple[Pool, ...] = (
 # Kept out of an item's meta: sizing that no longer applies, the acquisition's bucket (the item
 # has its own), and what moves to `verify`.
 _META_DROP = ("approx_tokens", "bucket", "gold_answer", "testcase", "has_testcase", "entry_point")
+
+
+# OpenCoder's tests call the function by the name the dataset's own answer gave it, and expect that
+# answer's return format, but the instruction rarely says either: 19 of the 750 prompts selected on
+# 2026-09-30 named the function, so a right answer under another name would fail every test. The
+# prompt therefore shows the first test, as MBPP's prompts show theirs, and the check runs them all:
+# the others stay unseen. Added before the length and battery checks, so they see it; duplicates
+# are still found by the instruction alone.
+EXAMPLE_TEST = "\n\nYour code should pass this test, and others like it:\n```python\n{test}\n```"
+
+
+def with_example_test(prompt: list[dict], tests: list[str]) -> list[dict]:
+    last = {**prompt[-1], "content": prompt[-1]["content"] + EXAMPLE_TEST.format(test=tests[0])}
+    return [*prompt[:-1], last]
 
 
 def prompt_messages(messages: list[dict]) -> list[dict]:
@@ -158,14 +173,23 @@ def select(data_zone: Path, index: BatteryIndex | None, *, pools: tuple[Pool, ..
             if pool.requires and not row["meta"].get(pool.requires):
                 dropped[f"no {pool.requires}"] += 1
                 continue
+            if not all(test.strip().startswith("assert ") for test in row["meta"].get("testcase",
+                                                                                     ())):
+                # 39 of OpenCoder's 10,000 rows: a test over several lines (building a tree),
+                # stored with its lines out of order, so it fails on the dataset's own answer
+                dropped["tests not one assert a line"] += 1
+                continue
             if not any(m.get("role") == "user" for m in row["messages"]):
                 dropped["no user turn"] += 1
                 continue
             prompt = prompt_messages(row["messages"])
+            # the instruction's digest: the same instruction with other tests is a duplicate
+            digest = _digest(prompt)
+            if row["meta"].get("testcase"):
+                prompt = with_example_test(prompt, row["meta"]["testcase"])
             if prompt_tokens(prompt) > max_prompt_tokens:
                 dropped["long"] += 1
                 continue
-            digest = _digest(prompt)
             if digest in taken or digest in candidates:
                 dropped["duplicate"] += 1
                 continue
@@ -184,7 +208,8 @@ def select(data_zone: Path, index: BatteryIndex | None, *, pools: tuple[Pool, ..
         alloc = even_allocation({g: len(v) for g, v in groups.items()}, want)
         rng = random.Random(f"{seed}:{pool.name}")
         chosen = [item for g in sorted(groups) for item in rng.sample(groups[g], alloc[g])]
-        taken |= {_digest(item["messages"]) for item in chosen}
+        digest_of = {item["id"]: digest for digest, item in candidates.items()}
+        taken |= {digest_of[item["id"]] for item in chosen}
         items += chosen
 
         tokens = [item["prompt_tokens_est"] for item in chosen]
