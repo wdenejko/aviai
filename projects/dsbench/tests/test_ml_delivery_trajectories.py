@@ -207,6 +207,7 @@ def test_a_clean_passing_run_that_fits_is_kept():
     (_res(calls=[("run_python", {"code": "get_client(username='avbench', "
                                          "password='avbench')"})]), "withheld_access"),
     (_res(served=8192), "over_block"),  # the template adds a newline: 8,193 tokens
+    (_res(served=8191), "over_block"),  # 8,192 with the newline, and the separator follows
 ])
 def test_a_run_is_not_kept_for_the_first_reason_that_applies(res, why_not):
     sel = mdt.selection(res, block=8192, reasoning=True)
@@ -214,7 +215,8 @@ def test_a_run_is_not_kept_for_the_first_reason_that_applies(res, why_not):
 
 
 def test_the_block_edge_and_the_checks_that_depend_on_the_mode():
-    assert mdt.selection(_res(served=8191), block=8192)["kept"]  # 8,192 with the newline
+    # 8,191 with the newline, and 8,192 with the separator that follows it in the block
+    assert mdt.selection(_res(served=8190), block=8192)["kept"]
     assert mdt.selection(_res(served=50_000))["fits"] is None  # no block: length not checked
     assert mdt.selection(_res(reasoning=""), reasoning=False)["kept"]  # a teacher's row
 
@@ -222,7 +224,8 @@ def test_the_block_edge_and_the_checks_that_depend_on_the_mode():
 @pytest.mark.parametrize(("chars", "fits"), [(150, True), (200, False)])
 def test_tool_output_after_the_last_request_counts_toward_the_block(chars, fits):
     # A turn that writes the table and calls `finish` at once ends the row on the write's output,
-    # which no request carried: 8,000 served + 1 + at most (chars + 16) for that output.
+    # which no request carried: 8,000 served + 1 + at most (chars + 16) for that output, then the
+    # separator.
     res = _res(served=8000)
     res["trajectory"][-1] = _assistant_turn("Write, then finish.", [
         ("run_python", {"code": "write()"}), ("finish", {})])
