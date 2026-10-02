@@ -803,8 +803,10 @@ files. Revision 2's rows are the base's replies that passed their pool's check, 
   budget gives all it has, and the shortfall is reported, never padded. A budget counts whole
   rows, prompts included, since training time is paid per token; the manifest also counts the
   base's own tokens, the part that trains.
-- **Takes decisions 1, 5 and 6 as parameters** (`--scale`, `--gsm8k`, `--share`). Decision 7 isn't
-  applied yet: every turn of a Target C loop trains.
+- **Takes the owner's decisions as parameters**, each defaulting to its proposal: decision 1
+  (`--scale`), 2's open question (`--target-a-doubts`), 5 (`--gsm8k`), 6 (`--share`) and 7
+  (`--target-c-failed-turns`). Since 2026-10-02 decision 7 is applied: a Target C turn whose call
+  failed is context, not trained (decision 7 has the numbers).
 
 The records go through `thinking_record` with the model's own template in the tests: a plain
 reply, a tool call, and Target A's training prompt. On Target C's 154 rows, the assembler counts
@@ -925,6 +927,10 @@ it; the generated rows will tell.
      trains with its cause in view. The oracle checks the delivered table, not each step.
    - Or: train every turn, as the loop happened.
 
+   Both are built (2026-10-02): the assembler marks a failed turn `"loss": False` by default, and
+   `--target-c-failed-turns train` trains it. On the 154 rows, 141 turns in 88 rows are marked,
+   and the base's own tokens fall from 378,639 to 305,754; the rows' tokens don't change.
+
    Also: Target C at 8,192 tokens with a quota per family (proposed), or a 16,384-token step for
    its rows, which would keep the loops that reason through credit_leak's leak. The volume run
    measured both: 154 rows and 0.80M tokens at 8,192; 247 rows and 1.87M tokens at 16,384, with
@@ -1008,7 +1014,11 @@ it; the generated rows will tell.
      - a run that names an answer key is never kept.
    - [x] the agent's own ClickHouse login (ADR-003 §7). **Done 2026-10-01**: the key is out of
      its reach, checked live and by `ml_tasks`' oracle gate.
-   - [ ] if decision 7 masks failed turns: a per-turn mark that `thinking_record` reads.
+   - [x] a per-turn mark for decision 7. **Built 2026-10-02:**
+     - `thinking_record` leaves a turn marked `"loss": False` unlabelled, and still checks it;
+     - `agentic.tools.is_error` reads a failed call as the executors report it. On the 154 kept
+       rows it finds the volume report's 141 of 1,158 turns, 20.5% of the assistant text;
+     - the assembler applies it (`--target-c-failed-turns`).
    - [x] the window scripts. **Built 2026-10-01** (`patches/target_c_volume_*.sh`): a 5-hour hold
      whose deadline the Mac reads, early ends, a second window that resumes the first; rehearsed
      against a stand-in.
