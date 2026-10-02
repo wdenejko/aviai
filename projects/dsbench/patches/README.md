@@ -271,16 +271,27 @@ same scripts. Its run directory holds four things:
   items don't change;
 - the plan, base and A/A pass benchmark by benchmark, so a window cut short leaves whole pairs.
 
-The calibration (`~/benchlab/runs/2026-10-02-qwen36-mini-battery-base/`, prepared and not yet
-run):
+The calibration (`~/benchlab/runs/2026-10-02-qwen36-mini-battery-base/`; run 2026-10-02,
+`reports/gate-evals/20261002-mini-battery-calibration.md`):
 
     ARM=1 CTX=196608 MAX_HOURS=9 nohup setsid ~/benchlab/scripts/battery/battery_window.sh \
       ~/benchlab/runs/2026-10-02-qwen36-mini-battery-base \
       "bfcl:base bfcl:base_rep ifeval:base ifeval:base_rep humaneval_plus:base \
        humaneval_plus:base_rep bird:base bird:base_rep" </dev/null >/dev/null 2>&1 &
 
-Scoring needs no GPU: `score --run-dir RUN --bench ifeval,bfcl,bird,humaneval_plus` scores every
-pass that has generations.
+The time limit stopped BIRD's A/A pass at 116 of 150 items. A second window, launched while the
+first ran, finished it: armed, it waits until the first window's server is gone (any
+llama-server but OCR's counts as production), then resumes the pass where it stopped.
+
+    ARM=1 DEADLINE_H=6 CTX=196608 MAX_HOURS=3 nohup setsid \
+      ~/benchlab/scripts/battery/battery_window.sh ~/benchlab/runs/2026-10-02-qwen36-mini-battery-base \
+      "bird:base bird:base_rep" </dev/null >/dev/null 2>&1 &
+
+Scoring needs no GPU: `autoscore --run-dir RUN`, beside the window, scores each pass as it
+completes; `score --run-dir RUN --bench ifeval,bfcl,bird,humaneval_plus` scores every pass that
+has generations. Then `mini summary --run-dir RUN --state base_rep --aa none` reads the noise, and
+`mini-battery/calibration.py RUN GATE2_RUN LOG[,LOG...] OUT.json` the cost, the budget, the
+thinking-off comparison and the retrospective on Gate 2's adapter.
 
 **A Revision 2 checkpoint** gets its own run directory from `mini-battery/checkpoint.sh TRAIN_RUN
 STEP CAL_RUN CKPT_RUN`, with no GPU: the checkpoint's adapter exported to a LoRA GGUF, and links to
@@ -288,9 +299,7 @@ the calibration's items, data, gold scores, base and A/A passes. A battery windo
 `LORA=CKPT_RUN/lora.gguf` and the plan `bfcl:adapter ifeval:adapter humaneval_plus:adapter
 bird:adapter` then answers only the checkpoint's passes, and `mini summary --state adapter --aa
 base_rep` compares them with the base. The script refuses a directory that exists. Rehearsed on
-the Mac with a stand-in for `toolbox`. Then `mini summary --run-dir RUN --state base_rep --aa none` reads the
-noise. A checkpoint later runs as `adapter`, with its LoRA in `LORA`, against the same base
-passes.
+the Mac with a stand-in for `toolbox`. One checkpoint's passes take a window of about 5 hours.
 
 Three box gotchas the battery hit: podman bind mounts need `:z` (SELinux is enforcing, and without
 the relabel the sandbox can't read its own inputs); llama-server's slot actions (`erase`) return 501
