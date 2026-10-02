@@ -39,6 +39,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from dsbench.sftgen.reasoning_pilot import latest_rows
+
 _DAY = r"(?:mon|tues|wednes|thurs|fri|satur|sun)day"
 # Where the base turns to the weekday function. ClickHouse's `toDayOfWeek` and its alias
 # `dayOfWeek` are what it writes; the other dialects' names are here in case it reaches for one.
@@ -143,7 +145,7 @@ def main() -> None:
     s.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     items = [json.loads(line) for line in args.items.open()]
-    records = [json.loads(line) for line in args.gen.open()]
+    records = list(latest_rows(args.gen).values())  # a torn line skipped, retries resolved
     spliced, counts = splice_all(items, records)
     args.out.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in spliced))
     print(json.dumps(counts))

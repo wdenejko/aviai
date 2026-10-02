@@ -4,6 +4,9 @@ ClickHouse replies (reports/gate-evals/20260930-target-a-hints-pilot.md).
 """
 from __future__ import annotations
 
+import json
+import sys
+
 import pytest
 from dsbench.sftgen import prefill
 
@@ -81,3 +84,17 @@ def test_splice_all_takes_the_retried_reply_and_counts_the_rest():
     assert [i["id"] for i in out] == [f"targetA_recall:{ROW}#1"]
     assert out[0]["prefill"] == "Plan. RECALL."
     assert counts == {"plain": 2, "spliced": 1, "no_cut": 1}
+
+
+def test_the_splice_command_reads_a_resumed_phase_with_a_torn_last_line(tmp_path, monkeypatch):
+    items, gen, out = tmp_path / "items.jsonl", tmp_path / "gen.jsonl", tmp_path / "recall.jsonl"
+    items.write_text("".join(json.dumps(i) + "\n" for i in (_plain(1), _plain(2))))
+    gen.write_text(
+        json.dumps({"id": f"targetA:{ROW}#1", "error": "ReadTimeout"}) + "\n"
+        + json.dumps({"id": f"targetA:{ROW}#1", "error": "",
+                      "reasoning": "Plan. toDayOfWeek is 1 for Sunday."}) + "\n"
+        + '{"id": "targetA:' + ROW + '#2", "error": "", "reaso')  # a power cut mid-row
+    monkeypatch.setattr(sys, "argv", ["prefill", "splice", "--items", str(items), "--gen",
+                                      str(gen), "--out", str(out)])
+    prefill.main()
+    assert [json.loads(line)["id"] for line in out.open()] == [f"targetA_recall:{ROW}#1"]

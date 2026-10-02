@@ -78,6 +78,17 @@ def test_the_check_decides_and_gsm8k_follows_decision_5():
                          gsm8k="finished")  # the policy is GSM8K's alone
 
 
+def test_target_a_s_doubting_traces_follow_decision_2():
+    doubting = {"pool": "targetA_recall", "check": {"status": "verified", "kept": True,
+                                                    "doubts": 2}}
+    clean = {"pool": "targetA_recall", "check": {"status": "verified", "kept": True,
+                                                 "doubts": 0}}
+    assert not ar.passed(doubting) and ar.passed(doubting, target_a_doubts="keep")
+    assert ar.passed(clean)
+    plain_cell = {"pool": "targetA", "check": {"status": "verified", "kept": True}}
+    assert ar.passed(plain_cell)  # no doubts are counted where Sunday = 1 isn't the wrong belief
+
+
 def test_a_target_c_loop_is_counted_as_its_selection_counted_it():
     loop = {"messages": [], "meta": {"id": "C-x-1", "selection": {"served_tokens": 3728},
                                      "turns": [{"completion_tokens": 200},

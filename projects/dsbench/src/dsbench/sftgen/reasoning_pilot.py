@@ -283,7 +283,10 @@ def run_one(client, item: dict, max_tokens: int, block: int = 0) -> dict:
               "sampling": {**SAMPLING, "seed": _seed(item)}}
     started = time.time()
     try:
-        budget, rendered = reply_budget(client, item, max_tokens, block)
+        # An item may cap its own reply below the run's: Target A's plain phase stops at 512
+        # tokens, since only the opening of its reply is kept (target_a_hints.PLAIN_PHASE_TOKENS).
+        limit = min(max_tokens, item.get("max_tokens") or max_tokens)
+        budget, rendered = reply_budget(client, item, limit, block)
         if block:
             record.update(max_tokens=budget, rendered_prompt_tokens=rendered)
             if rendered is not None and rendered >= block:  # no reply can fit after the prompt
