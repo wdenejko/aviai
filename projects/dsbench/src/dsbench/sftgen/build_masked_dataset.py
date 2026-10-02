@@ -4,7 +4,8 @@ Writes a HF dataset with `input_ids`, `labels` and `num_tokens`, which the patch
 consumes directly (see patches/recipe-train-assistant-only-loss.patch), plus a JSON build report.
 Revision 2's blocks also carry `seq_lens`, each row's length with its separator and then the
 padding. With patches/recipe-train-packed-rows.patch, the collator turns them into row boundaries,
-so a row attends only to itself.
+so a row attends only to itself. Records from `assemble_rev2.py` carry the counts they were
+selected by, the server's; the report compares them with the exact ones (`estimates`).
 Every block is `--block` tokens. The training kernels are keyed on exact token counts, and 2048,
 4096 and 8192 are the keyed lengths (reports/gate-evals/20260928-seq4096-enablement.md).
 
@@ -96,6 +97,12 @@ def main() -> None:
               f"(max {stats['rows_per_block_max']} rows per block)")
         print(f"fill             : {stats['fill_pct']}%")
         print(f"trainable tokens : {stats['trainable_token_pct']}%")
+        est = stats["estimates"]
+        if est:  # the assembler's counts, which are the server's
+            print(f"vs the assembler : {est['equal']} of {est['rows']} rows exact; "
+                  f"{est['exact_fewer']['rows']} fewer (by up to {est['exact_fewer']['most']}), "
+                  f"{est['exact_more']['rows']} more (by up to {est['exact_more']['most']}); "
+                  f"trained {est['trained']['exact']:,} against {est['trained']['estimated']:,}")
 
     rows = [
         {"input_ids": i, "labels": lab, "num_tokens": len(i)}
