@@ -5,6 +5,10 @@
 # Stops the OCR user unit for the window and restarts it on exit (as gate2_ab.sh), waits for GTT
 # to drain, runs the thermal governor on the server, optionally runs the parity check first
 # (PARITY=1: bare-base server, then the battery server), then runs each generation pass in order.
+# Production is the owner's to stop: the window refuses to start beside it, and with ARM=1 waits
+# for it to stop (up to DEADLINE_H hours, default 12). MAX_HOURS ends the window: a pass still
+# running then is stopped, and the plan run again later resumes it (generate.py skips answered
+# items). Thinking-on passes (the mini-battery) need CTX=196608: 8 slots of prompt plus 12,288.
 set -u
 RUN=$1; PLAN=$2
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -16,6 +20,21 @@ SRV_PAT='^/home/wdenejko/src/llama-qwen4exp-src/build-v2/bin/llama-server .*--po
 OCR_UNIT=dashi-unlimited-ocr.service
 OCR_PAT='^/home/wdenejko/src/llama-unlimited-ocr/[^ ]*/llama-server '
 log(){ echo "[window] $(date +%H:%M:%S) $*" >>"$LOG"; }
+production(){ pgrep -af '^[^ ]*/llama-server( |$)' | grep -qv 'llama-unlimited-ocr/'; }
+if [ "${ARM:-0}" = 1 ]; then
+  end=$(( $(date +%s) + ${DEADLINE_H:-12} * 3600 )); down=no
+  log "armed: waiting for production to be stopped"
+  while [ "$(date +%s)" -lt "$end" ]; do
+    if ! production; then
+      sleep 60  # a restart (a supervisor, a config change) brings it back within a minute
+      if ! production; then down=yes; break; fi
+    fi
+    sleep 30
+  done
+  [ $down = yes ] || { log "deadline passed: the window was not started"; exit 1; }
+fi
+if production; then log "a llama-server other than OCR's is running: not starting"; exit 1; fi
+[ -n "${MAX_HOURS:-}" ] && STOP=$(( $(date +%s) + MAX_HOURS * 3600 ))
 # Stopping OCR while it is still loading (the previous window's trap has just restarted it) timed
 # out on 2026-09-25: systemd killed only the `toolbox run` wrapper, and the llama-server inside the
 # container survived, stuck, holding GPU memory. So let a running unit finish loading (its /health
@@ -71,8 +90,15 @@ for step in $PLAN; do
     log "hold $state released ($( [ -f $RUN/hold/$state.done ] && echo done || echo timeout))"
     rm -f $RUN/hold/$state.ready; continue
   fi
+  left=""
+  if [ -n "${STOP:-}" ]; then
+    left=$(( STOP - $(date +%s) ))
+    [ "$left" -gt 0 ] || { log "time limit: $step and the rest not run"; break; }
+  fi
   log "generate $bench $state"
-  (cd $SRC && PYTHONPATH=. $PY -m dsbench.battery.generate --items $RUN/items/$bench.jsonl \
-     --state $state --out $RUN/gen/$bench.$state.jsonl --workers 8) >>"$LOG" 2>&1
+  (cd $SRC && PYTHONPATH=. ${left:+timeout $left} $PY -m dsbench.battery.generate \
+     --items $RUN/items/$bench.jsonl --state $state --out $RUN/gen/$bench.$state.jsonl \
+     --workers 8) >>"$LOG" 2>&1
+  [ $? = 124 ] && { log "time limit: $step stopped part-way, the rest not run"; break; }
 done
 log "plan done"
