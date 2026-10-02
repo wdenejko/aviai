@@ -796,7 +796,11 @@ files. Revision 2's rows are the base's replies that passed their pool's check, 
   tool calls. Target A's rows train on their training prompt. Target C's loops are records
   already.
 - **Drops a row the block can't hold**, on the server's counts: the prompt, the reply, the
-  newline after it and the separator. `build_masked_dataset` counts again exactly, on the box.
+  newline after it and the separator. `build_masked_dataset` counts again exactly, on the box,
+  and compares (`estimates` in its report). On Target C's 154 rows (2026-10-02) the server's
+  count was exact for 129 and over by 1 to 28 tokens for 25, never under. On every row, the
+  last request tokenized exactly as the server counted it; the difference is all in the last
+  turn, counted as it was generated, then rendered and tokenized again for training.
 - **Runs `decontaminate.py`'s gate over the whole record**, the replies included. The prompts were
   gated when they were built; the replies are new text.
 - **Picks rows to the table's token budgets**, with a seeded shuffle per pool. A pool short of its
@@ -1047,7 +1051,15 @@ it; the generated rows will tell.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
-     box, whose exact counts check the assembler's.
+     box, whose exact counts check the assembler's. **Checked on Target C's 154 rows
+     2026-10-02** (`~/benchlab/runs/2026-10-02-rev2-assembly-check/`), the only pool generated so
+     far:
+     - no row too long. The server's counts are exact or over ("Assembly" above): 802,944 tokens
+       against 803,029, and 305,669 trained against 305,754;
+     - 113 blocks, at most 2 rows each, 86.8% full: Target C's rows average about 5,200 tokens,
+       so they pack poorly;
+     - the builder now makes this check on every mixture: each record carries the counts the
+       assembler selected it by (`meta.mix_tokens`, `meta.mix_reply`).
    - [x] the training window and the checkpoint gate's scripts. **Built 2026-10-02**
      (`patches/rev2_train.sh`, `patches/mini-battery/checkpoint.sh`):
      - the recipe as Gate 2 ran it (rank 4, learning rate 1e-4, one epoch, a checkpoint every
