@@ -89,12 +89,61 @@ def test_target_a_s_doubting_traces_follow_decision_2():
     assert ar.passed(plain_cell)  # no doubts are counted where Sunday = 1 isn't the wrong belief
 
 
+def _loop():
+    call = {"type": "function", "function": {"name": "get_time", "arguments": '{"city": "Oslo"}'}}
+    messages = [
+        {"role": "user", "content": "What time is it in Oslo?"},
+        {"role": "assistant", "content": "", "reasoning_content": "Ask the tool.",
+         "tool_calls": [call, call]},
+        {"role": "tool", "content": "12:00"},
+        {"role": "tool", "content": "SQL error: Code: 46. Unknown function stddev"},
+        {"role": "assistant", "content": "", "reasoning_content": "Again, one call.",
+         "tool_calls": [call]},
+        {"role": "tool", "content": "12:00"},
+        {"role": "assistant", "content": "It is noon.", "reasoning_content": "Done."},
+    ]
+    return {"tools": TOOLS, "messages": messages,
+            "meta": {"id": "C-x-1", "selection": {"served_tokens": 3728},
+                     "turns": [{"completion_tokens": 200}, {"completion_tokens": 122},
+                               {"completion_tokens": 30}]}}
+
+
 def test_a_target_c_loop_is_counted_as_its_selection_counted_it():
-    loop = {"messages": [], "meta": {"id": "C-x-1", "selection": {"served_tokens": 3728},
-                                     "turns": [{"completion_tokens": 200},
-                                               {"completion_tokens": 122}]}}
-    row = ar.trajectory(loop)
-    assert (row.tokens, row.reply, row.record["meta"]["pool"]) == (3729, 322, "target_c")
+    row = ar.trajectory(_loop(), mask_failed=False)
+    assert (row.tokens, row.reply, row.record["meta"]["pool"]) == (3729, 352, "target_c")
+    assert row.record["meta"]["masked_turns"] == []
+
+
+def test_a_failed_call_is_seen_in_any_tool_message_that_answers_its_turn():
+    from dsbench.agentic.tools import is_error
+
+    assert ar.failed_turns(_loop()["messages"]) == [1]  # one of its two parallel calls failed
+    assert is_error("Traceback (most recent call last):\n  ...\nKeyError: 'x'")
+    assert is_error('File "<stdin>", line 31\n    x = [\'a\', b\']\nSyntaxError: ...')
+    assert is_error("run_python error: timed out (90s)") and is_error("tool-call error: bad JSON")
+    assert not is_error("caught it: Error: the column is empty")  # the script ran
+    assert not is_error("(0 rows)")
+
+
+def test_decision_7_keeps_a_failed_turn_as_context_without_training_it():
+    row = ar.trajectory(_loop())  # masked by default, as proposed
+    assert row.record["meta"]["masked_turns"] == [1] and row.reply == 152  # 122 + 30
+    assert row.record["messages"][1]["loss"] is False
+    tok = TemplateTokenizer()
+    labelled = _labelled(tok, row.record)
+    assert "Ask the tool." not in labelled  # the failed turn is context only
+    assert "Again, one call." in labelled and labelled.endswith("It is noon.<|im_end|>")
+    # the row's text is the same either way: only the labels differ
+    plain_ids, _ = tm.thinking_record(tok, ar.trajectory(_loop(), mask_failed=False).record)
+    assert tm.thinking_record(tok, row.record)[0] == plain_ids
+
+
+def test_a_row_whose_every_turn_is_masked_is_rejected():
+    record = ar.trajectory(_loop()).record
+    record["messages"] = [m if m["role"] != "assistant" else {**m, "loss": False}
+                          for m in record["messages"]]
+    with pytest.raises(tm.RowRejected, match="no_labelled_turn"):
+        tm.thinking_record(TemplateTokenizer(), record)
 
 
 def test_load_joins_each_reply_to_its_item(tmp_path):

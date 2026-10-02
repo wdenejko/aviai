@@ -6,6 +6,7 @@ failure and recover — that is the whole point of an agent loop.
 """
 from __future__ import annotations
 
+import re
 import subprocess
 
 WORKSPACE_CONTAINER = "avbench-workspace"
@@ -91,6 +92,22 @@ def run_sql(client, query: str) -> str:
         return "OK"
     except Exception as e:  # noqa: BLE001 — surface the error to the agent, don't crash the run
         return f"SQL error: {str(e)[:800]}"
+
+
+# How a failed call reads, as the executors here report it: their own prefixes, Python's traceback,
+# and Python's report of a syntax error in the script itself, which has no traceback header.
+ERROR_PREFIXES = ("SQL error:", "run_python error:", "tool-call error:", "error: unknown tool")
+_STDIN_SYNTAX = re.compile(r'^File "<stdin>", line \d+')
+
+
+def is_error(observation: str) -> bool:
+    """Whether a tool's observation reports a failed call. ADR-004 decision 7 asks whether the
+    turns that made such calls train; on Target C's 154 kept rows this finds the volume report's
+    141 of 1,158 turns, 20.5% of the assistant text. A script that catches its own exception and
+    prints it doesn't count: the call ran."""
+    text = (observation or "").lstrip()
+    return (text.startswith(ERROR_PREFIXES) or "Traceback (most recent call last)" in text
+            or bool(_STDIN_SYNTAX.match(text)))
 
 
 def make_workdir(path: str) -> None:
