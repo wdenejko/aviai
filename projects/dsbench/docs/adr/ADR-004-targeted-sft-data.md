@@ -760,6 +760,36 @@ The selection (seed 20260930), 2,646 prompts:
     Without boundaries, a block's first row still moves 29%: the convolution's 0.3% rounding
     difference, carried through 40 routed layers.
 
+## Assembly
+
+**Built 2026-10-02** (`sftgen/assemble_rev2.py`). Gate 2's assembler took finished rows from fixed
+files. Revision 2's rows are the base's replies that passed their pool's check, so this one:
+- **Joins each kept reply to the prompt it answered**, and makes the record the template labels:
+  the prompt, then one assistant turn with the reasoning (a prefill included), the answer and any
+  tool calls. Target A's rows train on their training prompt. Target C's loops are records
+  already.
+- **Drops a row the block can't hold**, on the server's counts: the prompt, the reply, the
+  newline after it and the separator. `build_masked_dataset` counts again exactly, on the box.
+- **Runs `decontaminate.py`'s gate over the whole record**, the replies included. The prompts were
+  gated when they were built; the replies are new text.
+- **Picks rows to the table's token budgets**, with a seeded shuffle per pool. A pool short of its
+  budget gives all it has, and the shortfall is reported, never padded. A budget counts whole
+  rows, prompts included, since training time is paid per token; the manifest also counts the
+  base's own tokens, the part that trains.
+- **Takes decisions 1, 5 and 6 as parameters** (`--scale`, `--gsm8k`, `--share`). Decision 7 isn't
+  applied yet: every turn of a Target C loop trains.
+
+The records go through `thinking_record` with the model's own template in the tests: a plain
+reply, a tool call, and Target A's training prompt. On Target C's 154 rows, the assembler counts
+803,029 tokens, 378,639 of them the base's own, as the volume run counted them. No row is over
+the block, the gate catches none, and 3 overlap a battery item below the line. The line is
+197k tokens short of its 1.0M.
+
+**Expected to bind: the SQL line.** SynSQL's prompts alone are 2,383 tokens at the median
+(chars/3.5), and the pilot's SQL replies ran about 1,400. At about 3,800 tokens a row, 1.0M holds
+some 260 rows, not the table's 500, which assumed shorter prompts. Decision 6 can move tokens to
+it; the generated rows will tell.
+
 ## Budget and time (estimated from the pilot's throughput)
 
 - **Generation**, with production stopped:
@@ -975,3 +1005,7 @@ The selection (seed 20260930), 2,646 prompts:
    - [ ] its calibration: the base twice, thinking on (one window, an estimated 5-9 hours).
    - [ ] the full battery, re-baselined with thinking on.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
+   - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
+   - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
+     box, whose exact counts check the assembler's.
+   - [ ] train, and gate the checkpoints.

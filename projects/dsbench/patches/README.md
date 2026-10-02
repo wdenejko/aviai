@@ -381,3 +381,17 @@ The checks, each reading one row an item:
 
 Rehearsed 2026-10-02 on the Mac against a stand-in server (100 items over the four steps): a pass
 stopped mid-run left whole rows and resumed the rest, and every checker read its step's replies.
+
+Then the mixture, on the Mac, from every checker's output and Target C's loops
+(`sftgen/assemble_rev2.py`; ADR-004 "Assembly"):
+
+```bash
+uv run python -m dsbench.sftgen.assemble_rev2 --battery-items data/battery/items \
+  --verified ITEMS_tools VERIFIED_tools --verified ITEMS_sql VERIFIED_sql \
+  --verified ITEMS_code VERIFIED_code --verified ITEMS_replay VERIFIED_replay \
+  --trajectories data/sft/rev2_target_c/trajectories.jsonl \
+  --out data/sft/rev2_mixture.jsonl --report data/sft/rev2_mixture_manifest.json
+```
+
+and its blocks on the box, with `build_masked_dataset --records <the mixture>` (8,192 tokens,
+packed rows), whose exact counts check the assembler's.
