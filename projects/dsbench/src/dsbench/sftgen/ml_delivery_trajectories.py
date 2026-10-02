@@ -298,7 +298,8 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
     on the volume run's 282, the same, except where tool output follows the last request. A turn
     that calls a tool beside `finish` ends the row on that tool's output, which no request
     carried: it counts as at most a token a character (numeric output tokenizes digit by digit),
-    plus the response's wrapper (`_unsent_tail`).
+    plus the response's wrapper (`_unsent_tail`). In the block, the row is followed by its
+    separator (`tokenize_masked.pack_thinking`), so the row itself can be at most `block - 1`.
     A withheld table seen in a tool's output is recorded (`saw_withheld`) but not held against the
     run: its row shows the agent leaving it alone. The login keeps the key out of listings, so it
     now shows up only in the refusal of a call that named it.
@@ -311,9 +312,10 @@ def selection(res: dict, *, block: int | None = None, reasoning: bool = False) -
     if last.get("prompt_tokens") is not None and last.get("completion_tokens") is not None:
         served = last["prompt_tokens"] + last["completion_tokens"]
     tail = _unsent_tail(trajectory)
+    row = None if served is None else served + 1 + tail  # at most; the template's newline
     out = {
         "block": block, "served_tokens": served, "unsent_tail_max": tail,
-        "fits": None if block is None else served is not None and served + 1 + tail <= block,
+        "fits": None if block is None else row is not None and row + 1 <= block,  # + separator
         "finished": res.get("finished", True),
         "reasoning_in_every_turn": bool(assistant) and all(
             (m.get("reasoning_content") or "").strip() for m in assistant),

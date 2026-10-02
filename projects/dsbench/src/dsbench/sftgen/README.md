@@ -157,7 +157,7 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
   - every turn carries reasoning;
   - no tool call names the withheld key or the admin's login (`access.breach`);
   - the agent ended the loop itself, with `finish` or a final reply, not by running out of steps;
-  - the row fits `--block` (8,192 by default).
+  - the row fits `--block` (8,192 by default) with the separator that follows it there.
 
   The length comes from the server's own counts, so nothing has to be measured on the box. Tool
   output after the last request counts at a token a character.
