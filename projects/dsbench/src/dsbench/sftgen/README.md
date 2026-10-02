@@ -152,9 +152,15 @@ uv run python -m dsbench.sftgen.ml_delivery_trajectories --thinking --workers 8 
 # a later window continues where this one stopped: the same command with --resume
 ```
 
-- **Kept** means the oracle passed, every turn carries reasoning, no tool call names the withheld
-  key or the admin's login (`access.breach`), and the row fits `--block` (8,192 by default). The
-  length comes from the server's own counts, so nothing has to be measured on the box.
+- **Kept** means:
+  - the oracle passed;
+  - every turn carries reasoning;
+  - no tool call names the withheld key or the admin's login (`access.breach`);
+  - the agent ended the loop itself, with `finish` or a final reply, not by running out of steps;
+  - the row fits `--block` (8,192 by default).
+
+  The length comes from the server's own counts, so nothing has to be measured on the box. Tool
+  output after the last request counts at a token a character.
 - **Every other run goes to `--fail-out`**, with `meta.selection.why_not`. A row that passed the
   oracle but is over the block keeps `oracle_passed: true`, in case a longer step is chosen.
 - **Each dataset passes its own oracle first**, so no `--oracle-only` step is needed. A dataset

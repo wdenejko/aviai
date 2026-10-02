@@ -544,7 +544,10 @@ The selection (seed 20260930), 2,646 prompts:
     - the oracle passes;
     - every turn carries reasoning;
     - no tool call names the withheld key or the admin's login;
-    - the server's count fits the block.
+    - the agent ended the loop itself, with `finish` or a final reply (added after the volume
+      run, below);
+    - the server's count fits the block, with any tool output after the last request counted
+      at a token a character (also added after the volume run).
 
     The other runs go to `--fail-out` with the reason. Rows over the block keep `oracle_passed`,
     for a longer step later.
@@ -582,6 +585,17 @@ The selection (seed 20260930), 2,646 prompts:
 
     Rehearsed against a stand-in on the box. The rehearsal found the box's clock about 2 hours
     behind (NTP off); the Mac converts the deadline into its own clock.
+  - **The volume run, 2026-10-01/02** (`reports/gate-evals/20261001-target-c-volume-run.md`): one
+    window, 4 hours 40 minutes of generation.
+    - 154 rows: 22 a family, but upsell_join 21 (the time limit) and energy_load 23. They hold
+      0.80M tokens, 0.38M labelled, against the table's 1.0M.
+    - The base passed 275 of 282 runs. Every miss was energy_load's, and there were no errors.
+    - 121 passing loops ran over 8,192 tokens, and 73% of the slot time went into runs that
+      weren't kept. At 16,384 tokens, 247 of the 275 would train.
+    - The agent's login held: no run reached for a key, and no call was refused.
+    - Found: 2 runs used up their steps after writing a passing table, and 3 rows end on tool
+      output that no request carried. Neither kind was kept here. The selection now drops the
+      first and counts the second.
 - **Tool rows.** A generator writes a tool list and a gold call, then a request the call answers.
   The base's call must match the gold call on function, required arguments and values: the check
   BFCL's AST checker makes. Decline rows pair a tool list with a request no tool serves. The base
@@ -743,7 +757,10 @@ The selection (seed 20260930), 2,646 prompts:
    - Or: train every turn, as the loop happened.
 
    Also: Target C at 8,192 tokens with a quota per family (proposed), or a 16,384-token step for
-   its rows, which would keep the loops that reason through credit_leak's leak.
+   its rows, which would keep the loops that reason through credit_leak's leak. The volume run
+   measured both: 154 rows and 0.80M tokens at 8,192; 247 rows and 1.87M tokens at 16,384, with
+   58 of credit_leak's 71 loops instead of 22. Its rows are already generated. In the kept rows,
+   20.5% of the assistant text sits in turns whose call failed.
 
 ## Action items (Revision 2)
 
@@ -812,7 +829,9 @@ The selection (seed 20260930), 2,646 prompts:
    - [x] the window scripts. **Built 2026-10-01** (`patches/target_c_volume_*.sh`): a 5-hour hold
      whose deadline the Mac reads, early ends, a second window that resumes the first; rehearsed
      against a stand-in.
-   - [ ] the volume run, about 4 hours for 150 rows: one 5-hour window, or two shorter ones.
+   - [x] the volume run. **Run 2026-10-01/02**
+     (`reports/gate-evals/20261001-target-c-volume-run.md`): 154 rows and 0.80M tokens at 8,192.
+     275 of 282 runs passed; 121 passing loops ran over the block.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
    select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),

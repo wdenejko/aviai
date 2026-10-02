@@ -1,0 +1,324 @@
+{
+ "run": {
+  "date": "2026-10-01/02",
+  "box": "dashi",
+  "run_dir": "~/benchlab/runs/2026-10-01-qwen36-target-c-volume/",
+  "window": "production down 21:37, generation 21:38:38-02:18:43 (Mac clock, CEST), hold released 02:19; box clock 7,131 s behind",
+  "hold_max_s": 18000,
+  "drain_min": 30,
+  "stop": "time limit",
+  "generation_s": 16803.5,
+  "model": "Qwen3.6-35B-A3B APEX I-Mini, no LoRA",
+  "sampling": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "top_k": 20
+  },
+  "max_tokens_per_turn": 8192,
+  "slots": 8,
+  "ctx": 196608,
+  "quota": 22,
+  "block": 8192,
+  "run_offset": 200,
+  "max_runs": 110,
+  "login": "per-run ClickHouse login, no aviation grant (ADR-003 \u00a77)",
+  "scripts": "patches/target_c_volume_{window,arm,hold,mac}.sh",
+  "command": "patches/target_c_volume_mac.sh (QUOTA=22 BLOCK=8192 OFFSET=200 DRAIN_MIN=30 PASSES=3)"
+ },
+ "summary": {
+  "runs": 282,
+  "oracle_passed": 275,
+  "kept": 154,
+  "not_kept": {
+   "over_block": 121,
+   "wrong": 6,
+   "budget": 1
+  },
+  "not_kept_under_the_new_rules": {
+   "over_block": 119,
+   "out_of_steps": 2,
+   "wrong": 6,
+   "budget": 1
+  },
+  "model_or_harness_errors": 0,
+  "datasets_failed_own_oracle": 0,
+  "thinking_record_rejected": 0,
+  "selection_agrees_with_measurement": "282 of 282"
+ },
+ "families": {
+  "mlc_widget_defect": {
+   "runs": 22,
+   "oracle_passed": 22,
+   "kept": 22,
+   "keep_rate": 1.0,
+   "quota": 22,
+   "run_ix": [
+    200,
+    221
+   ],
+   "next_run_ix": 222,
+   "passed_tokens_median": 3834.5,
+   "kept_tokens_median": 3834.5,
+   "passed_fit": {
+    "8192": 22,
+    "12288": 22,
+    "16384": 22
+   }
+  },
+  "mlc_delivery_time": {
+   "runs": 23,
+   "oracle_passed": 23,
+   "kept": 22,
+   "keep_rate": 0.957,
+   "quota": 22,
+   "run_ix": [
+    200,
+    222
+   ],
+   "next_run_ix": 223,
+   "passed_tokens_median": 5245,
+   "kept_tokens_median": 5189.5,
+   "passed_fit": {
+    "8192": 22,
+    "12288": 23,
+    "16384": 23
+   }
+  },
+  "mlc_churn_rare": {
+   "runs": 22,
+   "oracle_passed": 22,
+   "kept": 22,
+   "keep_rate": 1.0,
+   "quota": 22,
+   "run_ix": [
+    200,
+    221
+   ],
+   "next_run_ix": 222,
+   "passed_tokens_median": 4143.0,
+   "kept_tokens_median": 4143.0,
+   "passed_fit": {
+    "8192": 22,
+    "12288": 22,
+    "16384": 22
+   }
+  },
+  "mlc_energy_load": {
+   "runs": 68,
+   "oracle_passed": 61,
+   "kept": 23,
+   "keep_rate": 0.338,
+   "quota": 22,
+   "run_ix": [
+    200,
+    267
+   ],
+   "next_run_ix": 268,
+   "passed_tokens_median": 9560,
+   "kept_tokens_median": 6598,
+   "passed_fit": {
+    "8192": 23,
+    "12288": 42,
+    "16384": 50
+   }
+  },
+  "mlc_ticket_route": {
+   "runs": 23,
+   "oracle_passed": 23,
+   "kept": 22,
+   "keep_rate": 0.957,
+   "quota": 22,
+   "run_ix": [
+    200,
+    222
+   ],
+   "next_run_ix": 223,
+   "passed_tokens_median": 3774,
+   "kept_tokens_median": 3717.5,
+   "passed_fit": {
+    "8192": 22,
+    "12288": 22,
+    "16384": 23
+   }
+  },
+  "mlc_credit_leak": {
+   "runs": 71,
+   "oracle_passed": 71,
+   "kept": 22,
+   "keep_rate": 0.31,
+   "quota": 22,
+   "run_ix": [
+    200,
+    270
+   ],
+   "next_run_ix": 271,
+   "passed_tokens_median": 10532,
+   "kept_tokens_median": 4746.5,
+   "passed_fit": {
+    "8192": 22,
+    "12288": 46,
+    "16384": 58
+   }
+  },
+  "mlc_upsell_join": {
+   "runs": 53,
+   "oracle_passed": 53,
+   "kept": 21,
+   "keep_rate": 0.396,
+   "quota": 22,
+   "run_ix": [
+    200,
+    252
+   ],
+   "next_run_ix": 253,
+   "passed_tokens_median": 9400,
+   "kept_tokens_median": 7320,
+   "passed_fit": {
+    "8192": 21,
+    "12288": 37,
+    "16384": 49
+   }
+  }
+ },
+ "kept_rows": {
+  "rows": 154,
+  "tokens": 802944,
+  "labelled": 378554,
+  "labelled_share": 0.471,
+  "tokens_median": 4855.5,
+  "tokens_p90": 7635,
+  "tokens_max": 8189,
+  "steps_median": 7.0,
+  "steps_max": 17
+ },
+ "block_choice": {
+  "passed": 275,
+  "at_8192": {
+   "rows": 154,
+   "tokens": 802944,
+   "labelled": 378554
+  },
+  "at_12288": {
+   "rows": 214,
+   "tokens": 1409810,
+   "labelled": 690684
+  },
+  "at_16384": {
+   "rows": 247,
+   "tokens": 1870452,
+   "labelled": 927560
+  },
+  "at_24576": {
+   "rows": 266,
+   "tokens": 2228581,
+   "labelled": 1133633
+  },
+  "passed_over_8192": {
+   "n": 121,
+   "median": 12388,
+   "p90": 20494,
+   "max": 47222,
+   "le_12288": 60,
+   "le_16384": 93,
+   "le_24576": 112,
+   "gt_32768": 1
+  }
+ },
+ "time": {
+  "elapsed_s": 16803.5,
+  "runs": 282,
+  "runs_per_hour": 60.4,
+  "mean_busy_slots": 7.79,
+  "run_s_median": 368.05,
+  "run_s_p90": 881.4,
+  "run_s_max": 2940.3,
+  "kept_run_s_median": 199.2,
+  "over_run_s_median": 611.1,
+  "slot_time_share_not_kept": 0.734,
+  "generated_tokens": 1402030,
+  "generated_tokens_per_s": 83.4,
+  "model_turns": 2891,
+  "simulated": "286-336 runs, 3.4-4.1 h (pilot run times)"
+ },
+ "selection_flags": {
+  "reasoning_in_every_turn": 282,
+  "withheld_access": 0,
+  "saw_withheld": 0
+ },
+ "failed_calls_in_kept_rows": {
+  "assistant_turns": 1158,
+  "turns_with_a_failed_call": 141,
+  "char_share": 0.205,
+  "rows_with_one": 88,
+  "clickhouse_errors_all_runs": {
+   "unknown function (46)": {
+    "total": 65,
+    "stddev and its spellings": 34,
+    "typeof and its spellings": 29,
+    "other": 2
+   },
+   "syntax error (62)": {
+    "total": 51,
+    "a FORMAT clause of the model's own": 46
+   },
+   "not an aggregate (215)": 28,
+   "unknown identifier (47)": 8,
+   "access denied (497)": 0
+  }
+ },
+ "not_passed": [
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 212,
+   "status": "wrong",
+   "reason": "MAE 36.67 vs naive 13.91 (lift -163.6% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 214,
+   "status": "wrong",
+   "reason": "MAE 11.94 vs naive 14.43 (lift 17.3% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 222,
+   "status": "budget",
+   "reason": "MAE 21.17 vs naive 13.66 (lift -55.0% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 241,
+   "status": "wrong",
+   "reason": "MAE 13.49 vs naive 13.95 (lift 3.3% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 249,
+   "status": "wrong",
+   "reason": "MAE 15.53 vs naive 14.26 (lift -9.0% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 257,
+   "status": "wrong",
+   "reason": "MAE 27.53 vs naive 14.14 (lift -94.7% < 25%)"
+  },
+  {
+   "task": "mlc_energy_load",
+   "run_ix": 250,
+   "status": "wrong",
+   "reason": "MAE 12.76 vs naive 14.09 (lift 9.4% < 25%)"
+  }
+ ],
+ "row_length_vs_server_count": {
+  "served + 1": 239,
+  "served or up to 27 shorter (finish args rebuilt)": 40,
+  "longer: tool output after the last request": 3
+ },
+ "notes": [
+  "Every miss is energy_load: 6 wrong and 1 out of steps, lift -164% to +17% against a bar of 25%.",
+  "2 runs (upsell_join #217, energy_load #223) used up their 24 steps after writing a passing table; selection now drops such runs (out_of_steps). Both were over the block, so no kept row changes.",
+  "3 runs end on tool output that followed their last request; selection now bounds it at a token a character plus 16 a message. No kept row changes.",
+  "upsell_join is 1 row short of its quota (21 of 22): the time limit stopped new runs; energy_load has 23."
+ ]
+}
