@@ -68,14 +68,15 @@ JOB_BUILDERS = {"humaneval_plus": humaneval_job, "ds1000": ds1000_job, "lcb": lc
 
 
 def run_sandbox(jobs: list[dict], *, run_dir: Path, data_dir: Path, harness_src: Path,
-                workers: int, image: str) -> dict[str, dict]:
-    """Run jobs in one container and return {key: result}. The container gets no writable mount."""
+                workers: int, image: str, engine: str = "podman") -> dict[str, dict]:
+    """Run jobs in one container and return {key: result}. The container gets no writable mount.
+    `engine`: podman on the box; docker takes the same flags, for a check run on the Mac."""
     work = run_dir / "sandbox-jobs"
     work.mkdir(parents=True, exist_ok=True)
     jobs_file = work / f"jobs-{uuid.uuid4().hex[:8]}.jsonl"
     write_jsonl(jobs_file, jobs)
     cmd = [
-        "podman", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "all",
+        engine, "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "all",
         "--security-opt", "no-new-privileges", "--memory", "32g", "--memory-swap", "32g",
         "--pids-limit", "4096", "--cpus", str(workers), "--tmpfs", "/tmp:rw,exec,size=16g",
         # `z`: relabel for SELinux (Fedora enforces it; without it the container can't read).

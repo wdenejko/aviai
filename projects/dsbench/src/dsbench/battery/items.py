@@ -8,6 +8,7 @@ the two in different fields is what lets `generate.py` prove it sends nothing bu
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable, Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -35,6 +36,15 @@ def read_jsonl(path: str | Path) -> Iterator[dict[str, Any]]:
         for line in fh:
             if line.strip():
                 yield json.loads(line)
+
+
+def append_row(fd: int, row: dict) -> None:
+    """One row, one write to a file opened O_APPEND. A pass stopped by a signal (the window's time
+    limit) leaves whole rows behind, so it resumes; a thinking row can run to 50 KB, which a
+    buffered writer may split across several writes."""
+    data = (json.dumps(row, ensure_ascii=False) + "\n").encode()
+    while data:
+        data = data[os.write(fd, data):]
 
 
 def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> int:

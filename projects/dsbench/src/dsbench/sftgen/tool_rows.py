@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any
 
 from dsbench.sftgen.decontaminate import strict_gate
+from dsbench.sftgen.reasoning_pilot import latest_rows
 
 SEED = 20260930
 # ADR-004's table: 250 fit rows and 200 decline rows kept, divided by the share expected to survive
@@ -820,7 +821,7 @@ def verify(items_path: Path, gen_path: Path, out_path: Path) -> dict:
     passed: Counter[str] = Counter()
     failed: Counter[str] = Counter()
     with out_path.open("w") as fh:
-        for rec in map(json.loads, gen_path.open()):
+        for rec in latest_rows(gen_path).values():  # one row an item, retries resolved
             item = items[rec["id"]]
             if rec.get("error") or rec.get("finish_reason") not in ("stop", "tool_calls"):
                 ok, why = False, f"unfinished: {rec.get('error') or rec.get('finish_reason')}"
