@@ -1,0 +1,65 @@
+{
+ "slice": "Target C, ADR-004 Revision 2: agentic ML-delivery loops, the base as the agent, thinking on",
+ "report": "reports/gate-evals/20261001-target-c-volume-run.md",
+ "files": {
+  "data/sft/rev2_target_c/trajectories.jsonl": {
+   "rows": 154,
+   "sha256": "3fda68833fe871bc1aedee773f890f0fc358be7b516b43f2c04a5754ed75b362",
+   "holds": "the kept rows (meta.selection.kept)"
+  },
+  "data/sft/rev2_target_c/failed.jsonl": {
+   "rows": 128,
+   "sha256": "2f275b68a28cd0dd32b53c32525cee33d60d35ec98c1e6098996b9baedad9f7c",
+   "holds": "every other run, with meta.selection.why_not; 121 passed the oracle but are over 8,192 tokens"
+  },
+  "data/sft/rev2_target_c/report-20261001-213838.json": {
+   "sha256": "7e76dfa37f016788edb8db0adde4dce3a642a1eaed61bb9212f14ba96071a9e0",
+   "holds": "the generator's report of the window's one pass"
+  }
+ },
+ "kept": {
+  "rows": 154,
+  "tokens": 802944,
+  "labelled": 378554,
+  "by_task": {
+   "mlc_churn_rare": 22,
+   "mlc_ticket_route": 22,
+   "mlc_delivery_time": 22,
+   "mlc_widget_defect": 22,
+   "mlc_upsell_join": 21,
+   "mlc_energy_load": 23,
+   "mlc_credit_leak": 22
+  },
+  "measured_with": "patches/target-c-pilot/measure_trajectories.py (thinking_record, llama.cpp's tokenization)"
+ },
+ "run": {
+  "date": "2026-10-01/02",
+  "model": "Qwen3.6-35B-A3B APEX I-Mini, no LoRA",
+  "thinking": true,
+  "sampling": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "top_k": 20
+  },
+  "max_tokens_per_turn": 8192,
+  "workers": 8,
+  "quota": 22,
+  "block": 8192,
+  "run_offset": 200,
+  "max_runs": 110,
+  "stop": "time limit",
+  "generation_s": 16803.5,
+  "next_run_ix": {
+   "mlc_widget_defect": 222,
+   "mlc_delivery_time": 223,
+   "mlc_churn_rare": 222,
+   "mlc_energy_load": 268,
+   "mlc_ticket_route": 223,
+   "mlc_credit_leak": 271,
+   "mlc_upsell_join": 253
+  },
+  "login": "per-run ClickHouse login without the answer key or aviation (ADR-003 \u00a77)",
+  "box_outputs": "~/benchlab/runs/2026-10-01-qwen36-target-c-volume/"
+ },
+ "regenerate": "Deploy patches/target_c_volume_{window,arm,hold}.sh and battery_server.sh to the box (patches/README.md), then run patches/target_c_volume_mac.sh with OUT set to a new directory and OFFSET=200, and arm a window. Run indices seed the datasets and the sampling, but the server's batching varies, so a rerun writes different loops. A top-up continues past next_run_ix with --resume on this directory."
+}

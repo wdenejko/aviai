@@ -121,7 +121,10 @@ uv run python -m dsbench.sftgen.target_a_hints prefill-items --battery-items dat
 `rev2_target_c/` (git-ignored, a directory) is where Target C's volume run writes, through
 `patches/target_c_volume_mac.sh`: `trajectories.jsonl` (the kept rows), `failed.jsonl` (every
 other run, with `meta.selection.why_not`), a report per generator pass, and the logs. A second
-GPU window resumes from these files. Its manifest is written once the run is done.
+GPU window resumes from these files. The run of 2026-10-01/02 wrote 154 kept rows (0.80M tokens)
+and 128 others (`reports/gate-evals/20261001-target-c-volume-run.md`).
+`rev2_target_c_manifest.json` (tracked) records the files' hashes, the run's settings and each
+family's next run index.
 
 ## Provenance discipline (every row earns its place)
 
