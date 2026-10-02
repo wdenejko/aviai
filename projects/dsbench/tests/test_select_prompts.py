@@ -79,7 +79,8 @@ def zone(tmp_path):
     _write(tmp_path / "gsm.jsonl", [_row(f"sum {i}", {"gold_answer": str(i)}) for i in range(4)])
     code = [_row(f"write f{i}", {"testcase": [f"assert f{i}()"], "entry_point": f"f{i}"})
             for i in range(3)]
-    _write(tmp_path / "code.jsonl", [*code, _row("write g", {})])
+    scrambled = _row("write h", {"testcase": ["h = H()", "assert h.ok()"], "entry_point": "h"})
+    _write(tmp_path / "code.jsonl", [*code, _row("write g", {}), scrambled])
     return tmp_path
 
 
@@ -96,7 +97,8 @@ def test_selection_filters_balances_and_carries_the_checks(zone):
     assert (by["b"]["quota"], by["b"]["selected"], by["b"]["eligible"]) == (0, 0, 3)  # FLAN's 0
     assert by["aya"]["by_language"] == {"x": 1, "y": 1, "z": 1}
     code = by["code"]
-    assert (code["dropped"], code["selected"], code["shortfall"]) == ({"no testcase": 1}, 3, 1)
+    assert (code["dropped"], code["selected"], code["shortfall"]) == (
+        {"no testcase": 1, "tests not one assert a line": 1}, 3, 1)
 
     pools = {item["id"]: item for item in items}
     assert len(pools) == len(items) == 6 + 3 + 3 + 3
@@ -108,6 +110,12 @@ def test_selection_filters_balances_and_carries_the_checks(zone):
     assert all("gold_answer" not in item["meta"] for item in gsm)
     assert {tuple(item["verify"]["tests"]) for item in items if item["pool"] == "code"} == {
         ("assert f0()",), ("assert f1()",), ("assert f2()",)}
+    # a code prompt shows its first test, so the reply names the function the tests call
+    code_item = next(item for item in items if item.get("verify", {}).get("entry_point") == "f1")
+    assert code_item["messages"][-1]["content"] == (
+        "write f1\n\nYour code should pass this test, and others like it:\n"
+        "```python\nassert f1()\n```")
+    assert pools["a:a0"]["messages"] == [{"role": "user", "content": "question 0"}]
 
 
 def test_selection_is_reproducible_and_a_top_up_skips_earlier_picks(zone):
