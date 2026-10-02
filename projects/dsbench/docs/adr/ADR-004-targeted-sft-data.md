@@ -1048,4 +1048,15 @@ it; the generated rows will tell.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
      box, whose exact counts check the assembler's.
+   - [x] the training window and the checkpoint gate's scripts. **Built 2026-10-02**
+     (`patches/rev2_train.sh`, `patches/mini-battery/checkpoint.sh`):
+     - the recipe as Gate 2 ran it (rank 4, learning rate 1e-4, one epoch, a checkpoint every
+       100 steps), on the packed blocks;
+     - the packed-rows patch applies cleanly to the box's recipe (checked, not applied: the
+       recipe is shared);
+     - found: the recipe keeps only its last 5 checkpoints, so the early ones would be deleted
+       before the gate could read them. `recipe-train-save-limit.patch` keeps them all, about
+       0.9 GB each;
+     - a checkpoint's gate: its adapter exported to a GGUF, its own run directory linking the
+       calibration's base passes, and one battery window for its `adapter` passes.
    - [ ] train, and gate the checkpoints.

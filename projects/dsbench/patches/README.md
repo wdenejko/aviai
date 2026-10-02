@@ -79,6 +79,31 @@ Copy `packing/packed_rows.py` into the recipe directory along with the patch. Ba
 because FLA's varlen rule flattens the batch. Checked by `packing/check_collator.py` (CPU) and
 `packing/check_packed_rows.py` (GPU), below.
 
+## `recipe-train-save-limit.patch`
+The recipe keeps its last 5 checkpoints (`save_total_limit=5`) and deletes the older ones as it
+goes. Revision 2 trains about 1,220 steps with a checkpoint every 100, and gates checkpoints from
+the whole run on the mini-battery, so the early ones would be gone before the gate could read
+them. `QWEN35_SAVE_TOTAL_LIMIT` sets the limit, and 0 keeps every checkpoint (about 0.9 GB each);
+without it the recipe keeps 5, as before. It applies on top of `recipe-train-packed-rows.patch`
+(checked on a copy of the box's recipe, 2026-10-02).
+
+## `rev2_train.sh`
+Revision 2's training window, `gate2_train.sh` with `battery_window.sh`'s guards: it refuses to
+start beside production, waits for it with `ARM=1`, and stops OCR only once it has loaded and
+restores it only if it was running. Before stopping anything, it checks that the recipe carries
+the packed-rows and save-limit patches and `packed_rows.py`, and that the dataset has its
+`seq_lens`: without them rows would see each other in their block, silently. `MAX_HOURS` stops the
+trainer from inside the container, losing the steps since its last checkpoint; `QWEN35_RESUME=1`
+continues. A step limit (`QWEN35_MAX_STEPS`) would change the learning-rate schedule, which the
+trainer computes from it.
+
+    git apply -p0 recipe-train-packed-rows.patch; git apply -p0 recipe-train-save-limit.patch
+    cp packing/packed_rows.py ~/src/transformers5-qwen3.5-recipe/
+    ARM=1 nohup setsid ~/benchlab/scripts/rev2-train/train.sh RUN </dev/null >/dev/null 2>&1 &
+
+The patches are applied in `~/src/transformers5-qwen3.5-recipe` when the training window is
+prepared, not before: the recipe is shared with every other training run on the box.
+
 ## `torch-ggml-ops-gfx1151-build.patch` (`~/src/torch-ggml-ops`, box-local)
 The two source fixes the Gate-0 build of torch-ggml-ops needed on dashi, kept as working-tree
 changes there: `tools/mmq_deployment_bundle.py` imports torch before `tools.ggtensile` (TheRock's
@@ -255,7 +280,15 @@ run):
        humaneval_plus:base_rep bird:base bird:base_rep" </dev/null >/dev/null 2>&1 &
 
 Scoring needs no GPU: `score --run-dir RUN --bench ifeval,bfcl,bird,humaneval_plus` scores every
-pass that has generations. Then `mini summary --run-dir RUN --state base_rep --aa none` reads the
+pass that has generations.
+
+**A Revision 2 checkpoint** gets its own run directory from `mini-battery/checkpoint.sh TRAIN_RUN
+STEP CAL_RUN CKPT_RUN`, with no GPU: the checkpoint's adapter exported to a LoRA GGUF, and links to
+the calibration's items, data, gold scores, base and A/A passes. A battery window with
+`LORA=CKPT_RUN/lora.gguf` and the plan `bfcl:adapter ifeval:adapter humaneval_plus:adapter
+bird:adapter` then answers only the checkpoint's passes, and `mini summary --state adapter --aa
+base_rep` compares them with the base. The script refuses a directory that exists. Rehearsed on
+the Mac with a stand-in for `toolbox`. Then `mini summary --run-dir RUN --state base_rep --aa none` reads the
 noise. A checkpoint later runs as `adapter`, with its LoRA in `LORA`, against the same base
 passes.
 
