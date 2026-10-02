@@ -8,6 +8,9 @@
 # generate --block 8192, so no reply runs past what its training row can hold. Every step resumes:
 # an item an earlier window answered is skipped, so a second window with the same plan continues
 # the first. The replies are checked afterwards (patches/README.md, the Revision 2 runbook).
+# A step splice:FROM:TO builds RUN/items/TO.jsonl from FROM's items and replies (dsbench.sftgen.
+# prefill splice): Target A's recall items, written after the plain phase that they cut. It runs
+# again in every window, from all the replies there are, so a resumed plain phase feeds it too.
 # As battery_window.sh does: production is the owner's to stop, so the window refuses to start
 # beside it, and with ARM=1 waits for it to stop (up to DEADLINE_H hours, default 12); OCR is
 # stopped once it has finished loading and restarted on exit only if it was running when the
@@ -68,6 +71,14 @@ log "server up (base, no LoRA)"
 PATTERN="$SRV_PAT" nohup ~/fttrain/thermostat.sh >>~/benchlab/logs/rev2-gen-thermostat-$STAMP.log 2>&1 </dev/null &
 GOV=$!
 for name in $PLAN; do
+  if [ "${name%%:*}" = splice ]; then
+    from=${name#splice:}; from=${from%%:*}; to=${name##*:}
+    log "splice $from -> $to"
+    (cd $D/src && PYTHONPATH=. $PY -m dsbench.sftgen.prefill splice --items $RUN/items/$from.jsonl \
+       --gen $RUN/gen/$from.jsonl --out $RUN/items/$to.jsonl) >>"$LOG" 2>&1 \
+       || { log "splice $from -> $to failed: the rest not run"; break; }
+    continue
+  fi
   left=""
   if [ -n "${STOP:-}" ]; then
     left=$(( STOP - $(date +%s) ))
