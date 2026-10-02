@@ -733,6 +733,36 @@ The selection (seed 20260930), 2,646 prompts:
   The battery report sized it at an hour with thinking off. Reasoning makes each item several
   times longer, so it runs on subsets of a few hundred items, which is where each Gate-2 failure
   already stood far past its noise. Held-out loss is not a gate; Gate 2 showed why.
+
+  **Built 2026-10-02** (`battery/mini.py`); its calibration is not yet run.
+  - **The subsets** come from the battery's pinned items, drawn with a fixed seed:
+    - IFEval: 200 of 541;
+    - BFCL: 120 of the 240 irrelevance items;
+    - BIRD: 150 of 1,534, in proportion to its difficulty levels;
+    - HumanEval+: all 164.
+  - **Thinking is on,** with Qwen's sampling for thinking mode, in a budget of 12,288 tokens (pi's
+    reply cap). Greedy decoding with thinking on loops, so the passes sample.
+  - **Seeds.** Every state draws the same seed for an item, so base and checkpoint start from the
+    same random numbers. The A/A pass draws other seeds, so its flips are the full sampling noise.
+  - **Compared per item, against the base:**
+    - the passes;
+    - BIRD's SQL that SQLite can't run;
+    - reasoning that never closed, and replies cut at the budget;
+    - a second reasoning block inside the reply;
+    - reasoning length.
+  - **A flag** is a significant change for the worse (exact McNemar at 5%). For length, it takes a
+    sign test and a ratio under 0.8 of the base's.
+  - **The sizes are set for Gate 2's habits, not for small pass-rate changes.**
+    - BFCL irrelevance fell 22 points.
+    - BIRD's SQLite errors went from 47 to 176.
+    - IFEval's 4.6 points needed all 541 items. The brevity check catches the same habit sooner.
+    - The full battery stays the final check.
+  - **The calibration** runs the base twice on these items. It measures:
+    - the cost of an item with reasoning;
+    - how often the base's reasoning closes within the budget;
+    - the noise.
+
+    The sizes and the budget are confirmed after it.
 - **The full battery, re-baselined with thinking on for both states.**
   `20260924-gate2-battery.md` measured the base with thinking off, and those numbers don't carry
   over. Token limits must be sized for reasoning; GPQA's 4,096 bound it in Gate 2.
@@ -875,4 +905,9 @@ The selection (seed 20260930), 2,646 prompts:
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
 8. [ ] The thinking-on mini-battery, and the full battery re-baselined for the base.
+   - [x] the mini-battery. **Built 2026-10-02** (`battery/mini.py`, `battery/generate.py`'s
+     thinking items, `patches/battery_window.sh`'s production guard and time limit). The
+     subsets are prepared on the box and match the local ones byte for byte.
+   - [ ] its calibration: the base twice, thinking on (one window, an estimated 5-9 hours).
+   - [ ] the full battery, re-baselined with thinking on.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.

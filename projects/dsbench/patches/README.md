@@ -221,7 +221,11 @@ lived in `~/benchlab/scripts/battery/` next to a synced copy of `src/`, with log
 - `battery_window.sh` — one GPU window: OCR stopped (restarted on exit), GTT drain, the thermal
   governor on the server, the optional parity check (`PARITY=1`), then the generation passes in
   order. A `hold:NAME` step keeps the server up for a client that runs elsewhere (the Mac-side
-  pi harness) until `RUN/hold/NAME.done` appears or `HOLD_MAX` seconds pass.
+  pi harness) until `RUN/hold/NAME.done` appears or `HOLD_MAX` seconds pass. Since 2026-10-02:
+  - it refuses to start while a llama-server other than OCR's runs;
+  - `ARM=1` waits up to `DEADLINE_H` hours for the owner to stop production;
+  - `MAX_HOURS` ends the window. A pass still running then is stopped, and running the plan again
+    resumes it, since `generate.py` writes each row in one write and skips answered items.
 - `battery_queue_half.sh` — ADR step 4: queued behind the MTP window, reruns the public benchmarks
   at LoRA scale 0.5 (state `adapter_half`).
 - `battery_tput_sweep.sh` — the slot-count sweep that fixed `NP=8`: 104 tok/s at 8 slots, about 40
@@ -233,6 +237,27 @@ lived in `~/benchlab/scripts/battery/` next to a synced copy of `src/`, with log
   fork's `--mtp` converter (index narrowed to the shards present; the full one is kept).
 - `battery_mtp.sh` — the MTP-acceptance window: one slot, `--spec-type draft-mtp`, the same prompts
   at LoRA scale 0 and 1.
+
+**The thinking-on mini-battery** (`dsbench.battery.mini`, ADR-004 Revision 2 item 8) uses the
+same scripts. Its run directory holds four things:
+- `items/`, from `mini prepare --items <the pinned battery items>`;
+- `data`, a link to the Gate-2 run's scorer data;
+- the gold scores for BIRD and HumanEval+, copied from the Gate-2 run, since their unmeasurable
+  items don't change;
+- the plan, base and A/A pass benchmark by benchmark, so a window cut short leaves whole pairs.
+
+The calibration (`~/benchlab/runs/2026-10-02-qwen36-mini-battery-base/`, prepared and not yet
+run):
+
+    ARM=1 CTX=196608 MAX_HOURS=9 nohup setsid ~/benchlab/scripts/battery/battery_window.sh \
+      ~/benchlab/runs/2026-10-02-qwen36-mini-battery-base \
+      "bfcl:base bfcl:base_rep ifeval:base ifeval:base_rep humaneval_plus:base \
+       humaneval_plus:base_rep bird:base bird:base_rep" </dev/null >/dev/null 2>&1 &
+
+Scoring needs no GPU: `score --run-dir RUN --bench ifeval,bfcl,bird,humaneval_plus` scores every
+pass that has generations. Then `mini summary --run-dir RUN --state base_rep --aa none` reads the
+noise. A checkpoint later runs as `adapter`, with its LoRA in `LORA`, against the same base
+passes.
 
 Three box gotchas the battery hit: podman bind mounts need `:z` (SELinux is enforcing, and without
 the relabel the sandbox can't read its own inputs); llama-server's slot actions (`erase`) return 501
