@@ -327,3 +327,57 @@ deadline across the clock difference, tunnelled, ran two passes that each stoppe
 row, resumed the second past every index the first used, and released the hold. Killed mid-pass,
 it released the hold and closed its tunnel. `hold.sh wait` was tested on its five ways out: done,
 timeout, no client, idle (a stand-in `/metrics`), and server gone.
+
+## Revision 2's single-turn generation (ADR-004 Revision 2, action items 3, 4 and 6)
+
+`rev2_generate_window.sh` runs on the box as `~/benchlab/scripts/rev2-gen/window.sh`, beside a
+synced copy of `src/` in `~/benchlab/scripts/rev2-gen/src/`. It serves the bare base with the
+battery's `battery_server.sh` (`NOLORA=1`, 8 slots), then answers each step's items through
+`reasoning_pilot.py generate --block 8192`. It guards production, OCR and the thermals as
+`battery_window.sh` does, with `ARM`, `DEADLINE_H` and `MAX_HOURS`.
+
+A step `NAME` answers `RUN/items/NAME.jsonl` into `RUN/gen/NAME.jsonl`. The four steps, staged
+from the Mac:
+
+| Step | Items | From |
+|---|---:|---|
+| `tools` | 518 | `data/sft/rev2_tool_prompts.jsonl` |
+| `sql` | 1,112 | `data/sft/rev2_sql_prompts.jsonl` |
+| `code` | 961 | `data/sft/rev2_prompts.jsonl`, bucket `code` (OpenCoder, SWE-Swiss) |
+| `replay` | 1,685 | `data/sft/rev2_prompts.jsonl`, bucket `replay`; rerun the selection first if decisions 5 or 6 change it |
+
+Deploy and stage, from `projects/dsbench`:
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-0X-qwen36-rev2-generation
+ssh dashi "mkdir -p ~/benchlab/scripts/rev2-gen $R/items"
+rsync -a --exclude __pycache__ src/ dashi:benchlab/scripts/rev2-gen/src/
+scp patches/rev2_generate_window.sh dashi:benchlab/scripts/rev2-gen/window.sh
+scp data/sft/rev2_tool_prompts.jsonl dashi:$R/items/tools.jsonl
+scp data/sft/rev2_sql_prompts.jsonl dashi:$R/items/sql.jsonl
+python3 -c "import json,sys; [print(l, end='') for l in open('data/sft/rev2_prompts.jsonl') if json.loads(l)['bucket'] == sys.argv[1]]" code | ssh dashi "cat > $R/items/code.jsonl"
+python3 -c "import json,sys; [print(l, end='') for l in open('data/sft/rev2_prompts.jsonl') if json.loads(l)['bucket'] == sys.argv[1]]" replay | ssh dashi "cat > $R/items/replay.jsonl"
+```
+
+Launch (the owner stops production; the window waits for it):
+
+```bash
+ssh dashi "ARM=1 MAX_HOURS=9 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'tools sql code replay' </dev/null >/dev/null 2>&1 &"
+```
+
+A later window is the same command: every step skips the items already answered. In the first
+minutes, the first rows show whether the budget works on the real server: `rendered_prompt_tokens`
+should equal `prompt_tokens` (a tool item too, which tests that `/apply-template` renders the
+tools), and `max_tokens` should be 8,208 less the prompt.
+
+The checks, each reading one row an item:
+- `tools` (anywhere): `python -m dsbench.sftgen.tool_rows verify --items ... --gen ... --out ...`;
+- `sql` (the Mac, the sandbox's `sqlite` container): `python -m dsbench.sftgen.synsql verify
+  --items ... --gen ... --out ...`;
+- `code` and `replay` (the box, the battery's podman sandbox): from
+  `~/benchlab/scripts/rev2-gen/src`, `PYTHONPATH=. ~/benchlab/batteryvenv/bin/python -m
+  dsbench.sftgen.replay_verify --items $R/items/code.jsonl --gen $R/gen/code.jsonl --out
+  $R/verified/code.jsonl --run-dir $R`.
+
+Rehearsed 2026-10-02 on the Mac against a stand-in server (100 items over the four steps): a pass
+stopped mid-run left whole rows and resumed the rest, and every checker read its step's replies.
