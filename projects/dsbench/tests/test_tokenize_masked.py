@@ -271,3 +271,27 @@ def test_pack_thinking_fills_exact_blocks_with_whole_rows():
     expected = sum(sum(lab != tm.IGNORE for lab in tm.thinking_record(tok, r)[1])
                    for r in records[:4])
     assert sum(lab != tm.IGNORE for b in label_blocks for lab in b) == expected
+    assert stats["estimates"] == {}  # no row carries the assembler's counts
+
+
+def test_pack_thinking_checks_the_assemblers_counts():
+    # The assembler counts with the server's numbers. Exact or over is safe; under, a row could
+    # pass its block check and not fit, so the row is named.
+    tok = TemplateTokenizer()
+    records = [_chat(reasoning="step " * n, rid=f"r{n}") for n in (1, 5, 9, 13)]
+    exact = [tm.thinking_record(tok, r) for r in records]
+    for record, (ids, labels), over in zip(records[:3], exact, (0, 3, -2), strict=False):
+        trained = sum(lab != tm.IGNORE for lab in labels)
+        record["meta"].update(mix_tokens=len(ids) + over, mix_reply=trained + over)
+    end = tok.convert_tokens_to_ids("<|endoftext|>")
+
+    _, _, stats = tm.pack_thinking(tok, records, 4096, end, end)
+
+    tokens = sum(len(ids) for ids, _ in exact[:3])  # r13 carries no counts and isn't compared
+    trained = sum(sum(lab != tm.IGNORE for lab in labels) for _, labels in exact[:3])
+    assert stats["estimates"] == {
+        "rows": 3, "equal": 1,
+        "exact_fewer": {"rows": 1, "most": 3},
+        "exact_more": {"rows": 1, "most": 2, "names": ["r9"]},
+        "tokens": {"estimated": tokens + 1, "exact": tokens},
+        "trained": {"estimated": trained + 1, "exact": trained}}

@@ -29,7 +29,9 @@ Per pool, in order:
    separator follows it in its block: `prompt_tokens + completion_tokens + 2 <= 8,192` on the
    server's counts. Target C's rows are counted as their selection counted them, from the last
    request. The generation's budget already stopped the replies that couldn't fit; this drops
-   the ones that finished just past it. `build_masked_dataset` counts again, exactly, on the box.
+   the ones that finished just past it. `build_masked_dataset` counts again, exactly, on the box,
+   and compares: each record carries the counts it was selected by (`meta.mix_tokens`,
+   `meta.mix_reply`). On Target C's rows the server's were exact or over, never under.
 3. **The gate** that `decontaminate.py --battery-items` runs: dsbench's rules, and a fifth of a
    battery item. It scans the whole record, reasoning, answer and tool calls included. The
    prompts were gated when they were built, but the replies are new text. Overlaps below the
@@ -257,8 +259,11 @@ def assemble(rows: list[Row], read: Counter, deny: DenyList | None, *,
             "study_only": sum(row.record["meta"].get("source", {}).get("redistributable")
                               is False for row in chosen),
         })
+        # mix_tokens and mix_reply: the counts this selection used, which build_masked_dataset
+        # checks against its exact ones
         mixture += [{**row.record, "meta": {**row.record["meta"], "mix_pool": pool.name,
-                                            "mix_bucket": pool.bucket}} for row in chosen]
+                                            "mix_bucket": pool.bucket, "mix_tokens": row.tokens,
+                                            "mix_reply": row.reply}} for row in chosen]
     random.Random(seed).shuffle(mixture)
 
     total = sum(entry["tokens"] for entry in report)

@@ -201,6 +201,8 @@ def test_assembly_drops_what_cannot_train_and_fills_each_budget(monkeypatch):
                                "budget": 7000}
     assert result["buckets"]["replay"]["pct_of_mixture"] == 100.0
     assert {r["meta"]["mix_pool"] for r in mixture} == {"oasst1", "gsm8k"}
+    # each record carries the counts it was selected by, for build_masked_dataset to check
+    assert {(r["meta"]["mix_tokens"], r["meta"]["mix_reply"]) for r in mixture} == {(200, 99)}
     again, _ = ar.assemble(rows, Counter(), deny, pools=POOLS, seed=1)
     assert [r["meta"]["id"] for r in again] == [r["meta"]["id"] for r in mixture]
 

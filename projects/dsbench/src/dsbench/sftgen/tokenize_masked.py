@@ -439,17 +439,26 @@ def pack_thinking(
 
     `stats["block_seq_lens"]` holds each block's segments in order: each row's length plus its
     separator, then the padding, if any. They sum to `block`.
+
+    `stats["estimates"]` checks the assembler's counts against these, for rows that carry them
+    (`assemble_rev2.py`'s `meta.mix_tokens` and `meta.mix_reply`).
     """
     rows: list[tuple[list[int], list[int]]] = []
     names: list[str] = []
     rejected: Counter[str] = Counter()
+    counted: list[tuple[str, int, int, int, int]] = []
     for n, record in enumerate(records):
         try:
-            rows.append(thinking_record(tok, record))
+            ids, labels = thinking_record(tok, record)
         except RowRejected as err:
             rejected[err.reason] += 1
             continue
-        names.append(str((record.get("meta") or {}).get("id") or f"#{n}"))
+        rows.append((ids, labels))
+        meta = record.get("meta") or {}
+        names.append(str(meta.get("id") or f"#{n}"))
+        if meta.get("mix_tokens") is not None:
+            counted.append((names[-1], meta["mix_tokens"], len(ids), meta.get("mix_reply") or 0,
+                            sum(value != IGNORE for value in labels)))
 
     bins, too_long = bin_pack([len(ids) + 1 for ids, _ in rows], block)
     id_blocks: list[list[int]] = []
@@ -482,5 +491,31 @@ def pack_thinking(
         "trainable_token_pct": round(100.0 * trained / total, 1) if total else 0.0,
         "block_rows": [[names[i] for i in members] for members in bins],
         "block_seq_lens": seq_lens,
+        "estimates": estimates(counted),
     }
     return id_blocks, label_blocks, stats
+
+
+def estimates(counted: list[tuple[str, int, int, int, int]]) -> dict:
+    """The assembler's counts against the exact ones: per row (name, row tokens estimated, exact,
+    trained tokens estimated, exact).
+
+    The assembler counts with the server's numbers: the prompt as the server tokenized it, and the
+    reply as it was generated. A row whose exact count is higher than the estimate could pass the
+    assembler's block check and still not fit; such rows are named (`exact_more`). The packing
+    drops any row that doesn't fit (`too_long`), so a block never overflows.
+    """
+    if not counted:
+        return {}
+    diffs = [exact - est for _, est, exact, _, _ in counted]
+    return {
+        "rows": len(counted),
+        "equal": sum(d == 0 for d in diffs),
+        "exact_fewer": {"rows": sum(d < 0 for d in diffs), "most": max(0, -min(diffs))},
+        "exact_more": {"rows": sum(d > 0 for d in diffs), "most": max(0, max(diffs)),
+                       "names": [row[0] for row, d in zip(counted, diffs, strict=True) if d > 0]},
+        "tokens": {"estimated": sum(row[1] for row in counted),
+                   "exact": sum(row[2] for row in counted)},
+        "trained": {"estimated": sum(row[3] for row in counted),
+                    "exact": sum(row[4] for row in counted)},
+    }
