@@ -67,6 +67,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import random
 import re
 import statistics as st
 from collections import Counter, defaultdict
@@ -101,6 +102,23 @@ HINTED_FAMILIES = ("weekday-numbering", "weekend-flag")
 PREFILL_SEED = 20261001
 PREFILL_DIALECTS = ("clickhouse",)
 PREFILL_SAMPLES = 4
+# Revision 2's Target A volume (decision 2's proposal), about 450 rows:
+# - ClickHouse's weekday and weekend rows through `recall`, for about 250. The prefill pilot kept
+#   95 of 96 recall replies, 46 of them free of a doubt (`doubts`); dropping the doubting ones, as
+#   proposed, needs about twice the replies, one reply a row. Their plain phase stops at 512
+#   tokens, since every cut fell within about 200.
+#   The model sees no table, only the question, so a family has only as many prompts as its
+#   questions times the 6 domains: 126 weekday prompts (7 days x 3 wordings), but 18 weekend ones
+#   (3 wordings). Equal rows a family (282 each) would repeat each weekend prompt about 16 times.
+#   So the rows follow the prompts: 75 tables a domain for weekdays and 12 for weekends, 450 and
+#   72 rows (124 and 18 prompts drawn), for about 2 kept traces a prompt in both;
+# - the other 14 cells from the base's own plain replies, kept where they verify: 146 of the hint
+#   pilot's 192 did, 86% without ClickHouse's weekdays. 3 tables a domain, 18 rows a cell, for
+#   about 200.
+VOLUME_SEED = 20261002
+RECALL_REPS = {"weekday-numbering": 75, "weekend-flag": 12}
+CELL_REPS = 3
+PLAIN_PHASE_TOKENS = 512
 
 # --- the hints -----------------------------------------------------------------------------------
 
@@ -198,9 +216,25 @@ def _returns(fn: Function) -> str:
             f"..., {number(last)} for {_DAYS[last]}")
 
 
-def recall(dialect: str) -> str:
+# The `recall` sentence in a few wordings, so that the volume's rows don't all carry one sentence
+# (the prefill pilot's "before scale" list). Every wording makes the same claims, filled in from
+# the checked functions: the function, its alias, its numbering, that the numbering is ISO, and
+# that Sunday = 1 is MySQL's. The first is the pilot's sentence.
+RECALL_WORDINGS = (
+    "In {dialect}, `{fn}` (alias `{alias}`) {returns}: the ISO numbering. (MySQL's `{mysql}` is "
+    "the one that starts at Sunday = {mysql_sunday}.)",
+    "Let me recall {dialect}'s numbering: `{fn}`, also callable as `{alias}`, {returns}, which "
+    "is ISO. Sunday = {mysql_sunday} is MySQL's `{mysql}`, not {dialect}'s.",
+    "{dialect}'s `{fn}` (same as `{alias}`) follows ISO: it {returns}. The numbering that starts "
+    "at Sunday = {mysql_sunday} is MySQL's `{mysql}`.",
+    "For {dialect}, `{fn}` and its alias `{alias}` use the ISO numbering, so they "
+    "{returns_plural}. (It's MySQL's `{mysql}` that counts from Sunday = {mysql_sunday}.)",
+)
+
+
+def recall(dialect: str, wording: int = 0) -> str:
     """The convention as a reasoning prefill writes it into the base's own thinking
-    (sftgen/prefill.py), for a weekday or a weekend row.
+    (sftgen/prefill.py), for a weekday or a weekend row, in one of RECALL_WORDINGS.
 
     It reads as the base's own recall, in the register of its plain traces ("`toDayOfWeek`
     returns 1 for Sunday, 2 for Monday, ..., 7 for Saturday"), but right. It names the alias the
@@ -212,9 +246,13 @@ def recall(dialect: str) -> str:
         raise ValueError(f"no prefill for {dialect}: the base gets its weekdays right")
     fn, alias = WEEKDAY_FUNCTIONS[dialect][0], ALIASES[dialect][0]
     mysql = WEEKDAY_FUNCTIONS["mysql"][0]
-    return (f"In {DIALECT_DISPLAY[dialect]}, `{fn.shown}` (alias `{_name(alias)}`) {_returns(fn)}: "
-            f"the ISO numbering. (MySQL's `{_name(mysql)}` is the one that starts at Sunday = "
-            f"{_SCHEMES[mysql.scheme](6)}.)")
+    if not fn.scheme == alias.scheme == "iso":  # every wording calls the numbering ISO
+        raise ValueError(f"{dialect}'s weekday numbering is not ISO")
+    returns = _returns(fn)
+    return RECALL_WORDINGS[wording].format(
+        dialect=DIALECT_DISPLAY[dialect], fn=fn.shown, alias=_name(alias), returns=returns,
+        returns_plural="return" + returns.removeprefix("returns"), mysql=_name(mysql),
+        mysql_sunday=_SCHEMES[mysql.scheme](6))
 
 
 def hint_checks(dialect: str) -> list[tuple[str, int]]:
@@ -247,6 +285,43 @@ def check_hints(engines: dict) -> dict[str, int]:
         finally:
             engine.teardown()
     return passed
+
+
+# --- doubts --------------------------------------------------------------------------------------
+
+# The prefill pilot (reports/gate-evals/20261001-target-a-prefill-pilot.md): after the convention,
+# 49 of the 95 kept `recall` traces state Sunday = 1 for ClickHouse again before settling on ISO,
+# mostly as a doubt ("is there any chance `toDayOfWeek` returns 1 for Sunday"). Such a trace
+# teaches the model to doubt the convention and then overrule the doubt, and the proposal drops
+# it (decision 2). Counted as the pilot counted it: a sentence that states Sunday = 1 and doesn't
+# name MySQL, whose DAYOFWEEK does number Sunday 1. On the pilot's kept replies this gives its
+# counts exactly: 49 of 95 recall, 40 of 92 start, 7 of 7 plain. A contrast with another dialect
+# ("some databases use 1 for Sunday") counts too, so it overstates the doubts a little. No digit
+# may sit between "Sunday" and the 1: "Sunday=0, Monday=1" states no Sunday = 1.
+_SUNDAY_ONE = re.compile(
+    r"\bSunday\b[^.!?\n\d]{0,12}?(?:==?|\bis\b|\bas\b|\bbeing\b|\bnumbered\b|\bgets\b|:|->|→)"
+    r"\s*(?:day\s+)?[`'\"(]?1\b(?!\.\d)"
+    r"|\b1\b[`'\"]?\s*(?:==?|\bis\b|\bfor\b|\bmeans\b|\bas\b|:|->|→|\()\s*Sunday\b",
+    re.IGNORECASE)
+_SENTENCES = re.compile(r"[^.!?\n]+[.!?]?")
+
+
+def doubts(text: str) -> list[str]:
+    """The sentences of `text` that state Sunday = 1 without naming MySQL."""
+    return [s.strip() for s in _SENTENCES.findall(text)
+            if _SUNDAY_ONE.search(s) and "mysql" not in s.lower()]
+
+
+def after_prefill(item: dict, reasoning: str) -> str:
+    """What the base wrote after an item's prefill: the part of its reasoning that is its own."""
+    prefill = item.get("prefill") or ""
+    return reasoning[len(prefill):] if prefill and reasoning.startswith(prefill) else reasoning
+
+
+def doubt_checked(item: dict) -> bool:
+    """Whether doubts are counted for an item: ClickHouse's weekday and weekend rows, where Sunday
+    = 1 is the wrong belief. In MySQL's rows it is the right one."""
+    return item["verify"]["dialect"] == "clickhouse" and item["verify"]["family"] in HINTED_FAMILIES
 
 
 # --- the citation filter -------------------------------------------------------------------------
@@ -473,6 +548,77 @@ def build_prefill_items(*, seed: int = PREFILL_SEED, reps: int = PILOT_REPS,
     return items, report
 
 
+def build_volume_items(*, seed: int = VOLUME_SEED, recall_reps: dict[str, int] | None = None,
+                       cell_reps: int = CELL_REPS, n: int = ROWS_PER_TABLE,
+                       gate: Callable[[dict], str | None] | None = None
+                       ) -> tuple[dict[str, list[dict]], dict]:
+    """({"ta_plain": ..., "ta_cells": ...}, report): Revision 2's Target A volume.
+
+    - `ta_plain`: ClickHouse's weekday and weekend rows, each a plain item whose reply stops at
+      PLAIN_PHASE_TOKENS: `prefill.splice` cuts it and writes the convention there, in a wording
+      drawn per row, and the base continues (`ta_recall`). The plain reply itself never trains.
+    - `ta_cells`: the other cells' rows, each a plain item the base answers in full.
+
+    Each draw has its own seed, so no table is shared between them, nor with the pilots (a
+    table's seed is the run's plus offsets per domain and repetition).
+    """
+    from dsbench.sftgen.dialect_conventions import generate
+    from dsbench.sftgen.schema import row_to_dict
+
+    recall_reps = recall_reps or RECALL_REPS
+    report: dict = {"seed": seed, "rows_per_table": n,
+                    "ta_plain": {"draws": []}, "ta_cells": {"draws": []}}
+    rng = random.Random(f"{seed}:recall")
+    out: dict[str, list[dict]] = {"ta_plain": [], "ta_cells": []}
+    rejected: Counter[str] = Counter()
+    draws = [("ta_plain", seed + 2 * k, recall_reps[family], list(PREFILL_DIALECTS), [family])
+             for k, family in enumerate(HINTED_FAMILIES)]
+    draws.append(("ta_cells", seed + 1, cell_reps, list(DIALECTS), list(FAMILIES)))
+    for name, draw_seed, reps, dialects, families in draws:
+        rows, generated = generate(seed=draw_seed, reps=reps, n=n, dialects=dialects,
+                                   families=families, thinking_frac=0.0)
+        missing = set(dialects) - set(generated["engines"])
+        if missing:
+            raise RuntimeError(f"no engine for {sorted(missing)}: bring the sandbox up")
+        report[name]["draws"].append({"seed": draw_seed, "reps": reps, "families": families,
+                                      "rows": len(rows),
+                                      "generator_rejected": generated["rejected"]})
+        for row in map(row_to_dict, rows):
+            recall_cell = row["dialect"] in PREFILL_DIALECTS and row["family"] in HINTED_FAMILIES
+            if name == "ta_cells" and recall_cell:
+                continue  # the base gets these wrong alone: they come through recall
+            plain = make_items(row, n, hinted=False)[0]
+            reason = gate(plain) if gate else None  # every item of a row has its training text
+            if reason:
+                rejected[reason.split(" ", 1)[0]] += 1
+                continue
+            if name == "ta_cells":
+                out[name].append(plain)
+                continue
+            wording = rng.randrange(len(RECALL_WORDINGS))
+            meta = {k: v for k, v in plain["meta"].items() if k not in ("hinted", "teacher")}
+            out[name].append({
+                **plain, "id": f"{plain['id']}#1", "prefill": "",
+                "max_tokens": PLAIN_PHASE_TOKENS,
+                "meta": {**meta, "sample": 1, "placement": "plain",
+                         "recall": recall(row["dialect"], wording), "recall_wording": wording,
+                         "teacher": "none: the base answers; its reply is cut for the recall "
+                                    "prefill and never trains"}})
+    for name, items in out.items():
+        report[name]["items"] = len(items)
+        report[name]["items_by_cell"] = dict(sorted(Counter(
+            f"{i['meta']['dialect']}/{i['meta']['family']}" for i in items).items()))
+        # the prompts the model sees, per cell: the rows above repeat them
+        prompts = {(f"{i['meta']['dialect']}/{i['meta']['family']}", json.dumps(i["messages"]))
+                   for i in items}
+        report[name]["prompts_by_cell"] = dict(sorted(Counter(c for c, _ in prompts).items()))
+    report["ta_plain"]["recall_wordings"] = dict(sorted(Counter(
+        i["meta"]["recall_wording"] for i in out["ta_plain"]).items()))
+    report["gate_rejected"] = dict(rejected)
+    report["recall"] = [recall(PREFILL_DIALECTS[0], w) for w in range(len(RECALL_WORDINGS))]
+    return out, report
+
+
 # --- verify --------------------------------------------------------------------------------------
 
 def check_reply(item: dict, rec: dict) -> tuple[str, str | None, str | None]:
@@ -487,8 +633,7 @@ def check_reply(item: dict, rec: dict) -> tuple[str, str | None, str | None]:
         cites = cites_hint(f"{reasoning}\n{answer}", item["verify"]["hint"], terms, prompt)
     elif item.get("prefill"):
         # Only what the base wrote after the prefill can read as told: the prefill is its own.
-        prefill = item["prefill"]
-        after = reasoning[len(prefill):] if reasoning.startswith(prefill) else reasoning
+        after = after_prefill(item, reasoning)
         cites = cites_hint(f"{after}\n{answer}", item["verify"]["recall"], terms, prompt,
                            where="reasoning")
     if rec.get("error") or rec.get("finish_reason") != "stop":
@@ -543,10 +688,13 @@ def verify(items_path: Path, gen_path: Path, out_path: Path,
                         status, got = "error", str(exc)[:200]
                 kept = status == "verified" and cites is None
                 soft = soft_flags(f"{rec.get('reasoning') or ''}\n{rec.get('answer') or ''}")
+                check = {"status": status, "truth": truth, "got": got, "cites": cites,
+                         "soft_flags": soft, "kept": kept}
+                if doubt_checked(item):  # recorded, not applied: decision 2 is the assembler's
+                    found = doubts(after_prefill(item, rec.get("reasoning") or ""))
+                    check.update(doubts=len(found), doubt=found[0][:200] if found else None)
                 records.append({**rec, "sql": sql, "train_messages": item.get(
-                    "train_messages", item["messages"]), "check": {
-                    "status": status, "truth": truth, "got": got, "cites": cites,
-                    "soft_flags": soft, "kept": kept}})
+                    "train_messages", item["messages"]), "check": check})
         finally:
             engine.teardown()
     out_path.write_text("".join(json.dumps(r, ensure_ascii=False, default=str) + "\n"
@@ -585,6 +733,8 @@ def summarize(records: list[dict], items: dict) -> dict:
         c["cites"] += r["check"]["cites"] is not None
         c["soft_flagged"] += bool(r["check"]["soft_flags"])
         c["kept"] += kept
+        if "doubts" in r["check"]:
+            c["kept_doubting"] += kept and r["check"]["doubts"] > 0
         row_id = item["verify"]["row_id"]
         rows[(cell, arm)][row_id] = rows[(cell, arm)].get(row_id, False) or kept
         if r.get("reasoning_tokens") is not None:
@@ -619,6 +769,12 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=PREFILL_SEED)
     p.add_argument("--reps", type=int, default=PILOT_REPS)
     p.add_argument("--samples", type=int, default=PREFILL_SAMPLES)
+    o = sub.add_parser("volume-items", help="Revision 2's Target A volume: ta_plain, ta_cells")
+    o.add_argument("--battery-items", required=True, help="a battery run's items/ dir")
+    o.add_argument("--out-dir", type=Path, required=True)
+    o.add_argument("--report", type=Path, required=True)
+    o.add_argument("--seed", type=int, default=VOLUME_SEED)
+    o.add_argument("--cell-reps", type=int, default=CELL_REPS)
     v = sub.add_parser("verify")
     v.add_argument("--items", type=Path, required=True)
     v.add_argument("--gen", type=Path, required=True)
@@ -640,6 +796,20 @@ def main() -> None:
                          "duckdb")
     checked = check_hints(engines)
     gate = strict_gate(args.battery_items)
+    if args.cmd == "volume-items":
+        files, report = build_volume_items(seed=args.seed, cell_reps=args.cell_reps, gate=gate)
+        args.out_dir.mkdir(parents=True, exist_ok=True)
+        for name, items in files.items():
+            path = args.out_dir / f"{name}.jsonl"
+            path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items))
+            report[name]["out"] = str(path)
+            report[name]["out_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        args.report.write_text(json.dumps({"params": {"battery_items": args.battery_items,
+                                                      "plain_phase_tokens": PLAIN_PHASE_TOKENS},
+                                           "hint_checks_passed": checked, **report},
+                                          indent=1) + "\n")
+        print(json.dumps({name: report[name]["items"] for name in files}))
+        return
     if args.cmd == "items":
         items, report = build_items(seed=args.seed, reps=args.reps, gate=gate)
         params = {"copy_run": COPY_RUN, "battery_items": args.battery_items}

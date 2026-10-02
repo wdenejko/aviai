@@ -287,3 +287,107 @@ def test_verify_judges_a_prefilled_reply_on_what_follows_the_prefill(tmp_path, d
     assert (cell["recall"]["kept"], cell["recall"]["reasoning_tokens_median"]) == (1, 900)
     cites = [json.loads(line)["check"]["cites"] for line in (tmp_path / "out.jsonl").open()]
     assert cites[0] is None and "prompt says" in cites[1]
+
+
+# --- the volume (Revision 2, decision 2's proposal) ----------------------------------------------
+
+
+@pytest.mark.parametrize("wording", range(len(th.RECALL_WORDINGS)))
+def test_every_wording_makes_the_checked_claims(wording):
+    sentence = th.recall("clickhouse", wording)
+    # the same claims as the pilot's sentence, each one of `hint_checks`
+    for claim in ("`toDayOfWeek(date)`", "`dayOfWeek`", "1 for Monday, 2 for Tuesday, ..., 7 for "
+                  "Sunday", "ISO", "MySQL's `DAYOFWEEK`", "Sunday = 1"):
+        assert claim in sentence
+    assert "{" not in sentence and "Saturday" not in sentence
+    assert th.doubts(sentence) == []  # its own Sunday = 1 names MySQL
+
+
+@pytest.mark.parametrize("text, doubting", [
+    # the prefill pilot's doubts (reports/gate-evals/20261001-target-a-prefill-pilot.md)
+    ("Wait, is there any chance `toDayOfWeek` returns 1 for Sunday?", True),
+    ("Some sources say `toDayOfWeek` returns 1 for Sunday in older versions.", True),
+    ("dayOfWeek(date) returns the day (1-7, Sunday is 1).", True),
+    ("Wait, some sources say 1=Sunday?", True),
+    ("Is there any chance `toDayOfWeek` returns Sunday=1?", True),
+    # and what states no Sunday = 1 for ClickHouse
+    ("MySQL's DAYOFWEEK numbers Sunday = 1, ClickHouse's doesn't.", False),
+    ("So Sunday = 7.", False),
+    ("Monday = 1, Tuesday = 2, ..., Sunday = 7.", False),
+    ("`toDayOfWeek` returns 7 for Sunday, not 1.", False),
+    ("formatDateTime with '%w' gives Sunday=0, Monday=1.", False),
+])
+def test_a_doubt_is_a_sentence_that_states_sunday_1_without_mysql(text, doubting):
+    assert bool(th.doubts(f"Let me think. {text} Anyway.")) is doubting
+
+
+def test_doubts_are_counted_after_the_prefill_and_only_where_sunday_1_is_wrong():
+    sentence = th.recall("clickhouse")
+    item = {"prefill": f"Weekends first. {sentence}",
+            "verify": {"dialect": "clickhouse", "family": "weekend-flag"}}
+    reasoning = f"{item['prefill']} Wait, could `dayOfWeek` return 1 for Sunday? No: ISO."
+    assert th.after_prefill(item, reasoning) == (" Wait, could `dayOfWeek` return 1 for Sunday? "
+                                                 "No: ISO.")
+    assert len(th.doubts(th.after_prefill(item, reasoning))) == 1
+    assert th.doubt_checked(item)
+    assert not th.doubt_checked({"verify": {"dialect": "mysql", "family": "weekend-flag"}})
+    assert not th.doubt_checked({"verify": {"dialect": "clickhouse", "family": "month-bucket"}})
+
+
+def test_verify_records_doubts_and_leaves_keeping_to_the_assembler(tmp_path, duckdb_pair,
+                                                                   monkeypatch):
+    plain, _ = duckdb_pair  # CI has no ClickHouse: a DuckDB row stands in, its doubts counted
+    monkeypatch.setattr(th, "doubt_checked", lambda item: True)
+    said = "In DuckDB, dayofweek(date) numbers Sunday 0 through Saturday 6."
+    recall = {**plain, "id": "targetA_recall:x#1", "prefill": f"Weekends. {said}",
+              "verify": {**plain["verify"], "recall": said},
+              "meta": {**plain["meta"], "placement": "recall", "sample": 1}}
+    (tmp_path / "items.jsonl").write_text(json.dumps(recall) + "\n")
+    gold = plain["verify"]["gold_sql"]
+    gen = {"id": recall["id"], "finish_reason": "stop", "answer": f"```sql\n{gold}\n```",
+           "reasoning": f"{recall['prefill']} Hmm, some sources say Sunday is 1? No, 0 and 6.",
+           "reasoning_tokens": 50}
+    (tmp_path / "gen.jsonl").write_text(json.dumps(gen) + "\n")
+    summary = th.verify(tmp_path / "items.jsonl", tmp_path / "gen.jsonl", tmp_path / "out.jsonl",
+                        engines={"duckdb": DuckDBEngine()})
+    check = json.loads((tmp_path / "out.jsonl").read_text())["check"]
+    assert (check["kept"], check["doubts"]) == (True, 1)  # kept: dropping it is decision 2's
+    assert check["doubt"] == "Hmm, some sources say Sunday is 1?"
+    assert summary["duckdb/weekend-flag"]["recall"]["kept_doubting"] == 1
+
+
+def test_the_volume_cuts_clickhouse_weekdays_short_and_answers_the_other_cells(monkeypatch):
+    from dsbench.sftgen import dialect_conventions, schema
+
+    calls = []
+
+    def fake_generate(*, seed, reps, n, dialects, families, thinking_frac):
+        calls.append((seed, reps, tuple(dialects), tuple(families)))
+        rows = [_row(id=f"A-{f}-{d}-retail_orders-{seed + r}", family=f, dialect=d)
+                for r in range(reps) for d in dialects for f in families]
+        return rows, {"engines": list(dialects), "rejected": 0}
+
+    monkeypatch.setattr(dialect_conventions, "generate", fake_generate)
+    monkeypatch.setattr(schema, "row_to_dict", lambda row: row)
+    reps = {"weekday-numbering": 3, "weekend-flag": 1}
+    files, report = th.build_volume_items(seed=100, recall_reps=reps, cell_reps=1, n=200)
+    # each recall family its own draw, its rows following its prompts
+    assert calls == [(100, 3, ("clickhouse",), ("weekday-numbering",)),
+                     (102, 1, ("clickhouse",), ("weekend-flag",)),
+                     (101, 1, th.DIALECTS, th.FAMILIES)]
+    plain, cells = files["ta_plain"], files["ta_cells"]
+    assert len(plain) == 4 and {i["max_tokens"] for i in plain} == {th.PLAIN_PHASE_TOKENS}
+    first = plain[0]
+    assert first["id"] == "targetA:A-weekday-numbering-clickhouse-retail_orders-100#1"
+    assert first["prefill"] == "" and first["meta"]["placement"] == "plain"
+    assert first["meta"]["recall"] == th.recall("clickhouse", first["meta"]["recall_wording"])
+    # the other 14 cells, not ClickHouse's weekdays and weekends
+    assert len(cells) == 14 and all("prefill" not in i and "max_tokens" not in i for i in cells)
+    assert not [i for i in cells if i["meta"]["dialect"] == "clickhouse"
+                and i["meta"]["family"] in th.HINTED_FAMILIES]
+    assert report["ta_plain"]["items"] == 4 and report["ta_cells"]["items"] == 14
+    # _row's prompt is the same for every row: the report counts prompts, not rows
+    assert report["ta_plain"]["prompts_by_cell"] == {"clickhouse/weekday-numbering": 1,
+                                                     "clickhouse/weekend-flag": 1}
+    again, _ = th.build_volume_items(seed=100, recall_reps=reps, cell_reps=1, n=200)
+    assert again == files  # the wordings are drawn with a seed

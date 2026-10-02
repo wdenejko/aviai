@@ -38,6 +38,9 @@ projects/dsbench/data/sft/*.report.json
 projects/dsbench/data/sft/gate2/
 # Target C's volume run (patches/target_c_volume_mac.sh): rows, failures, reports and logs
 projects/dsbench/data/sft/rev2_target_c/
+# Target A's volume items (target_a_hints volume-items: ta_plain, ta_cells), and the recall
+# items and checked replies the generation brings back
+projects/dsbench/data/sft/rev2_target_a/
 # SynSQL's SQLite databases, extracted from its databases.zip (sftgen/synsql.py)
 projects/dsbench/data/synsql/
 
