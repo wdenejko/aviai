@@ -62,7 +62,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from dsbench.battery.prepare import _bird_schema
-from dsbench.sftgen.reasoning_pilot import SQL_BLOCK, sql_only
+from dsbench.sftgen.reasoning_pilot import SQL_BLOCK, latest_rows, sql_only
 
 REPO = "seeklhy/SynSQL-2.5M"
 REVISION = "cca2c84cc3b41afa6b51534762a6a3a4a420baca"
@@ -302,7 +302,7 @@ def verify(items_path: Path, gen_path: Path, out_path: Path, databases: Database
     failed: Counter[str] = Counter()
     caught = 0
     with out_path.open("w") as fh:
-        for rec in map(json.loads, gen_path.open()):
+        for rec in latest_rows(gen_path).values():  # one row an item, retries resolved
             item = items[rec["id"]]
             answer = rec.get("answer") or ""
             sql = sql_only(answer)

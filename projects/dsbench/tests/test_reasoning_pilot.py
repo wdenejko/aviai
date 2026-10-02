@@ -6,6 +6,8 @@ what is ours, and tested here, is everything around them.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from dsbench.sftgen import reasoning_pilot as rp
 
@@ -183,3 +185,88 @@ def test_a_template_that_does_not_open_the_thinking_block_is_an_error():
                                                (None, "length")])
 def test_the_completion_stop_type_maps_to_the_chat_finish_reason(stop_type, finish):
     assert rp.finish_reason(stop_type) == finish
+
+
+# --- volume runs: the block budget and whole rows (ADR-004 Revision 2) ---------------------------
+
+
+class _ChatServer(_Server):
+    """The chat path too: /v1/chat/completions answers one message, and a prompt is 1,000 words."""
+
+    def __init__(self, fail_template=False):
+        super().__init__("", prompt="w " * 1000)
+        self.fail_template = fail_template
+
+    def post(self, path, json):
+        if path == "/apply-template" and self.fail_template:
+            raise RuntimeError("no template here")
+        if path == "/v1/chat/completions":
+            self.sent[path] = json
+            return _Response({"choices": [{"message": {"reasoning_content": "r",
+                                                       "content": "a"},
+                                           "finish_reason": "stop"}],
+                              "usage": {"prompt_tokens": 1000, "completion_tokens": 9}})
+        return super().post(path, json)
+
+
+def test_a_reply_may_run_only_as_far_as_its_row_still_fits_the_block():
+    tools = [{"type": "function", "function": {"name": "f"}}]
+    item = {"id": "tool_fit:1", "pool": "tool_fit", "tools": tools,
+            "messages": [{"role": "user", "content": "hi"}]}
+    server = _ChatServer()
+    assert rp.reply_budget(server, item, 16384, 8192) == (8192 - 1000 + rp.BLOCK_SLACK, 1000)
+    # rendered as the server renders the request: thinking on, with the item's tools
+    assert server.sent["/apply-template"] == {"messages": item["messages"], "tools": tools,
+                                              "chat_template_kwargs": {"enable_thinking": True}}
+    assert rp.reply_budget(server, item, 4096, 8192) == (4096, 1000)  # max_tokens still caps
+    assert rp.reply_budget(server, item, 4096, 0) == (4096, None)  # no block, no count
+    # a prefill is part of the row's text before the model's own
+    prefilled = {**item, "prefill": "one two three"}
+    assert rp.reply_budget(_ChatServer(), prefilled, 16384, 8192)[1] == 1003
+    # a prompt that can't be counted keeps max_tokens: a wasted reply, never a lost row
+    assert rp.reply_budget(_ChatServer(fail_template=True), item, 16384, 8192) == (16384, None)
+
+
+def test_a_volume_reply_records_its_budget_and_a_prompt_over_the_block_runs_nothing():
+    item = {"id": "oasst1:1", "pool": "oasst1", "messages": [{"role": "user", "content": "hi"}]}
+    server = _ChatServer()
+    record = rp.run_one(server, item, 16384, block=8192)
+    assert server.sent["/v1/chat/completions"]["max_tokens"] == 7208
+    assert (record["max_tokens"], record["rendered_prompt_tokens"]) == (7208, 1000)
+    assert (record["answer"], record["finish_reason"]) == ("a", "stop")
+    small = _ChatServer()
+    record = rp.run_one(small, item, 16384, block=1000)
+    assert record["finish_reason"] == "prompt_over_block" and record["error"] == ""
+    assert "/v1/chat/completions" not in small.sent
+    assert "max_tokens" not in rp.run_one(_ChatServer(), item, 16384)  # a pilot's row is as before
+
+
+def test_a_resumed_run_skips_a_torn_row_and_appends_whole_ones(tmp_path, monkeypatch):
+    items = tmp_path / "items.jsonl"
+    items.write_text("".join(json.dumps({"id": i, "pool": "p", "messages": []}) + "\n"
+                             for i in ("a", "b", "c", "d")))
+    out = tmp_path / "gen.jsonl"
+    # a: answered; b: failed, so it runs again; c: torn at the end of the file (a power cut)
+    out.write_text(json.dumps({"id": "a", "error": ""}) + "\n"
+                   + json.dumps({"id": "b", "error": "boom"}) + "\n" + '{"id": "c", "rea')
+    assert rp.answered(out) == {"a"}
+    ran = []
+    monkeypatch.setattr(rp, "run_one", lambda client, item, max_tokens, block: ran.append(
+        (item["id"], max_tokens, block)) or {"id": item["id"], "error": ""})
+    rp.generate(items, out, "http://127.0.0.1:9", workers=2, max_tokens=99, block=8192)
+    assert sorted(ran) == [("b", 99, 8192), ("c", 99, 8192), ("d", 99, 8192)]
+    lines = out.read_text().splitlines()
+    assert lines[2] == '{"id": "c", "rea'  # the torn row is left as it was, on a line of its own
+    assert rp.answered(out) == {"a", "b", "c", "d"}
+
+
+def test_a_checker_reads_one_row_an_item_the_answered_one(tmp_path):
+    gen = tmp_path / "gen.jsonl"
+    gen.write_text("".join(json.dumps(row) + "\n" for row in [
+        {"id": "a", "error": "ReadTimeout"}, {"id": "a", "error": "", "answer": "second"},
+        {"id": "b", "error": "", "answer": "kept"}, {"id": "b", "error": "late"},
+        {"id": "c", "error": "boom"}, {"id": "c", "error": "boom again"}]))
+    rows = rp.latest_rows(gen)
+    assert (rows["a"]["answer"], rows["b"]["answer"], rows["c"]["error"]) == (
+        "second", "kept", "boom again")
+    assert list(rows) == ["a", "b", "c"]  # in the order the items first appear

@@ -201,10 +201,13 @@ def test_verify_needs_a_finished_reply_with_reasoning(tmp_path, generated):
     items, _ = generated
     item = next(i for i in items if i["pool"] == "tool_fit")
     gold = item["verify"]["gold"]
-    (tmp_path / "items.jsonl").write_text(json.dumps(item) + "\n")
     good = {"id": item["id"], "reasoning": "The user wants ...", "finish_reason": "tool_calls",
             "tool_calls": _call(gold["name"], _gold_args(item))}
     gens = [good, {**good, "reasoning": ""}, {**good, "finish_reason": "length"}]
+    # one item per reply: a checker reads one row an item (reasoning_pilot.latest_rows)
+    gens = [{**g, "id": f"{item['id']}#{k}"} for k, g in enumerate(gens)]
+    (tmp_path / "items.jsonl").write_text("".join(json.dumps({**item, "id": g["id"]}) + "\n"
+                                                  for g in gens))
     (tmp_path / "gen.jsonl").write_text("".join(json.dumps(g) + "\n" for g in gens))
     result = tr.verify(tmp_path / "items.jsonl", tmp_path / "gen.jsonl", tmp_path / "out.jsonl")
     assert result == {"passed": {"tool_fit": 1}, "failed": {"tool_fit": 2}}

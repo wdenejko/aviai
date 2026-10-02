@@ -36,7 +36,7 @@ from pathlib import Path
 
 import httpx
 
-from dsbench.battery.items import STATE_SCALE, Item, by_id, load_items, read_jsonl
+from dsbench.battery.items import STATE_SCALE, Item, append_row, by_id, load_items, read_jsonl
 from dsbench.streaming import reassemble_stream
 
 SEED = 0
@@ -156,15 +156,6 @@ def done_ids(path: Path) -> set[str]:
     if not path.exists():
         return set()
     return {row["id"] for row in read_jsonl(path) if not row.get("error")}
-
-
-def append_row(fd: int, row: dict) -> None:
-    """One row, one write to a file opened O_APPEND. A pass stopped by a signal (the window's time
-    limit) leaves whole rows behind, so it resumes; a thinking row can run to 50 KB, which a
-    buffered writer may split across several writes."""
-    data = (json.dumps(row, ensure_ascii=False) + "\n").encode()
-    while data:
-        data = data[os.write(fd, data):]
 
 
 def main() -> None:

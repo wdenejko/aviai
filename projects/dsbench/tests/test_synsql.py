@@ -270,7 +270,6 @@ def test_verify_runs_the_reply_s_sql_against_the_gold(tmp_path, zone):
     item = {"id": "synsql:shop:x", "pool": "synsql",
             "verify": {"kind": "sqlite_ex", "db_id": "shop", "variants": 2, "variant_rows": 30,
                        "gold_sql": "SELECT name FROM items WHERE id < 3"}}
-    (tmp_path / "items.jsonl").write_text(json.dumps(item) + "\n")
     base = {"id": item["id"], "reasoning": "Two rows.", "finish_reason": "stop"}
     gens = [
         {**base, "answer": "```sql\nSELECT name FROM items WHERE id IN (2, 1) ORDER BY 1\n```"},
@@ -284,6 +283,10 @@ def test_verify_runs_the_reply_s_sql_against_the_gold(tmp_path, zone):
         {**base, "answer": "```sql\nSELECT name FROM items WHERE id > 1\n```"},
         {**base, "answer": "```sql\nSELECT name FROM items WHERE id != 3\n```"},  # 3 rows only
     ]
+    # one item per reply: a checker reads one row an item (reasoning_pilot.latest_rows)
+    gens = [{**g, "id": f"{item['id']}#{k}"} for k, g in enumerate(gens)]
+    (tmp_path / "items.jsonl").write_text("".join(json.dumps({**item, "id": g["id"]}) + "\n"
+                                                  for g in gens))
     (tmp_path / "gen.jsonl").write_text("".join(json.dumps(g) + "\n" for g in gens))
     result = synsql.verify(tmp_path / "items.jsonl", tmp_path / "gen.jsonl",
                            tmp_path / "out.jsonl", zone, InProcessSandbox())
