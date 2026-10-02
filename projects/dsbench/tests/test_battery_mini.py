@@ -121,6 +121,15 @@ def _write_state(run, bench, state, rows):
                  for i, (_, _, r, u) in enumerate(rows)])
 
 
+def test_a_reply_that_never_closed_fails_whatever_its_scorer_says():
+    # BFCL irrelevance passes when no call is decoded, which a reply looping in its reasoning
+    # satisfies; served, it answers nothing
+    looping = {"unclosed": True, "content": "", "finish_reason": "length"}
+    assert not mini.conditions("bfcl", {"passed": True, "status": "ok"}, looping)["passed"]
+    assert mini.conditions("bfcl", {"passed": True, "status": "ok"}, {"content": "No tool fits."})[
+        "passed"]
+
+
 def test_summary_flags_what_got_worse_and_reads_the_aa_pass(tmp_path):
     run = tmp_path / "run"
     save_items(run / "items" / "bird.jsonl", [_item("bird", str(i)) for i in range(20)])
@@ -136,8 +145,9 @@ def test_summary_flags_what_got_worse_and_reads_the_aa_pass(tmp_path):
     he_state = [(False, "wrong", 50000, True)] * 8 + [(True, "ok", 2000, False)] * 3
     for s, rows in (("base", he_base), ("adapter", he_state), ("base_rep", he_base)):
         _write_state(run, "humaneval_plus", s, rows)
+    # the gold scores cover the whole battery: item 11 fails too, but isn't in the subset
     write_jsonl(run / "scores" / "humaneval_plus.gold.jsonl",
-                [{"id": str(i), "passed": i != 10} for i in range(11)])
+                [{"id": str(i), "passed": i < 10} for i in range(12)])
 
     result = mini.summary(run, "adapter")
     assert set(result["flags"]) == {"bird:passed", "bird:sql_error", "bird:brevity",
@@ -151,9 +161,25 @@ def test_summary_flags_what_got_worse_and_reads_the_aa_pass(tmp_path):
     # 18 items at 0.4 of the base's length, 2 unchanged
     assert bird["states"]["adapter"]["checks"]["brevity"]["ratio_gmean"] == round(0.4 ** 0.9, 3)
     assert bird["aa_flips"] == 0
+    assert bird["cost_base"]["completion_tokens"] == {"total": 5000, "median": 250, "p90": 250,
+                                                      "max": 250}
+    assert bird["states"]["adapter"]["cost"]["reasoning_chars_median"] == 400
     he = result["benches"]["humaneval_plus"]
     assert (he["n"], he["unmeasurable"]) == (10, ["10"])
     # unclosed replies sit out the length ratio: only the 2 measurable closed items remain
     assert he["states"]["adapter"]["checks"]["brevity"]["n"] == 2
     assert "sql_error" not in he["states"]["adapter"]["checks"]
     assert "| bird | sql_error | 20 | 0.0 | 50.0 | 10/0 |" in mini.markdown(result)
+
+
+def test_a_pass_cut_short_is_compared_on_the_items_it_answered(tmp_path):
+    run = tmp_path / "run"
+    save_items(run / "items" / "ifeval.jsonl", [_item("ifeval", str(i)) for i in range(10)])
+    _write_state(run, "ifeval", "base", [(True, "ok", 900, False)] * 10)
+    # the A/A pass stopped at the time limit after 4 items: the scorer still writes 10 rows
+    _write_state(run, "ifeval", "base_rep", [(True, "ok", 900, False)] * 4)
+    write_jsonl(run / "scores" / "ifeval.base_rep.jsonl",
+                [{"id": str(i), "passed": i < 4, "status": "ok" if i < 4 else "no_generation"}
+                 for i in range(10)])
+    check = mini.summary(run, "base_rep", aa="none")["benches"]["ifeval"]["states"]["base_rep"]
+    assert check["checks"]["passed"]["worse"] == 0 and check["flags"] == []
