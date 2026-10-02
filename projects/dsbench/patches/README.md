@@ -60,6 +60,25 @@ gives each 16,384-row Qwen key a 32,768-row twin with the same config (a Triton 
 not results). Batch-1 seq 8192 needs nothing: it routes 65,536 rows, a tuned key. See
 `reports/gate-evals/20260928-seq4096-enablement.md`.
 
+## `recipe-train-packed-rows.patch`
+Revision 2 packs several whole rows into each 8,192-token block (`tokenize_masked.pack_thinking`).
+Without boundaries, a row attends to the rows before it in its block and inherits their
+GatedDeltaNet state, and the convolution mixes its first 3 tokens with the previous row's last 3.
+The dataset now lists each block's segments (`seq_lens`: each row with its separator, then the
+padding), and this patch hands them to the model:
+- the collator pops `seq_lens` before `default_data_collator`, which can't stack lists of
+  different lengths, and returns `packed_rows.add_segments(batch, seq_lens)`. That adds position
+  ids that restart at each row, `cu_seq_lens_q/k` and `max_length_q/k`. A dataset without
+  `seq_lens` trains as before;
+- `main()` calls `configure_qwen35_packed_conv()`, which sends the convolution to FLA's
+  `causal_conv1d` when the boundaries are given;
+- training refuses `seq_lens` unless the attention is flash's, because the other implementations
+  take no boundaries.
+
+Copy `packing/packed_rows.py` into the recipe directory along with the patch. Batch size stays 1,
+because FLA's varlen rule flattens the batch. Checked by `packing/check_collator.py` (CPU) and
+`packing/check_packed_rows.py` (GPU), below.
+
 ## `torch-ggml-ops-gfx1151-build.patch` (`~/src/torch-ggml-ops`, box-local)
 The two source fixes the Gate-0 build of torch-ggml-ops needed on dashi, kept as working-tree
 changes there: `tools/mmq_deployment_bundle.py` imports torch before `tools.ggtensile` (TheRock's
@@ -103,6 +122,34 @@ the inventory tests' counts, and the regenerated exact-key table.
 All three are CPU-only but run inside the `llama-rocm-unlimited-build` toolbox, because the
 torch in `~/ftgguf` needs `libatomic.so.1` and the host lacks it. See
 `reports/gate-evals/20260929-thinking-rendering-packing.md`.
+
+## `packing/` (packed rows: the module the recipe patch imports, and its checks)
+- `packed_rows.py`:
+  - `segment_kwargs`: one block's packed-sequence arguments;
+  - `add_segments`: the collator's step, checked against the block's length;
+  - `configure_qwen35_packed_conv`: the convolution's boundaries.
+- `check_collator.py` (CPU): runs a dataset built by `build_masked_dataset.py` through the patched
+  collator, block by block. The collator is compiled from the patched recipe's source. Run
+  2026-10-02 on the reasoning pilot's 199 rows: 56 blocks and 190 rows, as built.
+- `check_packed_rows.py` (GPU): one block of four real rows (two Target C, two from the reasoning
+  pilot) through the recipe's training model three ways: with its boundaries, without them, and
+  row by row. It compares hidden states, the loss and the LoRA-B gradients. `--dry-run` stops
+  before the model loads.
+- `check_kernels.py` (GPU, seconds): the three kernels the boundaries switch (attention's
+  variable-length path, FLA's rule with `cu_seqlens`, FLA's convolution), forward and backward,
+  on random inputs at the model's shapes. It runs against the plain kernels, float32 attention,
+  and each segment alone.
+- Run 2026-10-02 (`reports/gate-evals/20261002-packed-rows-check.md`): packed, each row trains
+  exactly as if it were alone, and no gradient crosses a boundary.
+- `window.sh`: the check's window.
+  - It waits up to 12 hours for the owner to stop production.
+  - It stops OCR once it has loaded, and restores it as it was.
+  - It runs the check under the thermostat.
+
+  Deploy it to `~/benchlab/scripts/packing/` with `check_packed_rows.py`, `packed_rows.py` and
+  `src/dsbench/sftgen/tokenize_masked.py`.
+
+The CPU checks also run in the toolbox, for the same reason as above.
 
 ## `fttrain-thermostat-pattern.patch` (box tooling, not the recipe)
 `~/fttrain/thermostat.sh` is the userspace thermal governor (SIGSTOP the trainer at >= 101 °C,
