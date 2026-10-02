@@ -55,7 +55,7 @@ def test_every_assistant_turn_keeps_its_reasoning_and_the_finish_call(monkeypatc
         _reply("Load the data first.", calls=[("run_python", {"code": "print(1)"})]),
         _reply("Table written, done.", calls=[("finish", {})]),
     ])
-    assert (res["passed"], res["status"], res["steps"]) == (True, "ok", 2)
+    assert (res["passed"], res["status"], res["steps"], res["finished"]) == (True, "ok", 2, True)
     roles = [m["role"] for m in res["trajectory"]]
     assert roles == ["system", "user", "assistant", "tool", "assistant"]
     assert [m.get("reasoning_content") for m in res["trajectory"] if m["role"] == "assistant"] == [
@@ -71,7 +71,7 @@ def test_a_reply_in_text_ends_the_run_and_is_kept_as_the_last_turn(monkeypatch):
     res, _, _ = _run(monkeypatch, [_reply("All done.", content="Done.", finish="stop")])
     assert res["trajectory"][-1] == {"role": "assistant", "content": "Done.",
                                      "reasoning_content": "All done."}
-    assert res["status"] == "ok"
+    assert (res["status"], res["finished"]) == ("ok", True)
 
 
 def test_a_turn_cut_by_max_tokens_is_never_kept(monkeypatch):
@@ -84,6 +84,15 @@ def test_a_run_out_of_steps_is_a_budget_failure(monkeypatch):
     loop = [_reply("Again.", calls=[("run_sql", {"query": "SELECT 1"})])] * 2
     res, _, _ = _run(monkeypatch, loop, problem=_problem(passes=False, max_steps=2))
     assert (res["passed"], res["status"], res["steps"]) == (False, "budget", 2)
+
+
+def test_a_passing_table_written_by_a_run_that_never_stopped_is_not_a_row(monkeypatch):
+    # The oracle grades the table whatever ended the run, as the measurement loop does. Two of
+    # the volume run's 282 ran out of steps after writing a passing table.
+    loop = [_reply("Again.", calls=[("run_sql", {"query": "SELECT 1"})])] * 2
+    res, _, _ = _run(monkeypatch, loop, problem=_problem(passes=True, max_steps=2))
+    assert (res["passed"], res["status"], res["finished"]) == (True, "ok", False)
+    assert mdt.selection(res, block=8192, reasoning=True)["why_not"] == "out_of_steps"
 
 
 def test_the_request_turns_thinking_on_with_qwen_sampling():
@@ -208,6 +217,19 @@ def test_the_block_edge_and_the_checks_that_depend_on_the_mode():
     assert mdt.selection(_res(served=8191), block=8192)["kept"]  # 8,192 with the newline
     assert mdt.selection(_res(served=50_000))["fits"] is None  # no block: length not checked
     assert mdt.selection(_res(reasoning=""), reasoning=False)["kept"]  # a teacher's row
+
+
+@pytest.mark.parametrize(("chars", "fits"), [(150, True), (200, False)])
+def test_tool_output_after_the_last_request_counts_toward_the_block(chars, fits):
+    # A turn that writes the table and calls `finish` at once ends the row on the write's output,
+    # which no request carried: 8,000 served + 1 + at most (chars + 16) for that output.
+    res = _res(served=8000)
+    res["trajectory"][-1] = _assistant_turn("Write, then finish.", [
+        ("run_python", {"code": "write()"}), ("finish", {})])
+    res["trajectory"].append({"role": "tool", "content": "x" * chars})
+    sel = mdt.selection(res, block=8192, reasoning=True)
+    assert (sel["fits"], sel["unsent_tail_max"]) == (fits, chars + 16)
+    assert sel["why_not"] == (None if fits else "over_block")
 
 
 def test_a_key_seen_in_a_listing_is_recorded_but_not_held_against_the_run():
