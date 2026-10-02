@@ -1,0 +1,13 @@
+--- train_qwen3_5_35b.py.bak
++++ train_qwen3_5_35b.py
+@@ -150,7 +150,9 @@
+         warmup_steps=100,
+         logging_steps=1,
+         save_steps=100,
+-        save_total_limit=5,
++        # QWEN35_SAVE_TOTAL_LIMIT=0 keeps every checkpoint: Revision 2 gates checkpoints from the
++        # whole run on the mini-battery, and the default 5 would delete the early ones mid-run.
++        save_total_limit=int(os.environ.get("QWEN35_SAVE_TOTAL_LIMIT", "5")) or None,
+         bf16=True,
+         optim="adamw_8bit",
+         gradient_checkpointing=True,
