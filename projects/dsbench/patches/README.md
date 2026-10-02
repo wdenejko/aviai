@@ -365,6 +365,16 @@ Launch (the owner stops production; the window waits for it):
 ssh dashi "ARM=1 MAX_HOURS=9 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'tools sql code replay' </dev/null >/dev/null 2>&1 &"
 ```
 
+**Target A** (once decision 2 is taken) adds four steps, about 3.5 hours. Stage
+`data/sft/rev2_target_a/{ta_plain,ta_cells}.jsonl` (`target_a_hints volume-items`) as
+`$R/items/ta_plain.jsonl` and `$R/items/ta_cells.jsonl`, and add to the plan:
+
+    ta_cells ta_plain splice:ta_plain:ta_recall ta_recall
+
+`ta_plain`'s replies stop at 512 tokens (each item's `max_tokens`). The `splice` step cuts them
+and writes the convention there, as `$R/items/ta_recall.jsonl`. It runs again in every window, so
+a plain phase cut short by the time limit feeds it once it is resumed.
+
 A later window is the same command: every step skips the items already answered. In the first
 minutes, the first rows show whether the budget works on the real server: `rendered_prompt_tokens`
 should equal `prompt_tokens` (a tool item too, which tests that `/apply-template` renders the
@@ -374,6 +384,10 @@ The checks, each reading one row an item:
 - `tools` (anywhere): `python -m dsbench.sftgen.tool_rows verify --items ... --gen ... --out ...`;
 - `sql` (the Mac, the sandbox's `sqlite` container): `python -m dsbench.sftgen.synsql verify
   --items ... --gen ... --out ...`;
+- Target A (the Mac, the sandbox's four engines): `python -m dsbench.sftgen.target_a_hints
+  verify --items ... --gen ... --out ...`, for `ta_cells`, and for `ta_recall` with the items the
+  splice wrote (copy `$R/items/ta_recall.jsonl` back too). It counts the doubts; the assembler
+  drops them by default (`--target-a-doubts`);
 - `code` and `replay` (the box, the battery's podman sandbox): from
   `~/benchlab/scripts/rev2-gen/src`, `PYTHONPATH=. ~/benchlab/batteryvenv/bin/python -m
   dsbench.sftgen.replay_verify --items $R/items/code.jsonl --gen $R/gen/code.jsonl --out
