@@ -234,6 +234,7 @@ def test_a_volume_reply_records_its_budget_and_a_prompt_over_the_block_runs_noth
     assert server.sent["/v1/chat/completions"]["max_tokens"] == 7208
     assert (record["max_tokens"], record["rendered_prompt_tokens"]) == (7208, 1000)
     assert (record["answer"], record["finish_reason"]) == ("a", "stop")
+    assert record["sampling"] == {**rp.SAMPLING, "seed": rp.request_body(item, 1)["seed"]}
     small = _ChatServer()
     record = rp.run_one(small, item, 16384, block=1000)
     assert record["finish_reason"] == "prompt_over_block" and record["error"] == ""

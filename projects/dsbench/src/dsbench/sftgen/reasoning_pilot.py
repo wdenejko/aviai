@@ -278,7 +278,9 @@ def _complete(client, body: dict) -> tuple[dict, str | None, dict, dict]:
 
 
 def run_one(client, item: dict, max_tokens: int, block: int = 0) -> dict:
-    record = {"id": item["id"], "pool": item["pool"], "error": ""}
+    # The sampling travels with the row: it is the training row's provenance (assemble_rev2.py).
+    record = {"id": item["id"], "pool": item["pool"], "error": "",
+              "sampling": {**SAMPLING, "seed": _seed(item)}}
     started = time.time()
     try:
         budget, rendered = reply_budget(client, item, max_tokens, block)
