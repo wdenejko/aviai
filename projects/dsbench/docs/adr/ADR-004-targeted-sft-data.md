@@ -690,6 +690,11 @@ The selection (seed 20260930), 2,646 prompts:
   training. Every pool drops rows over the block anyway; the cap stops the replies that loop. In
   the mini-battery's calibration, 7 of 120 BFCL replies looped to 12,288 tokens and took 43.5%
   of the pass's tokens.
+- **Code replies may not fit.** In the same calibration, a fifth of the base's closed HumanEval+
+  replies ran past 8,192 tokens (26 of 145, 31 of 147). If OpenCoder's and SWE-Swiss's replies
+  run as long, the cap cuts them, and the code rows keep only the shorter ones: data that could
+  teach shorter code reasoning. The window's counts will show how many, and the mini-battery's
+  brevity check compares a checkpoint's reasoning length on HumanEval+ with the base's.
 - **Rows are written whole, as they finish**, in one write each. A window's time limit stops a
   step mid-run, and the next window resumes it: answered items are skipped, failed ones run
   again. A checker reads one row an item (`latest_rows`), so a retried item counts once.
@@ -848,7 +853,8 @@ it; the generated rows will tell.
   times longer, so it runs on subsets of a few hundred items, which is where each Gate-2 failure
   already stood far past its noise. Held-out loss is not a gate; Gate 2 showed why.
 
-  **Built 2026-10-02** (`battery/mini.py`); its calibration is not yet run.
+  **Built 2026-10-02** (`battery/mini.py`), and calibrated the same day
+  (`reports/gate-evals/20261002-mini-battery-calibration.md`).
   - **The subsets** come from the battery's pinned items, drawn with a fixed seed:
     - IFEval: 200 of 541;
     - BFCL: 120 of the 240 irrelevance items;
@@ -877,6 +883,21 @@ it; the generated rows will tell.
     - the noise.
 
     The sizes and the budget are confirmed after it.
+
+    **Run 2026-10-02: the sizes and the budget stay.**
+    - A state's four passes take 4.5-4.7 hours, so a checkpoint's gate is one window of about 5.
+    - Thinking moves the base both ways, against Gate 2's thinking-off base on the same items:
+      IFEval +9.0 points, BIRD +9.3, BFCL irrelevance −10.8, HumanEval+ −6.8. The gate compares
+      a checkpoint with this thinking-on base.
+    - The base never closes its reasoning on 10-11% of HumanEval+'s items, 6-8% of BFCL's, 2.5%
+      of IFEval's and 0-1% of BIRD's. BFCL's scorer passes such a reply, which answers nothing,
+      so a pass now needs closed reasoning.
+    - Two draws of the base disagree on 8.5-16% of the items. A checkpoint's passes must move
+      5.8-8.8 points to flag at 80% power. The A/A pass flags nothing.
+    - Run on Gate 2's own passes, the checks flag its adapter on all four benchmarks, and only
+      BFCL at half scale, as Gate 2's dose check found.
+    - At 8,192 tokens, a fifth of HumanEval+'s closed replies would no longer close; 12,288
+      stays.
 - **The full battery, re-baselined with thinking on for both states.**
   `20260924-gate2-battery.md` measured the base with thinking off, and those numbers don't carry
   over. Token limits must be sized for reasoning; GPQA's 4,096 bound it in Gate 2.
@@ -946,6 +967,15 @@ it; the generated rows will tell.
      yields and lengths were measured with it, and the base's distribution with its least likely
      tokens trimmed is still its own.
    - Or: 0, as Qwen recommends, for the rows not yet generated. Target C's rows stay as they are.
+9. **The full battery with thinking on.** At the mini-battery calibration's cost per item,
+   IFEval, BFCL, BIRD and HumanEval+ at full size take about 18 hours a state. MMLU-Pro, GPQA,
+   LiveCodeBench and DS-1000 weren't measured with thinking on, and add to that; with thinking off
+   and 4,096 tokens, Gate 2's base already hit the limit on half of LiveCodeBench's items.
+   - Proposed: the base once, since every candidate compares with it, then only the checkpoint
+     the mini-battery passes. Each in resumable windows (`MAX_HOURS`), the base's first window
+     measuring the four unmeasured benchmarks' cost before the rest is planned.
+   - Or: thinking-on subsets of those four, sized like the mini-battery's, and the full battery
+     for the final candidate only.
 
 ## Action items (Revision 2)
 
@@ -1046,8 +1076,11 @@ it; the generated rows will tell.
    - [x] the mini-battery. **Built 2026-10-02** (`battery/mini.py`, `battery/generate.py`'s
      thinking items, `patches/battery_window.sh`'s production guard and time limit). The
      subsets are prepared on the box and match the local ones byte for byte.
-   - [ ] its calibration: the base twice, thinking on (one window, an estimated 5-9 hours).
-   - [ ] the full battery, re-baselined with thinking on.
+   - [x] its calibration. **Done 2026-10-02**
+     (`reports/gate-evals/20261002-mini-battery-calibration.md`): two windows, 9 hours and 11
+     minutes in all; the sizes and the 12,288-token budget stay ("Validation" above).
+   - [ ] the full battery, re-baselined with thinking on: about 18 hours a state for the four
+     benchmarks the calibration measured, before the other four (decision 9).
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
