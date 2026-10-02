@@ -441,4 +441,6 @@ uv run python -m dsbench.sftgen.assemble_rev2 --battery-items data/battery/items
 ```
 
 and its blocks on the box, with `build_masked_dataset --records <the mixture>` (8,192 tokens,
-packed rows), whose exact counts check the assembler's.
+packed rows), whose exact counts check the assembler's: its report's `estimates` compares
+them with the counts each record was selected by. On Target C's rows (2026-10-02), 129 of 154
+matched and 25 were over by up to 28 tokens, never under.
