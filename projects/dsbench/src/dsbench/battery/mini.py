@@ -139,8 +139,14 @@ def _rows(run_dir: Path, kind: str, bench: str, state: str) -> dict[str, dict] |
 
 
 def conditions(bench: str, score: dict, gen: dict) -> dict[str, bool]:
-    """One item's outcome in one state: passed, and each failure condition."""
-    return {"passed": bool(score.get("passed")),
+    """One item's outcome in one state: passed, and each failure condition.
+
+    A pass needs the scorer's pass and closed reasoning. A reply that never closes gives the user
+    nothing, yet BFCL scores irrelevance as "no call decoded", and some IFEval instructions hold on
+    empty text ("no commas"). Counted as passes, a checkpoint that loops more would score better.
+    The base itself loops: 7 of BFCL's 120 irrelevance items, on the calibration's first pass.
+    """
+    return {"passed": bool(score.get("passed")) and not gen.get("unclosed"),
             "unclosed": bool(gen.get("unclosed")),
             "truncated": gen.get("finish_reason") == "length",
             "second_think": "<think>" in (gen.get("content") or ""),
@@ -175,11 +181,21 @@ def brevity(base_gen: dict[str, dict], other_gen: dict[str, dict], keep: set[str
             "flag": gmean < BREVITY_FLOOR and p < stats.ALPHA and shorter > longer}
 
 
-def _medians(gen: dict[str, dict], keep: set[str]) -> dict:
-    rows = [gen[i] for i in keep if i in gen]
-    return {"reasoning_chars": statistics.median(r.get("reasoning_chars") or 0 for r in rows),
-            "completion_tokens": statistics.median(r.get("completion_tokens") or 0
-                                                   for r in rows)} if rows else {}
+def cost(gen: dict[str, dict], keep: set[str]) -> dict:
+    """What a pass spent: its tokens per item and in total, and the summed request latency. The
+    window keeps 8 requests in flight, so a pass's wall time is about an eighth of that sum."""
+    rows = [gen[i] for i in sorted(keep) if i in gen]
+    if not rows:
+        return {}
+    tokens = sorted(r.get("completion_tokens") or 0 for r in rows)
+    return {"items": len(rows), "errors": sum(bool(r.get("error")) for r in rows),
+            "reasoning_chars_median": statistics.median(r.get("reasoning_chars") or 0
+                                                        for r in rows),
+            "completion_tokens": {"total": sum(tokens), "median": statistics.median(tokens),
+                                  "p90": tokens[int(0.9 * (len(tokens) - 1))],
+                                  "max": tokens[-1]},
+            "prompt_tokens_total": sum(r.get("prompt_tokens") or 0 for r in rows),
+            "latency_s_total": round(sum(r.get("elapsed_s") or 0 for r in rows), 1)}
 
 
 def bench_summary(run_dir: Path, bench: str, state: str, base: str = "base",
@@ -190,7 +206,8 @@ def bench_summary(run_dir: Path, bench: str, state: str, base: str = "base",
         return None
     items = {it.id for it in load_items(path)}
     gold = _rows(run_dir, "scores", bench, "gold") or {}
-    unmeasurable = sorted(i for i, r in gold.items() if not r["passed"])
+    # the gold scores cover the whole battery; only the subset's own items are listed
+    unmeasurable = sorted(i for i, r in gold.items() if not r["passed"] and i in items)
     keep = items - set(unmeasurable)
     outcome: dict[str, dict[str, dict[str, bool]]] = {}
     gens: dict[str, dict[str, dict]] = {}
@@ -199,7 +216,10 @@ def bench_summary(run_dir: Path, bench: str, state: str, base: str = "base",
         if scores is None or gen is None:
             continue
         gens[s] = gen
-        per_item = {i: conditions(bench, scores[i], gen.get(i, {})) for i in keep if i in scores}
+        # Only items the pass answered: a pass stopped by the window's time limit has score rows
+        # (`no_generation`) for the rest, and they say nothing about the model.
+        per_item = {i: conditions(bench, scores[i], gen[i]) for i in keep
+                    if i in scores and i in gen and not gen[i].get("error")}
         outcome[s] = {c: {i: v[c] for i, v in per_item.items()} for c in ("passed", *BAD)}
     if base not in outcome or state not in outcome:
         return None
@@ -216,8 +236,8 @@ def bench_summary(run_dir: Path, bench: str, state: str, base: str = "base",
         checks["brevity"] = brevity(gens[base], gens[s], keep)
         out["states"][s] = {"checks": checks,
                             "flags": [c for c, v in checks.items() if v.get("flag")],
-                            "medians": _medians(gens[s], keep)}
-    out["medians_base"] = _medians(gens[base], keep)
+                            "cost": cost(gens[s], keep)}
+    out["cost_base"] = cost(gens[base], keep)
     if aa in outcome:
         out["aa_flips"] = stats.aa_flip_rate(outcome[base]["passed"], outcome[aa]["passed"])[0]
     return out
@@ -259,6 +279,17 @@ def markdown(result: dict) -> str:
               f"test's): {', '.join(result['aa_flags']) or 'none'}."]
     if result["missing"]:
         lines.append(f"Not scored: {', '.join(result['missing'])}.")
+    lines += ["", "| Benchmark | Pass | Items | Errors | Tokens: median | p90 | max | total | "
+              "Reasoning chars, median |", "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
+    for bench, s in result["benches"].items():
+        passes = {result["base"]: s["cost_base"],
+                  **{name: st["cost"] for name, st in s["states"].items()}}
+        for name, c in passes.items():
+            if c:
+                t = c["completion_tokens"]
+                lines.append(f"| {bench} | {name} | {c['items']} | {c['errors']} | {t['median']} | "
+                             f"{t['p90']} | {t['max']} | {t['total']} | "
+                             f"{c['reasoning_chars_median']} |")
     return "\n".join(lines) + "\n"
 
 
