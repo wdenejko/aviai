@@ -169,6 +169,14 @@ def test_a_prefilled_item_continues_its_own_thinking():
     assert record["reasoning_tokens"] == 8  # the whole trace, as the training row holds it
 
 
+def test_an_item_may_cap_its_own_reply_below_the_run_s():
+    server = _Server(" Sunday is")
+    rp.run_one(server, {**PREFILLED, "max_tokens": 7}, 512)
+    assert server.sent["/completion"]["n_predict"] == 7
+    rp.run_one(server, {**PREFILLED, "max_tokens": 9999}, 512)
+    assert server.sent["/completion"]["n_predict"] == 512  # never above the run's
+
+
 def test_a_prefilled_reply_that_runs_out_is_all_reasoning_and_unfinished():
     record = rp.run_one(_Server(" and so on", stop_type="limit"), PREFILLED, 4)
     assert (record["reasoning"], record["answer"]) == ("Sunday is 7 in ClickHouse. and so on", "")

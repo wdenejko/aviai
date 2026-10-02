@@ -23,6 +23,8 @@ model's template, thinking on, and labels the assistant turn.
 Per pool, in order:
 1. **The check.** `check.ok`, or Target A's `check.kept`. GSM8K keeps its replies that reach the
    gold number, as decision 5 proposes; `--gsm8k finished` keeps every finished one instead.
+   Target A's ClickHouse weekday and weekend rows drop a trace that states Sunday = 1 again after
+   the convention (`check.doubts`), as decision 2 proposes; `--target-a-doubts keep` keeps it.
 2. **The block.** A row is the prompt, the reply and the newline after its `<|im_end|>`, and the
    separator follows it in its block: `prompt_tokens + completion_tokens + 2 <= 8,192` on the
    server's counts. Target C's rows are counted as their selection counted them, from the last
@@ -105,11 +107,14 @@ def budget(pool: Pool, pools: tuple[Pool, ...], scale: float = 1.0) -> int:
     return round(BUCKET_TOKENS[pool.bucket] * scale * pool.share / total)
 
 
-def passed(rec: dict, gsm8k: str = "gold") -> bool:
-    """Whether the row's checker kept it, with decision 5 applied to GSM8K."""
+def passed(rec: dict, gsm8k: str = "gold", target_a_doubts: str = "drop") -> bool:
+    """Whether the row's checker kept it, with decision 5 applied to GSM8K and decision 2's open
+    question to Target A's doubting traces."""
     check = rec.get("check") or {}
     if rec.get("pool") == "gsm8k" and gsm8k == "finished":
         return bool(check.get("finished"))
+    if target_a_doubts == "drop" and check.get("doubts"):
+        return False
     return bool(check["ok"] if "ok" in check else check.get("kept"))
 
 
@@ -145,7 +150,8 @@ def trajectory(record: dict) -> Row:
     return Row(record, served + 1 if served is not None else None, reply)
 
 
-def load_verified(items_path: Path, verified_path: Path, gsm8k: str) -> tuple[list[Row], Counter]:
+def load_verified(items_path: Path, verified_path: Path, gsm8k: str = "gold",
+                  target_a_doubts: str = "drop") -> tuple[list[Row], Counter]:
     """(the kept rows, the rows read per pool) of one checker's output."""
     items = {item["id"]: item for item in map(json.loads, items_path.open())}
     rows, read = [], Counter()
@@ -154,7 +160,7 @@ def load_verified(items_path: Path, verified_path: Path, gsm8k: str) -> tuple[li
         if item is None:
             raise SystemExit(f"{verified_path}: {rec['id']} is not in {items_path}")
         read[pool_of(item["pool"])] += 1
-        if passed(rec, gsm8k):
+        if passed(rec, gsm8k, target_a_doubts):
             rows.append(single_turn(item, rec))
     return rows, read
 
@@ -265,6 +271,9 @@ def main() -> None:
     ap.add_argument("--gsm8k", choices=("gold", "finished"), default="gold",
                     help="decision 5: GSM8K's replies that reach the gold number, or every "
                          "finished one")
+    ap.add_argument("--target-a-doubts", choices=("drop", "keep"), default="drop",
+                    help="decision 2: Target A's traces that state Sunday = 1 again after the "
+                         "convention")
     ap.add_argument("--seed", type=int, default=SEED)
     args = ap.parse_args()
 
@@ -277,7 +286,7 @@ def main() -> None:
     rows: list[Row] = []
     read: Counter = Counter()
     for items_path, verified_path in args.verified:
-        kept, seen = load_verified(items_path, verified_path, args.gsm8k)
+        kept, seen = load_verified(items_path, verified_path, args.gsm8k, args.target_a_doubts)
         rows += kept
         read += seen
     for path in args.trajectories:
@@ -294,6 +303,7 @@ def main() -> None:
     manifest = {
         "params": {"seed": args.seed, "block": BLOCK, "scale": args.scale,
                    "shares": {p.name: p.share for p in pools}, "gsm8k": args.gsm8k,
+                   "target_a_doubts": args.target_a_doubts,
                    "battery_items": args.battery_items},
         "inputs": [{"items": str(i), "verified": str(v), "verified_sha256": _sha256(v)}
                    for i, v in args.verified]
