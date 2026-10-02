@@ -1,0 +1,157 @@
+"""Tests for Revision 2's assembler (ADR-004 Revision 2, action item 9): the records it makes from
+checked replies, what it drops, and how it fills the budgets. The records go through the real
+chat template (`test_tokenize_masked.TemplateTokenizer`), as the box's build will put them."""
+
+from __future__ import annotations
+
+import json
+import random
+from collections import Counter
+
+import pytest
+from dsbench.sftgen import assemble_rev2 as ar
+from dsbench.sftgen import tokenize_masked as tm
+from dsbench.sftgen.decontaminate import DenyList
+from test_tokenize_masked import TOOLS, TemplateTokenizer
+
+
+def _item(pool="oasst1", i=0, **extra):
+    return {"id": f"{pool}:{i}", "pool": pool, "messages": [{"role": "user", "content": "Hi?"}],
+            "meta": {"licence": "Apache-2.0", "redistributable": True}, **extra}
+
+
+def _rec(item, reasoning="Think it over.", answer="Hello.", prompt=100, reply=50, ok=True,
+         **extra):
+    return {"id": item["id"], "pool": item["pool"], "error": "", "reasoning": reasoning,
+            "answer": answer, "finish_reason": "stop", "prompt_tokens": prompt,
+            "completion_tokens": reply, "sampling": {"temperature": 0.6, "seed": 7},
+            "check": {"ok": ok, "why": "" if ok else "wrong", "finished": True}, **extra}
+
+
+def _labelled(tok, record):
+    ids, labels = tm.thinking_record(tok, record)
+    return tok.text([i for i, lab in zip(ids, labels, strict=True) if lab != tm.IGNORE])
+
+
+# --- records -----------------------------------------------------------------------------------
+
+
+def test_a_kept_reply_becomes_a_record_the_template_labels():
+    item = _item()
+    row = ar.single_turn(item, _rec(item))
+    assert row.tokens == 151 and row.reply == 50  # 100 + 50 and the newline after <|im_end|>
+    assert row.record["messages"][-1] == {"role": "assistant", "content": "Hello.",
+                                          "reasoning_content": "Think it over."}
+    assert row.record["meta"]["answer"]["sampling"] == {"temperature": 0.6, "seed": 7}
+    assert row.record["meta"]["source"]["licence"] == "Apache-2.0"
+    tok = TemplateTokenizer()
+    assert _labelled(tok, row.record) == "Think it over.\n</think>\n\nHello.<|im_end|>"
+
+
+def test_a_tool_call_reply_keeps_its_tools_and_its_call():
+    item = _item("tool_fit", tools=TOOLS)
+    call = {"id": "c1", "type": "function",
+            "function": {"name": "get_time", "arguments": '{"city": "Oslo"}'}}
+    row = ar.single_turn(item, _rec(item, answer="", tool_calls=[call]))
+    assert row.record["tools"] == TOOLS
+    labelled = _labelled(TemplateTokenizer(), row.record)
+    assert labelled.startswith("Think it over.\n</think>\n\n<tool_call>")
+    assert "Oslo" in labelled and labelled.endswith("</tool_call><|im_end|>")
+
+
+def test_target_a_trains_on_its_training_prompt_and_its_whole_trace():
+    item = _item("targetA_recall", messages=[{"role": "user", "content": "Sundays?"}])
+    rec = _rec(item, reasoning="Weekdays first. In ClickHouse, Sunday is 7. So = 7.",
+               answer="```sql\nSELECT 1\n```", train_messages=[{"role": "user", "content": "Q"}])
+    rec["check"] = {"status": "verified", "kept": True}
+    row = ar.single_turn(item, rec)
+    assert row.record["messages"][0] == {"role": "user", "content": "Q"}
+    assert ar.passed(rec) and ar.pool_of("targetA_recall") == "targetA"
+
+
+def test_the_check_decides_and_gsm8k_follows_decision_5():
+    gold_miss = {"pool": "gsm8k", "check": {"ok": False, "finished": True, "gold_match": False}}
+    assert not ar.passed(gold_miss) and ar.passed(gold_miss, gsm8k="finished")
+    cut = {"pool": "gsm8k", "check": {"ok": False, "finished": False}}
+    assert not ar.passed(cut, gsm8k="finished")
+    assert not ar.passed({"pool": "oasst1", "check": {"ok": False, "finished": True}},
+                         gsm8k="finished")  # the policy is GSM8K's alone
+
+
+def test_a_target_c_loop_is_counted_as_its_selection_counted_it():
+    loop = {"messages": [], "meta": {"id": "C-x-1", "selection": {"served_tokens": 3728},
+                                     "turns": [{"completion_tokens": 200},
+                                               {"completion_tokens": 122}]}}
+    row = ar.trajectory(loop)
+    assert (row.tokens, row.reply, row.record["meta"]["pool"]) == (3729, 322, "target_c")
+
+
+def test_load_joins_each_reply_to_its_item(tmp_path):
+    items = [_item(i=i) for i in range(3)]
+    (tmp_path / "items.jsonl").write_text("".join(json.dumps(i) + "\n" for i in items))
+    recs = [_rec(items[0]), _rec(items[1], ok=False), _rec(items[2])]
+    (tmp_path / "v.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
+    rows, read = ar.load_verified(tmp_path / "items.jsonl", tmp_path / "v.jsonl", "gold")
+    assert [r.record["meta"]["id"] for r in rows] == ["oasst1:0", "oasst1:2"]
+    assert read == Counter({"oasst1": 3})
+    (tmp_path / "v.jsonl").write_text(json.dumps(_rec(_item(i=9))) + "\n")
+    with pytest.raises(SystemExit, match="is not in"):
+        ar.load_verified(tmp_path / "items.jsonl", tmp_path / "v.jsonl", "gold")
+
+
+# --- budgets -----------------------------------------------------------------------------------
+
+
+def test_budgets_split_each_line_by_its_shares():
+    by = {p.name: ar.budget(p, ar.POOLS) for p in ar.POOLS}
+    assert by["opencoder_edu"] == 1_875_000 and by["swe_swiss"] == 625_000
+    assert (by["oasst1"], by["gsm8k"], by["flan_v2"]) == (1_600_000, 800_000, 0)
+    assert sum(by.values()) == 10_000_000
+    assert ar.budget(ar.POOLS[0], ar.POOLS, scale=1.5) == 1_200_000
+    wider = tuple(p if p.name != "flan_v2" else ar.Pool("flan_v2", "replay", 0.25)
+                  for p in ar.POOLS)  # a share given to FLAN v2 comes out of the others
+    assert ar.budget(next(p for p in wider if p.name == "oasst1"), wider) == 1_280_000
+
+
+POOLS = (ar.Pool("oasst1", "replay", 0.5), ar.Pool("gsm8k", "replay", 0.5),
+         ar.Pool("target_c", "target_c"))
+
+
+def test_assembly_drops_what_cannot_train_and_fills_each_budget(monkeypatch):
+    monkeypatch.setattr(ar, "BUCKET_TOKENS", {"replay": 2000, "target_c": 5000})
+    rows = [ar.single_turn(_item(i=i), _rec(_item(i=i), prompt=100, reply=99)) for i in range(15)]
+    rows.append(ar.single_turn(_item(i=20), _rec(_item(i=20), prompt=4000, reply=4191)))  # 8192
+    rows.append(ar.single_turn(_item(i=21), _rec(_item(i=21), prompt=None)))  # no count
+    rows.append(ar.single_turn(_item(i=22), _rec(_item(i=22), reasoning="So 44.1 it is.")))
+    rows += [ar.single_turn(_item("gsm8k", i), _rec(_item("gsm8k", i), prompt=100, reply=99))
+             for i in range(3)]
+    deny = DenyList(grams=set(), identifiers=(), answers=("44.1",))
+    mixture, result = ar.assemble(rows, Counter(oasst1=18, gsm8k=3), deny, pools=POOLS, seed=1)
+    by = {e["pool"]: e for e in result["pools"]}
+    oasst = by["oasst1"]
+    assert (oasst["budget"], oasst["kept_by_check"], oasst["over_block"], oasst["uncounted"]) == (
+        1000, 18, 1, 1)
+    assert oasst["contaminated"] == {"numeric-answer": 1}
+    assert (oasst["eligible"], oasst["rows"], oasst["tokens"]) == (15, 5, 1000)  # 5 x 200
+    assert oasst["left_over_rows"] == 10 and oasst["shortfall"] == 0
+    gsm = by["gsm8k"]
+    assert (gsm["rows"], gsm["tokens"], gsm["shortfall"]) == (3, 600, 400)  # all it has
+    assert by["target_c"]["shortfall"] == 5000  # no input: the whole budget, never padded
+    assert result["total"] == {"rows": 8, "tokens": 1600, "reply_tokens": 8 * 99,
+                               "budget": 7000}
+    assert result["buckets"]["replay"]["pct_of_mixture"] == 100.0
+    assert {r["meta"]["mix_pool"] for r in mixture} == {"oasst1", "gsm8k"}
+    again, _ = ar.assemble(rows, Counter(), deny, pools=POOLS, seed=1)
+    assert [r["meta"]["id"] for r in again] == [r["meta"]["id"] for r in mixture]
+
+
+def test_rows_from_a_pool_with_no_budget_stop_the_assembly():
+    rows = [ar.single_turn(_item("mystery"), _rec(_item("mystery")))]
+    with pytest.raises(SystemExit, match="no budget"):
+        ar.assemble(rows, Counter(), None, pools=POOLS)
+
+
+def test_selection_stops_once_the_budget_is_reached():
+    rows = [ar.Row({"meta": {}}, 300, 0) for _ in range(10)]
+    assert len(ar.select(rows, 1000, random.Random(0))) == 4  # 900 < 1000, then 1200
+    assert ar.select(rows, 0, random.Random(0)) == []
