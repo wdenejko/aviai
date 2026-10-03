@@ -193,7 +193,8 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 
 ## The mixture (proposed)
 
-10M tokens at 8,192 tokens per step: about 15 hours of training at 182 tokens/s.
+10M tokens at 8,192 tokens per step: about 15 hours of training at 182 tokens/s, or about 9 at
+the packed rows' measured step ("Budget and time").
 
 | Pool | Tokens | Rows (≈) | Prompts | Kept if |
 |---|---:|---:|---|---|
@@ -268,8 +269,10 @@ generate` as they are. A row is eligible when its prompt:
 - isn't a duplicate.
 
 Each pool's quota is its share of the bucket's kept rows, divided by the share it is expected to
-keep after generation: 0.95, and 0.8 for opencoder, which lost 6 of 32 rows to length in the
-pilot. Aya is sampled evenly across its 71 languages and SciRIFF across its 24 tasks. OpenCoder
+keep after generation: 0.95, and 0.75 for opencoder. It lost 6 of 32 rows to length in the
+pilot, and its rows must also pass their tests, as the base's closed HumanEval+ replies did
+94.5-95.9% of the time in the mini-battery's calibration; 0.8, until 2026-10-03, counted length
+alone. Aya is sampled evenly across its 71 languages and SciRIFF across its 24 tasks. OpenCoder
 was acquired again, because the Gate-2 pool kept only a flag where the tests should be. GSM8K's
 and OpenCoder's revisions are pinned now, like Aya's and SciRIFF's.
 
@@ -281,7 +284,7 @@ the median is about 8,900 tokens. Of its 10,254 rows:
   discards. The limit may also lean the pool toward prompts with shorter replies;
 - 2,267 are kept, and 1,609 of their prompts are eligible.
 
-The selection (seed 20260930), 2,646 prompts:
+The selection (seed 20260930), 2,696 prompts:
 
 | Pool | Share | Selected | Eligible | Dropped |
 |---|---:|---:|---:|---|
@@ -290,7 +293,7 @@ The selection (seed 20260930), 2,646 prompts:
 | SciRIFF | 0.20 | 337 | 4,223 | 670 long, 9 duplicates |
 | GSM8K | 0.20 | 337 | 7,473 | none |
 | FLAN v2 | 0 | 0 | 2,361 | (decision 5) |
-| opencoder | 0.75 | 750 | 8,142 | 1,719 duplicates, 100 battery, 39 tests (below) |
+| opencoder | 0.75 | 800 | 8,142 | 1,719 duplicates, 100 battery, 39 tests (below) |
 | SWE-Swiss | 0.25 | 211 | 1,609 | 639 long, 11 duplicates, 8 battery |
 
 - 249 of the oasst1 prompts carry history.
@@ -312,6 +315,10 @@ The selection (seed 20260930), 2,646 prompts:
     extraction and sandbox as the base's replies (`replay_verify.py --gold`, in docker on the
     Mac). One answer needs sympy, which the sandbox lacks; the other returns a set's order. Both
     items stay: the base's reply is judged on its own.
+- **OpenCoder's quota rose from 750 to 800 (2026-10-03)**, with its keep rate. The first 750
+  picks are the same, and so are the other pools' prompts. On the box's own sandbox, where the
+  check runs, the dataset's answers pass the tests of all 800 items: that image has sympy, and
+  the docker stand-in on the Mac didn't.
 - Each pool draws from its own seeded generator: SWE-Swiss's new pool left the other 2,435
   prompts unchanged.
 - `data/sft/rev2_prompts_manifest.json` records the parameters, each pool's counts, languages
@@ -682,7 +689,7 @@ The selection (seed 20260930), 2,646 prompts:
   - oasst1, Aya and SWE-Swiss: finishing is the check. SWE-Swiss has no tests.
 
 **The single-turn generation, built 2026-10-02:** the SQL pool, the tool rows, code and replay,
-4,276 prompts, one window or several (`patches/rev2_generate_window.sh`):
+4,326 prompts, one window or several (`patches/rev2_generate_window.sh`):
 - **The bare base answers**, thinking on, through `reasoning_pilot.py generate`.
 - **No reply runs past what its row can hold** (`--block 8192`). Before each request the server
   renders the prompt with its own template, tools included, and counts it. The reply may then
@@ -828,17 +835,25 @@ the block, the gate catches none, and 3 overlap a battery item below the line. T
 some 260 rows, not the table's 500, which assumed shorter prompts. Decision 6 can move tokens to
 it; the generated rows will tell.
 
-## Budget and time (estimated from the pilot's throughput)
+## Budget and time
 
+Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-03).
 - **Generation**, with production stopped:
-  - replay, code and SWE: about 2,500 prompts (5% of rows run over 8,192 tokens and are dropped)
-    at 2,560 tokens a reply: about 6.4M tokens, 14 hours;
+  - replay, code and SWE: about 2,700 prompts at 2,560 tokens a reply: about 6.9M tokens, 15
+    hours. The mini-battery's calibration measured the rate: 113-132 tokens a second on 8 slots,
+    thinking on;
   - the verified pools, about 1,400 kept rows: at a 30-60% yield, 3-7M generated tokens,
     7-15 hours;
-  - Target C: about 4 hours for 150 rows, simulated on the pilot's keep rates and run times with
-    a quota per family and 8 loops at once;
-  - in all, about 25-40 hours of box time.
-- **Training:** 10M tokens at 8,192 ≈ 15 hours, plus a few percent of padding.
+  - Target A: about 3.5 hours, once decision 2 is taken;
+  - Target C: done in its 2026-10-01/02 window (154 rows, 0.80M tokens);
+  - still to run: about 25-35 hours of box time.
+- **Training:** about 15 hours for 10M tokens, at the 182 tokens a second the seq-4096 report
+  measured for 8,192-token rows. The packed rows' warm step took 23.6 s for 8,192 tokens
+  (2026-10-02), which would make it about 9 hours if it holds over a run. Target C's rows filled
+  their blocks 86.8%; shorter rows fill them better.
+- **Checks:** a checkpoint's mini-battery takes one window of about 5 hours. The full battery with
+  thinking on takes about 18 hours a state for four of its eight benchmarks, and more for the
+  other four (decision 9).
 
 ## Validation
 
@@ -915,7 +930,8 @@ it; the generated rows will tell.
 
 ## Decisions for the owner
 
-1. **Budget:** 10M tokens (about 15 hours of training and 25-40 of generation), or more.
+1. **Budget:** 10M tokens (9-15 hours of training, and 25-35 more of generation: "Budget and
+   time"), or more.
 2. **Target A's reasoning.** The hint pilot ruled out the hint-conditioned base as designed: only
    4-11% of its traces didn't cite the hint. The prefill pilot (2026-10-01) found the route:
    - the base's own plain trace, cut where it first turns to the weekday function, the
@@ -1074,13 +1090,14 @@ it; the generated rows will tell.
      275 of 282 runs passed; 121 passing loops ran over the block.
 6. [ ] Replay, code and SWE: drop No Robots from the Tulu allowlist (**done 2026-09-29**),
    register GSM8K (**done 2026-09-30**), acquire Aya and SciRIFF (**done 2026-09-30**),
-   select the prompts (**done 2026-09-30**: 2,646 prompts; rerun after decisions 5 and 6),
+   select the prompts (**done 2026-09-30**; 2,696 prompts since OpenCoder's quota rose on
+   2026-10-03; rerun after decisions 5 and 6),
    generate.
    - [x] the checks and the generation window for the single-turn pools (SQL, tools, code,
      replay). **Built 2026-10-02:** `replay_verify.py`; `reasoning_pilot.py generate --block`;
      `patches/rev2_generate_window.sh`; rehearsed against a stand-in. OpenCoder's prompts now show
      their first test, and the dataset's own answers pass 748 of 750 items.
-   - [ ] the generation windows: 4,276 prompts, 21-29 hours by the budget above, so about three
+   - [ ] the generation windows: 4,326 prompts, 22-30 hours by the budget above, so about three
      windows of 9 hours.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
