@@ -16,6 +16,10 @@ table (the headline). Three things are applied before any delta is computed:
   budget reasoning fails for a FORMAT reason, so each delta is also recomputed on the items where
   neither state leaked. That subset is a diagnostic, not the verdict: the verdict is the model
   as served.
+* Thinking-on passes (ADR-004 decision 9, `full.py`) are counted as the mini-battery counts them:
+  only the items a pass answered, and a reply whose reasoning never closed fails whatever its
+  scorer says (`_outcomes`). Gate 2's thinking-off passes answered every item and carry no
+  `unclosed`, so its report is unchanged.
 
 Run:  python -m dsbench.battery.report --run-dir RUN [--contamination C] --out-json J --out-md M
 """
@@ -46,8 +50,23 @@ def _scores(run_dir: Path, bench: str, state: str) -> dict[str, dict] | None:
     return by_id(read_jsonl(path)) if path.exists() else None
 
 
-def _outcomes(rows: dict[str, dict], keep: set[str]) -> dict[str, bool]:
-    return {i: bool(r["passed"]) for i, r in rows.items() if i in keep}
+def _gens(run_dir: Path, bench: str, state: str) -> dict[str, dict] | None:
+    path = run_dir / "gen" / f"{bench}.{state}.jsonl"
+    return by_id(read_jsonl(path)) if path.exists() else None
+
+
+def _outcomes(rows: dict[str, dict], keep: set[str],
+              gen: dict[str, dict] | None = None) -> dict[str, bool]:
+    """Per item, passed. With the pass's generations (`mini.bench_summary`'s rules):
+    - only the items the pass answered: one stopped by a window's time limit has score rows
+      (`no_generation`) for the rest, which say nothing about the model;
+    - a reply whose reasoning never closed fails. It answers nothing, yet BFCL scores irrelevance
+      as "no call decoded": the base loops on 6-8% of those items (the mini-battery's calibration).
+    """
+    if gen is None:  # no generations to read (the pi-driven dsbench suite)
+        return {i: bool(r["passed"]) for i, r in rows.items() if i in keep}
+    return {i: bool(r["passed"]) and not gen[i].get("unclosed") for i, r in rows.items()
+            if i in keep and i in gen and not gen[i].get("error")}
 
 
 def _ifeval_levels(rows: dict[str, dict], keep: set[str]) -> dict[str, float]:
@@ -90,25 +109,28 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None,
     keep = (set(items) or set(base)) - set(unmeasurable)
     if only is not None:
         keep = {i for i in keep if only(items[i])}
-    base_o, adapter_o = _outcomes(base, keep), _outcomes(adapter, keep)
+    gens = {s: _gens(run_dir, bench, s) for s in ("base", "adapter", "adapter_half", "base_rep")}
+    base_o = _outcomes(base, keep, gens["base"])
+    adapter_o = _outcomes(adapter, keep, gens["adapter"])
     result = stats.paired(row, base_o, adapter_o)
     out: dict = {"paired": result.as_dict(), "verdict": stats.verdict(result),
                  "unmeasurable": unmeasurable}
     half = _scores(run_dir, bench, "adapter_half")
     if half:
-        half_result = stats.paired(row, base_o, _outcomes(half, keep))
+        half_result = stats.paired(row, base_o, _outcomes(half, keep, gens["adapter_half"]))
         out["half"] = {"paired": half_result.as_dict(), "verdict": stats.verdict(half_result)}
     rep = _scores(run_dir, bench, "base_rep")
     if rep:
-        flips, n = stats.aa_flip_rate(base_o, _outcomes(rep, keep))
+        rep_o = _outcomes(rep, keep, gens["base_rep"])
+        flips, n = stats.aa_flip_rate(base_o, rep_o)
         out["aa"] = {"flips": flips, "n": n,
-                     "acc_base_rep": 100 * sum(_outcomes(rep, keep).values()) / max(1, n)}
+                     "acc_base_rep": 100 * sum(rep_o.values()) / max(1, n)}
     if strong is not None:
         clean = keep - strong
         out["contaminated_strong"] = len(keep & strong)
         if clean and clean != keep:
-            out["clean"] = stats.paired(row, _outcomes(base, clean),
-                                        _outcomes(adapter, clean)).as_dict()
+            out["clean"] = stats.paired(row, _outcomes(base, clean, gens["base"]),
+                                        _outcomes(adapter, clean, gens["adapter"])).as_dict()
     leaks = {s: _leaks(run_dir, bench, s) for s in ("base", "adapter")}
     if leaks["base"] is not None and leaks["adapter"] is not None:
         out["think_leak"] = {s: dict(sorted(_count(v for i, v in lk.items() if i in keep).items()))
@@ -116,8 +138,10 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None,
         clean_fmt = {i for i in keep
                      if leaks["base"].get(i) == "none" and leaks["adapter"].get(i) == "none"}
         if clean_fmt and clean_fmt != keep:
-            out["no_leak"] = stats.paired(row, _outcomes(base, clean_fmt),
-                                          _outcomes(adapter, clean_fmt)).as_dict()
+            out["no_leak"] = stats.paired(row, _outcomes(base, clean_fmt, gens["base"]),
+                                          _outcomes(adapter, clean_fmt, gens["adapter"])).as_dict()
+    out["unclosed"] = {s: sum(bool(g[i].get("unclosed")) for i in keep if i in g)
+                       for s, g in gens.items() if g is not None}
     out["truncated"] = {s: sum(1 for i, r in rows.items() if i in keep
                                and r.get("finish_reason") == "length")
                         for s, rows in (("base", base), ("adapter", adapter))}
@@ -134,7 +158,7 @@ def bench_summary(run_dir: Path, bench: str, strong: set[str] | None,
     if bench in STRATA:
         key = STRATA[bench]
         groups: dict[str, set[str]] = defaultdict(set)
-        for i in keep:
+        for i in keep & base_o.keys() & adapter_o.keys():
             groups[str(items[i].meta.get(key))].add(i)
         out["strata"] = {g: {"n": len(ids),
                              "base": 100 * sum(base_o[i] for i in ids) / len(ids),
@@ -173,6 +197,11 @@ def markdown(summaries: dict[str, dict], decision: dict, half: dict | None = Non
               f"Target regressions: {', '.join(decision['target_regressions']) or 'none'}. "
               f"Regressions past threshold: {', '.join(decision['regressions']) or 'none'}. "
               f"Not measured: {', '.join(decision['not_measured']) or 'none'}."]
+    loops = {b: s["unclosed"] for b, s in summaries.items() if any(s.get("unclosed", {}).values())}
+    if loops:  # thinking-on passes: already counted as failures above
+        lines += ["", "Replies whose reasoning never closed: " + "; ".join(
+            f"{bench} " + ", ".join(f"{state} {n}" for state, n in u.items())
+            for bench, u in loops.items()) + "."]
     if half is not None:
         # Step 4 of the ADR: the same base pass against the adapter at half scale. Full scale is
         # repeated in its own column so the two can be read side by side.
