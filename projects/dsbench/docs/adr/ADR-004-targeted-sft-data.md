@@ -977,6 +977,19 @@ it; the generated rows will tell.
    - Or: thinking-on subsets of those four, sized like the mini-battery's, and the full battery
      for the final candidate only.
 
+   **Built 2026-10-02 for either** (`battery/full.py`; the base's run directory is prepared on
+   the box):
+   - every pinned item asks for thinking within 12,288 tokens, each benchmark in a seeded order.
+     A window step `bench:state:N` answers the first N, a random sample, and a later step
+     resumes the pass;
+   - DS-1000's stop strings are dropped: llama-server matches them against the reasoning too,
+     and DS-1000's extraction cuts at the same markers itself;
+   - `report.py` counts a thinking-on pass as the mini-battery does: a reply that never closed
+     fails, and a pass counts only the items it answered. On Gate 2's run it gives the same
+     report, byte for byte.
+
+   The base's run needs no retrain, so it can use the box while the other decisions wait.
+
 ## Action items (Revision 2)
 
 1. [x] Rendering and packing. **Done 2026-09-29; the last point 2026-10-02**
@@ -1080,7 +1093,9 @@ it; the generated rows will tell.
      (`reports/gate-evals/20261002-mini-battery-calibration.md`): two windows, 9 hours and 11
      minutes in all; the sizes and the 12,288-token budget stay ("Validation" above).
    - [ ] the full battery, re-baselined with thinking on: about 18 hours a state for the four
-     benchmarks the calibration measured, before the other four (decision 9).
+     benchmarks the calibration measured, before the other four (decision 9). Its items, the
+     report's rules and the window's sample step are built (2026-10-02); the base's run
+     directory is prepared on the box.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
