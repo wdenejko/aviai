@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from dsbench.battery import generate, mini
+from dsbench.battery import extract, generate, mini
 from dsbench.battery.generate import request_body, thinking_fields
 from dsbench.battery.items import Item, load_items, save_items, write_jsonl
 
@@ -97,6 +97,16 @@ def test_prepare_draws_the_same_subsets_every_time_and_asks_for_thinking(tmp_pat
     bfcl = load_items(tmp_path / "a" / "bfcl.jsonl")
     assert {it.meta["category"] for it in bfcl} == {"irrelevance"}
     assert bfcl[0].gen == {"max_tokens": 12288, "tools": [{"t": 1}], "thinking": True}
+
+
+def test_thinking_drops_stop_strings_which_would_end_the_reasoning():
+    # llama-server matches stop strings against everything it generates, the reasoning included:
+    # DS-1000's "</code>" would end a reply whose reasoning names the tag. Its extraction cuts at
+    # the same markers itself.
+    item = _item("ds1000", max_tokens=1024, stop=["</code>", "# SOLUTION END"])
+    assert mini.thinking(item).gen == {"max_tokens": 12288, "thinking": True}
+    assert mini.thinking(item).ref == item.ref
+    assert extract.ds1000_code("<code>x = 1</code>\nreasoning about </code> later") == "x = 1"
 
 
 def test_each_level_keeps_its_share_by_largest_remainder():

@@ -31,4 +31,8 @@ Design choices, and why:
 
 Pipeline: `prepare` (datasets -> items) -> `generate` (items x state -> generations) -> `score`
 (generations -> per-item pass/fail) -> `stats`/`report` (paired deltas + ADR verdicts).
+
+ADR-004 Revision 2 is served with thinking on, so its checks sample with thinking on instead: the
+mini-battery on checkpoints (`mini`), and the whole battery on the base and the final candidate
+(`full`), each item with the same seed in every state but the A/A pass.
 """

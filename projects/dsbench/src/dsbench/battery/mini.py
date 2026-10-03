@@ -85,6 +85,19 @@ def proportional(items: list[Item], key: str, n: int, seed: int) -> list[Item]:
     return [item for item in items if item.id in chosen]
 
 
+def thinking(item: Item) -> Item:
+    """The item asking for thinking within the budget, and without stop strings.
+
+    llama-server matches stop strings against everything it generates, the reasoning included
+    (`process_token` in tools/server/server-context.cpp), so DS-1000's `</code>` would end a reply
+    whose reasoning names the tag. DS-1000's extraction cuts at the same markers itself
+    (`extract.ds1000_code`). The mini-battery's benchmarks have no stop strings.
+    """
+    gen = {key: value for key, value in item.gen.items() if key != "stop"}
+    return Item(item.bench, item.id, item.messages,
+                {**gen, "max_tokens": BUDGET, "thinking": True}, item.ref, item.meta)
+
+
 def subset(bench: str, items: list[Item], seed: int = SEED) -> list[Item]:
     """The mini-battery's items for one benchmark, each asking for thinking within the budget."""
     pool = [item for item in items if SELECT.get(bench, lambda _: True)(item)]
@@ -96,9 +109,7 @@ def subset(bench: str, items: list[Item], seed: int = SEED) -> list[Item]:
     else:
         ids = {item.id for item in random.Random(seed).sample(pool, n)}
         chosen = [item for item in pool if item.id in ids]
-    return [Item(item.bench, item.id, item.messages,
-                 {**item.gen, "max_tokens": BUDGET, "thinking": True}, item.ref, item.meta)
-            for item in chosen]
+    return [thinking(item) for item in chosen]
 
 
 def _sha256(path: Path) -> str:
