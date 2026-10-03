@@ -293,6 +293,26 @@ has generations. Then `mini summary --run-dir RUN --state base_rep --aa none` re
 `mini-battery/calibration.py RUN GATE2_RUN LOG[,LOG...] OUT.json` the cost, the budget, the
 thinking-off comparison and the retrospective on Gate 2's adapter.
 
+**The full battery with thinking on** (`dsbench.battery.full`, ADR-004 decision 9) runs the same
+way, on all 6,419 pinned items. The base's run directory,
+`~/benchlab/runs/2026-10-02-qwen36-full-battery-thinking/`, is prepared:
+- `items/` from `full --items <the pinned items> --out RUN/items`: thinking on within 12,288
+  tokens, stop strings dropped, each benchmark in a seeded order;
+- `data` linked and the gold scores copied from the Gate-2 run, as for the mini-battery.
+
+One plan serves every window, since each pass resumes where the last window stopped:
+
+    ARM=1 CTX=196608 MAX_HOURS=9 nohup setsid ~/benchlab/scripts/battery/battery_window.sh \
+      ~/benchlab/runs/2026-10-02-qwen36-full-battery-thinking \
+      "mmlu_pro:base:80 gpqa:base:80 lcb:base:80 ds1000:base:80 mmlu_pro:base gpqa:base \
+       lcb:base ds1000:base ifeval:base bfcl:base bird:base humaneval_plus:base" \
+      </dev/null >/dev/null 2>&1 &
+
+The first four steps answer 80 random items of each benchmark the calibration didn't run, so
+the first window's log gives their minutes per item before the rest is planned. `report
+--run-dir RUN` compares a candidate's passes with the base's, counting a reply that never
+closed as a failure and each pass only on the items it answered.
+
 **A Revision 2 checkpoint** gets its own run directory from `mini-battery/checkpoint.sh TRAIN_RUN
 STEP CAL_RUN CKPT_RUN`, with no GPU: the checkpoint's adapter exported to a LoRA GGUF, and links to
 the calibration's items, data, gold scores, base and A/A passes. A battery window with
