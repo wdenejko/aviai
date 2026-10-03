@@ -10,12 +10,12 @@
   "battery_items_n": 6419,
   "exclude": ""
  },
- "items": 2646,
+ "items": 2696,
  "out": "data/sft/rev2_prompts.jsonl",
- "out_sha256": "bdf7ffa3581b1874aa238f59c89837fcde1659485bab16a5c77c3b73eb890225",
+ "out_sha256": "7083d09c02af4f56e2892e69b46de1454e5c3da1625e9578c7342ff458742061",
  "by_bucket": {
   "replay": 1685,
-  "code": 961
+  "code": 1011
  },
  "pools": [
   {
@@ -244,8 +244,8 @@
    "bucket": "code",
    "file": "breadth_opencoder_edu_rev2.jsonl",
    "share": 0.75,
-   "keep_rate": 0.8,
-   "quota": 750,
+   "keep_rate": 0.75,
+   "quota": 800,
    "rows": 10000,
    "eligible": 8142,
    "dropped": {
@@ -253,12 +253,12 @@
     "battery": 100,
     "tests not one assert a line": 39
    },
-   "selected": 750,
+   "selected": 800,
    "shortfall": 0,
-   "with_check": 750,
+   "with_check": 800,
    "prompt_tokens_est": {
     "median": 69,
-    "p90": 115,
+    "p90": 114,
     "max": 269
    },
    "file_sha256": "76212053d24f73a892bbb3526a9f08fcfd6bc814133e898878aa28b81459195b"

@@ -405,7 +405,7 @@ from the Mac:
 |---|---:|---|
 | `tools` | 518 | `data/sft/rev2_tool_prompts.jsonl` |
 | `sql` | 1,112 | `data/sft/rev2_sql_prompts.jsonl` |
-| `code` | 961 | `data/sft/rev2_prompts.jsonl`, bucket `code` (OpenCoder, SWE-Swiss) |
+| `code` | 1,011 | `data/sft/rev2_prompts.jsonl`, bucket `code` (OpenCoder, SWE-Swiss) |
 | `replay` | 1,685 | `data/sft/rev2_prompts.jsonl`, bucket `replay`; rerun the selection first if decisions 5 or 6 change it |
 
 Deploy and stage, from `projects/dsbench`:
