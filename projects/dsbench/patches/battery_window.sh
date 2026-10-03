@@ -9,6 +9,8 @@
 # for it to stop (up to DEADLINE_H hours, default 12). MAX_HOURS ends the window: a pass still
 # running then is stopped, and the plan run again later resumes it (generate.py skips answered
 # items). Thinking-on passes (the mini-battery) need CTX=196608: 8 slots of prompt plus 12,288.
+# A step bench:state:N answers only the items' first N, and a later bench:state resumes the pass:
+# the full battery's items are in a seeded random order (battery/full.py), so N is a fair sample.
 set -u
 RUN=$1; PLAN=$2
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -81,7 +83,8 @@ if [ "${PARITY:-0}" = 1 ]; then
   log "parity ok"
 fi
 for step in $PLAN; do
-  bench=${step%%:*}; state=${step##*:}
+  bench=${step%%:*}; rest=${step#*:}; state=${rest%%:*}; limit=""
+  [ "$rest" = "$state" ] || limit=${rest#*:}
   if [ "$bench" = hold ]; then
     # hold:NAME keeps the server up for a client that runs elsewhere (the Mac-side pi harness):
     # signal RUN/hold/NAME.ready, wait for RUN/hold/NAME.done, give up after HOLD_MAX seconds.
@@ -95,10 +98,10 @@ for step in $PLAN; do
     left=$(( STOP - $(date +%s) ))
     [ "$left" -gt 0 ] || { log "time limit: $step and the rest not run"; break; }
   fi
-  log "generate $bench $state"
+  log "generate $bench $state${limit:+ (first $limit)}"
   (cd $SRC && PYTHONPATH=. ${left:+timeout $left} $PY -m dsbench.battery.generate \
      --items $RUN/items/$bench.jsonl --state $state --out $RUN/gen/$bench.$state.jsonl \
-     --workers 8) >>"$LOG" 2>&1
+     ${limit:+--limit $limit} --workers 8) >>"$LOG" 2>&1
   [ $? = 124 ] && { log "time limit: $step stopped part-way, the rest not run"; break; }
 done
 log "plan done"
