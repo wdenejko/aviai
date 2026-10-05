@@ -25,6 +25,10 @@ giving FLAN v2 0.1 takes it from the others. The defaults are proposals (decisio
 Aya is sampled evenly across its languages, SciRIFF across its tasks, the other pools uniformly.
 Each pool has its own seeded generator, so changing one pool's quota leaves the others' picks alone.
 
+A top-up (`--exclude` the items selected before, and `--rows POOL=N`) asks only the pools it names,
+each for N more kept rows, and the others for none. Its sizes come from what generation measured
+rather than from the table: a pool's quota is N over its measured keep rate (`--keep-rate`).
+
     uv run python -m dsbench.sftgen.select_prompts --battery-items data/battery/items \\
         --out data/sft/rev2_prompts.jsonl --report data/sft/rev2_prompts_manifest.json
 """
@@ -54,6 +58,7 @@ class Pool:
     file: str  # in the data zone
     share: float  # of its bucket's rows (proposed: ADR-004 decision 6)
     keep_rate: float = 0.95  # expected share of its rows kept after generation
+    rows: int | None = None  # kept rows wanted instead of a share: a top-up's count
     source: str | None = None  # meta.source: the Tulu mixture's subsets share one file
     balance: str | None = None  # meta key to sample evenly across
     requires: str | None = None  # meta key a row needs for its check
@@ -122,6 +127,8 @@ def even_allocation(sizes: dict[str, int], n: int) -> dict[str, int]:
 
 
 def quota(pool: Pool, pools: tuple[Pool, ...], bucket_rows: dict[str, int]) -> int:
+    if any(p.rows is not None for p in pools):  # a top-up: only the pools it names, by count
+        return math.ceil(pool.rows / pool.keep_rate) if pool.rows else 0
     total = sum(p.share for p in pools if p.bucket == pool.bucket)
     if pool.share <= 0 or total <= 0:
         return 0
@@ -165,6 +172,7 @@ def select(data_zone: Path, index: BatteryIndex | None, *, pools: tuple[Pool, ..
         want = quota(pool, pools, bucket_rows)
         dropped: Counter[str] = Counter()
         candidates: dict[str, dict] = {}  # prompt digest -> item: one per prompt in a pool
+        before: set[str] = set()  # digests of the prompts a top-up excludes
         rows = [r for r in _load(data_zone / pool.file)
                 if pool.source is None or r["meta"].get("source") == pool.source]
         for row in rows:
@@ -192,15 +200,20 @@ def select(data_zone: Path, index: BatteryIndex | None, *, pools: tuple[Pool, ..
             if prompt_tokens(prompt) > max_prompt_tokens:
                 dropped["long"] += 1
                 continue
-            if digest in taken or digest in candidates:
+            item = make_item(pool, row, prompt)
+            if item["id"] in exclude:
+                dropped["selected before"] += 1
+                # Its prompt stays taken: a row repeating it under another id isn't new, whether
+                # it comes before this one in the file (a candidate already) or after
+                before.add(digest)
+                if candidates.pop(digest, None) is not None:
+                    dropped["duplicate"] += 1
+                continue
+            if digest in taken or digest in candidates or digest in before:
                 dropped["duplicate"] += 1
                 continue
             if index is not None and shared_units("\n".join(m["content"] for m in prompt), index):
                 dropped["battery"] += 1
-                continue
-            item = make_item(pool, row, prompt)
-            if item["id"] in exclude:
-                dropped["selected before"] += 1
                 continue
             candidates[digest] = item
 
@@ -224,6 +237,8 @@ def select(data_zone: Path, index: BatteryIndex | None, *, pools: tuple[Pool, ..
             "prompt_tokens_est": {"median": _pct(tokens, 0.5), "p90": _pct(tokens, 0.9),
                                   "max": max(tokens, default=0)},
         }
+        if pool.rows is not None:
+            entry["rows_wanted"] = pool.rows
         if pool.balance:
             entry["groups"] = {"available": len(groups), "selected": sum(v > 0 for v in
                                                                          alloc.values())}
@@ -266,15 +281,20 @@ def main() -> None:
     ap.add_argument("--share", action="append", default=[], metavar="POOL=W",
                     help="a pool's share of its bucket (repeatable), e.g. flan_v2=0.1")
     ap.add_argument("--keep-rate", action="append", default=[], metavar="POOL=R")
+    ap.add_argument("--rows", action="append", default=[], metavar="POOL=N",
+                    help="a top-up: N more kept rows from the pool (repeatable); the pools not "
+                         "named give none")
     ap.add_argument("--exclude", type=Path, help="items selected before: not picked again")
     args = ap.parse_args()
 
     shares, keep = _pairs(args.share, float), _pairs(args.keep_rate, float)
-    unknown = (set(shares) | set(keep)) - {p.name for p in POOLS}
+    rows = _pairs(args.rows, int)
+    unknown = (set(shares) | set(keep) | set(rows)) - {p.name for p in POOLS}
     if unknown:
         raise SystemExit(f"unknown pools: {sorted(unknown)}")
     pools = tuple(replace(p, share=shares.get(p.name, p.share),
-                          keep_rate=keep.get(p.name, p.keep_rate)) for p in POOLS)
+                          keep_rate=keep.get(p.name, p.keep_rate), rows=rows.get(p.name))
+                  for p in POOLS)
     items_dir = Path(args.battery_items)
     battery = [it for path in sorted(items_dir.glob("*.jsonl")) for it in load_items(path)]
     if not battery:  # a mistyped path must not pass as "no overlap"
@@ -295,7 +315,7 @@ def main() -> None:
         entry["file_sha256"] = _sha256(args.data_zone / entry["file"])
     report = {
         "params": {"seed": args.seed, "max_prompt_tokens": args.max_prompt_tokens,
-                   "bucket_rows": bucket_rows, "battery_items": str(items_dir),
+                   "bucket_rows": bucket_rows, "rows": rows, "battery_items": str(items_dir),
                    "battery_items_n": len(battery), "exclude": str(args.exclude or "")},
         "items": len(items), "out": str(args.out), "out_sha256": _sha256(args.out),
         "by_bucket": dict(Counter(item["bucket"] for item in items)),

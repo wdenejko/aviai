@@ -391,3 +391,53 @@ def test_the_volume_cuts_clickhouse_weekdays_short_and_answers_the_other_cells(m
                                                      "clickhouse/weekend-flag": 1}
     again, _ = th.build_volume_items(seed=100, recall_reps=reps, cell_reps=1, n=200)
     assert again == files  # the wordings are drawn with a seed
+    # the wordings are drawn by index: naming all of them draws what the default drew
+    every = tuple(range(len(th.RECALL_WORDINGS)))
+    assert th.build_volume_items(seed=100, recall_reps=reps, cell_reps=1, n=200,
+                                 wordings=every)[0] == files
+
+
+def test_the_top_up_draws_recall_rows_only_in_its_wordings_and_no_cells(monkeypatch):
+    from dsbench.sftgen import dialect_conventions, schema
+
+    calls = []
+
+    def fake_generate(*, seed, reps, n, dialects, families, thinking_frac):
+        calls.append((seed, reps, tuple(families)))
+        rows = [_row(id=f"A-{f}-{d}-retail_orders-{seed + r}", family=f, dialect=d)
+                for r in range(reps) for d in dialects for f in families]
+        return rows, {"engines": list(dialects), "rejected": 0}
+
+    monkeypatch.setattr(dialect_conventions, "generate", fake_generate)
+    monkeypatch.setattr(schema, "row_to_dict", lambda row: row)
+    files, report = th.build_volume_items(seed=7, recall_reps={"weekday-numbering": 40,
+                                                               "weekend-flag": 8},
+                                          cell_reps=0, n=200, wordings=(0, 1, 3))
+    assert calls == [(7, 40, ("weekday-numbering",)), (9, 8, ("weekend-flag",))]  # no cells
+    assert list(files) == ["ta_plain"] and "ta_cells" not in report
+    assert {i["meta"]["recall_wording"] for i in files["ta_plain"]} == {0, 1, 3}
+    assert all(i["meta"]["recall"] == th.recall("clickhouse", i["meta"]["recall_wording"])
+               for i in files["ta_plain"])
+    assert report["wordings"] == [0, 1, 3] and report["ta_plain"]["items"] == 48
+    with pytest.raises(ValueError, match="wordings"):
+        th.build_volume_items(seed=7, cell_reps=0, n=200, wordings=(4,))
+
+
+def test_the_top_up_draws_tables_no_earlier_draw_used():
+    from dsbench.sftgen import synth
+    from dsbench.sftgen.dialect_conventions import table_seed
+
+    def tables(seed, reps):
+        return {table_seed(seed, d, r) for d in range(len(synth.domain_names()))
+                for r in range(reps)}
+
+    def recall_draws(seed, reps):  # build_volume_items: family k draws from seed + 2k
+        return [tables(seed + 2 * k, reps[f]) for k, f in enumerate(th.HINTED_FAMILIES)]
+
+    earlier = (tables(th.SEED, th.PILOT_REPS) | tables(th.PREFILL_SEED, th.PILOT_REPS)
+               | tables(th.VOLUME_SEED + 1, th.CELL_REPS)
+               | set().union(*recall_draws(th.VOLUME_SEED, th.RECALL_REPS)))
+    weekdays, weekends = recall_draws(th.TOPUP_SEED, th.TOPUP_RECALL_REPS)
+    assert len(weekdays) == 6 * 34 and len(weekends) == 6 * 7
+    assert not (weekdays | weekends) & earlier and not weekdays & weekends
+    assert 2 not in th.TOPUP_WORDINGS
