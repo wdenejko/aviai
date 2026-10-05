@@ -1,0 +1,280 @@
+{
+ "params": {
+  "seed": 20260930,
+  "max_prompt_tokens": 3072,
+  "bucket_rows": {
+   "replay": 1600,
+   "code": 800
+  },
+  "rows": {
+   "oasst1": 123,
+   "aya": 167,
+   "gsm8k": 208
+  },
+  "battery_items": "data/battery/items",
+  "battery_items_n": 6419,
+  "exclude": "data/sft/rev2_prompts.jsonl"
+ },
+ "items": 547,
+ "out": "data/sft/rev2_prompts_topup.jsonl",
+ "out_sha256": "9e3b7b5eafb4de27fc077d7a77bed37686cd345a31e591ae6f568c66b7bb1810",
+ "by_bucket": {
+  "replay": 547
+ },
+ "pools": [
+  {
+   "pool": "oasst1",
+   "bucket": "replay",
+   "file": "breadth_tulu3.jsonl",
+   "share": 0.4,
+   "keep_rate": 0.975,
+   "quota": 127,
+   "rows": 7131,
+   "eligible": 6444,
+   "dropped": {
+    "selected before": 674,
+    "duplicate": 7,
+    "long": 4,
+    "battery": 2
+   },
+   "selected": 127,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 40,
+    "p90": 477,
+    "max": 1239
+   },
+   "rows_wanted": 123,
+   "file_sha256": "08740d36176e33e0974a65425d003b64c0cdfc18bc9ca3b145acc41efe546344"
+  },
+  {
+   "pool": "flan_v2",
+   "bucket": "replay",
+   "file": "breadth_tulu3.jsonl",
+   "share": 0.0,
+   "keep_rate": 0.95,
+   "quota": 0,
+   "rows": 2373,
+   "eligible": 2361,
+   "dropped": {
+    "duplicate": 7,
+    "long": 5
+   },
+   "selected": 0,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 0,
+    "p90": 0,
+    "max": 0
+   },
+   "file_sha256": "08740d36176e33e0974a65425d003b64c0cdfc18bc9ca3b145acc41efe546344"
+  },
+  {
+   "pool": "aya",
+   "bucket": "replay",
+   "file": "breadth_tulu3_aya.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.976,
+   "quota": 172,
+   "rows": 99964,
+   "eligible": 90100,
+   "dropped": {
+    "duplicate": 9492,
+    "selected before": 359,
+    "battery": 8,
+    "long": 5
+   },
+   "selected": 172,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 18,
+    "p90": 103,
+    "max": 647
+   },
+   "rows_wanted": 167,
+   "groups": {
+    "available": 71,
+    "selected": 71
+   },
+   "by_language": {
+    "Amharic": 2,
+    "Basque": 2,
+    "Bengali": 3,
+    "Burmese": 2,
+    "Cebuano": 2,
+    "Central Kurdish": 2,
+    "Danish": 2,
+    "Dutch": 3,
+    "Egyptian Arabic": 2,
+    "English": 3,
+    "Filipino": 2,
+    "Finnish": 2,
+    "French": 2,
+    "German": 2,
+    "Greek": 2,
+    "Gujarati": 3,
+    "Haitian": 2,
+    "Hausa": 3,
+    "Hindi": 2,
+    "Hungarian": 2,
+    "Igbo": 3,
+    "Indonesian": 2,
+    "Iranian Persian": 3,
+    "Irish": 2,
+    "Italian": 2,
+    "Japanese": 3,
+    "Javanese": 2,
+    "Kannada": 2,
+    "Korean": 2,
+    "Kyrgyz": 3,
+    "Lithuanian": 2,
+    "Malayalam": 3,
+    "Marathi": 3,
+    "Moroccan Arabic": 3,
+    "Najdi Arabic": 2,
+    "Nepali": 3,
+    "Northern Sotho": 2,
+    "Nyanja": 2,
+    "Panjabi": 3,
+    "Plateau Malagasy": 3,
+    "Polish": 2,
+    "Portuguese": 3,
+    "Russian": 2,
+    "Serbian": 2,
+    "Shona": 2,
+    "Simplified Chinese": 3,
+    "Sindhi": 2,
+    "Sinhala": 3,
+    "Somali": 3,
+    "South Levantine Arabic": 2,
+    "Southern Pashto": 2,
+    "Spanish": 3,
+    "Standard Arabic": 3,
+    "Standard Malay": 3,
+    "Sundanese": 2,
+    "Swahili": 2,
+    "Swedish": 2,
+    "Ta'izzi-Adeni Arabic": 2,
+    "Tamil": 3,
+    "Telugu": 3,
+    "Thai": 2,
+    "Tosk Albanian": 2,
+    "Traditional Chinese": 3,
+    "Turkish": 3,
+    "Ukrainian": 2,
+    "Urdu": 2,
+    "Vietnamese": 3,
+    "Wolof": 3,
+    "Xhosa": 2,
+    "Yoruba": 3,
+    "Zulu": 3
+   },
+   "file_sha256": "76400b7f7a6957ed19d38b4e045605e6278a6371df50c4f9c127209caca6f74e"
+  },
+  {
+   "pool": "sciriff",
+   "bucket": "replay",
+   "file": "breadth_tulu3_sciriff.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.95,
+   "quota": 0,
+   "rows": 4902,
+   "eligible": 3886,
+   "dropped": {
+    "long": 670,
+    "selected before": 337,
+    "duplicate": 9
+   },
+   "selected": 0,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 0,
+    "p90": 0,
+    "max": 0
+   },
+   "groups": {
+    "available": 21,
+    "selected": 0
+   },
+   "by_task": {},
+   "file_sha256": "d285bfa92408602f38d16e392e865b15e1081fa23eff3078a30ebce8d7607af1"
+  },
+  {
+   "pool": "gsm8k",
+   "bucket": "replay",
+   "file": "breadth_gsm8k.jsonl",
+   "share": 0.2,
+   "keep_rate": 0.84,
+   "quota": 248,
+   "rows": 7473,
+   "eligible": 7136,
+   "dropped": {
+    "selected before": 337
+   },
+   "selected": 248,
+   "shortfall": 0,
+   "with_check": 248,
+   "prompt_tokens_est": {
+    "median": 61,
+    "p90": 101,
+    "max": 239
+   },
+   "rows_wanted": 208,
+   "file_sha256": "b3b740af1baecc92f6a92b75f77b723c2b4ac76c86c67edb2565bc7bd0ffcfea"
+  },
+  {
+   "pool": "opencoder_edu",
+   "bucket": "code",
+   "file": "breadth_opencoder_edu_rev2.jsonl",
+   "share": 0.75,
+   "keep_rate": 0.75,
+   "quota": 0,
+   "rows": 10000,
+   "eligible": 7342,
+   "dropped": {
+    "duplicate": 1713,
+    "selected before": 806,
+    "battery": 100,
+    "tests not one assert a line": 39
+   },
+   "selected": 0,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 0,
+    "p90": 0,
+    "max": 0
+   },
+   "file_sha256": "76212053d24f73a892bbb3526a9f08fcfd6bc814133e898878aa28b81459195b"
+  },
+  {
+   "pool": "swe_swiss",
+   "bucket": "code",
+   "file": "breadth_swe_swiss_rev2.jsonl",
+   "share": 0.25,
+   "keep_rate": 0.95,
+   "quota": 0,
+   "rows": 2267,
+   "eligible": 1398,
+   "dropped": {
+    "long": 639,
+    "selected before": 211,
+    "duplicate": 11,
+    "battery": 8
+   },
+   "selected": 0,
+   "shortfall": 0,
+   "with_check": 0,
+   "prompt_tokens_est": {
+    "median": 0,
+    "p90": 0,
+    "max": 0
+   },
+   "file_sha256": "c609ecf307203f7c8871c708c8244eb48f5e0389b4f1ef9d140ba60e779fa3c5"
+  }
+ ]
+}

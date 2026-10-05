@@ -59,6 +59,13 @@ def _build_row(*, domain, dialect, conv, params, sql, truth, result, seed, think
     )
 
 
+def table_seed(seed: int, domain_index: int, rep: int) -> int:
+    """One synthetic table's seed, which its rows' ids carry: the run's seed plus prime strides per
+    domain and repetition. Runs whose seeds differ by a little draw different tables, which a
+    caller drawing again (a top-up) can check."""
+    return seed + domain_index * 100003 + rep * 7919
+
+
 def generate(
     *, seed: int = 7, reps: int = 1, n: int = 4000,
     dialects: list[str] | None = None, families: list[str] | None = None,
@@ -83,7 +90,7 @@ def generate(
 
     for rep in range(reps):
         for di, dname in enumerate(domains):
-            dseed = seed + di * 100003 + rep * 7919
+            dseed = table_seed(seed, di, rep)
             domain = synth.build(dname, dseed, n)
             params = {c.family: c.params(rng) for c in convs}  # fixed across dialects
             for eng in engines:

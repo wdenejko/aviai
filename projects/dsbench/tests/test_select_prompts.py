@@ -5,6 +5,7 @@ Synthetic pools in a temporary data zone and a one-item battery: no network, no 
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 from dsbench.battery.contamination import build_index
@@ -51,6 +52,13 @@ def test_quotas_normalise_the_shares_and_cover_the_expected_losses():
     assert [quota(p, pools, rows) for p in pools] == [53, 63, 0]  # ceil(50/0.95), ceil(50/0.8)
     wider = (*pools[:2], Pool("z", "replay", "f", 1.0))  # a new share comes from the others
     assert [quota(p, wider, rows) for p in wider] == [27, 32, 53]
+
+
+def test_a_top_up_asks_only_the_pools_it_names_by_count():
+    pools = (Pool("x", "replay", "f", 0.5, keep_rate=0.8, rows=10), Pool("y", "replay", "f", 0.5),
+             Pool("z", "code", "f", 1.0, rows=0))
+    # ceil(10/0.8); y keeps its share but isn't named, so gives none; z is named with none
+    assert [quota(p, pools, {"replay": 100, "code": 50}) for p in pools] == [13, 0, 0]
 
 
 POOLS = (
@@ -127,6 +135,34 @@ def test_selection_is_reproducible_and_a_top_up_skips_earlier_picks(zone):
     gsm = next(e for e in report["pools"] if e["pool"] == "gsm")
     assert (gsm["dropped"], gsm["selected"], gsm["shortfall"]) == ({"selected before": 3}, 1, 2)
     assert not earlier & {item["id"] for item in top_up}
+
+
+def test_a_counted_top_up_draws_from_the_named_pool_only(zone):
+    first, _ = _select(zone)
+    earlier = frozenset(item["id"] for item in first)
+    pools = tuple(replace(p, rows=2 if p.name == "aya" else None) for p in POOLS)
+    index = build_index([Item("bfcl", "1", [{"role": "user", "content": BATTERY_TEXT}])])
+    top_up, report = select(zone, index, pools=pools, bucket_rows=ROWS, max_prompt_tokens=100,
+                            exclude=earlier)
+    by = {e["pool"]: e for e in report["pools"]}
+    assert [item["pool"] for item in top_up] == ["aya", "aya"]
+    assert (by["aya"]["rows_wanted"], by["aya"]["quota"], by["gsm"]["quota"]) == (2, 2, 0)
+    assert "rows_wanted" not in by["gsm"]
+    assert by["aya"]["dropped"] == {"selected before": 3}  # one a language the first time
+    assert not earlier & {item["id"] for item in top_up}
+
+
+def test_a_top_up_never_repeats_an_earlier_prompt_under_another_id(tmp_path):
+    # the excluded pick's prompt, under other ids before and after it in the file
+    _write(tmp_path / "mix.jsonl", [_row("same question", {"source": "A", "id": "first"}),
+                                    _row("same question", {"source": "A", "id": "picked"}),
+                                    _row("same question", {"source": "A", "id": "last"}),
+                                    _row("other question", {"source": "A", "id": "other"})])
+    pools = (Pool("a", "replay", "mix.jsonl", 1.0, keep_rate=1.0, source="A", rows=5),)
+    items, report = select(tmp_path, None, pools=pools, bucket_rows=ROWS,
+                           exclude=frozenset({"a:picked"}))
+    assert [item["id"] for item in items] == ["a:other"]
+    assert report["pools"][0]["dropped"] == {"selected before": 1, "duplicate": 2}
 
 
 def test_a_missing_pool_says_how_to_get_it(tmp_path):

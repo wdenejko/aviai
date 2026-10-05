@@ -59,7 +59,19 @@ plain sampling 7.
         --report data/sft/rev2_target_a_prefill_pilot_manifest.json
     uv run python -m dsbench.sftgen.target_a_hints verify --items <items> --gen <gen> --out <out>
 
-All three need the sandbox's four engines: docker compose -f sandbox/docker-compose.yml up -d
+Revision 2's volume (`build_volume_items`, decision 2) is the `recall` route at scale: ClickHouse's
+weekday and weekend rows as plain items whose replies are cut for the convention, and the other
+cells answered plain. Its top-up (`--topup`, 2026-10-05) draws the recall rows again, from new
+tables and without the wording whose traces doubted the convention most (TOPUP_SEED):
+
+    uv run python -m dsbench.sftgen.target_a_hints volume-items \\
+        --battery-items data/battery/items --out-dir data/sft/rev2_target_a \\
+        --report data/sft/rev2_target_a_manifest.json
+    uv run python -m dsbench.sftgen.target_a_hints volume-items --topup \\
+        --battery-items data/battery/items --out-dir data/sft/rev2_target_a/topup \\
+        --report data/sft/rev2_target_a_topup_manifest.json
+
+All of them need the sandbox's four engines: docker compose -f sandbox/docker-compose.yml up -d
 --build clickhouse postgres mysql duckdb.
 """
 from __future__ import annotations
@@ -119,6 +131,18 @@ VOLUME_SEED = 20261002
 RECALL_REPS = {"weekday-numbering": 75, "weekend-flag": 12}
 CELL_REPS = 3
 PLAIN_PHASE_TOKENS = 512
+# The top-up (2026-10-05). The volume's recall rows came out short: 490 of 522 verified, but 328
+# of those raised Sunday = 1 again after the convention (67%, against the prefill pilot's 52%), so
+# 162 were kept where about 260 were planned, 118,902 tokens under Target A's budget. Wording 2
+# raised it in 85% of its kept replies (100 of 118), the others in 55-69%, so the top-up draws
+# only wordings 0, 1 and 3. At 1,513 tokens a kept row the shortfall is 79 rows, split as the
+# volume's items were (450:72). Those wordings kept 37.2% of the weekday items and 32.7% of the
+# weekend ones, so that is 182 and 33 items, and a tenth more: 34 and 7 tables a domain (204 and
+# 42 items). The seed meets no earlier draw's table seeds (a test checks every one), and no cells
+# are drawn: theirs filled.
+TOPUP_SEED = 20261005
+TOPUP_RECALL_REPS = {"weekday-numbering": 34, "weekend-flag": 7}
+TOPUP_WORDINGS = (0, 1, 3)
 
 # --- the hints -----------------------------------------------------------------------------------
 
@@ -550,30 +574,39 @@ def build_prefill_items(*, seed: int = PREFILL_SEED, reps: int = PILOT_REPS,
 
 def build_volume_items(*, seed: int = VOLUME_SEED, recall_reps: dict[str, int] | None = None,
                        cell_reps: int = CELL_REPS, n: int = ROWS_PER_TABLE,
-                       gate: Callable[[dict], str | None] | None = None
+                       gate: Callable[[dict], str | None] | None = None,
+                       wordings: tuple[int, ...] | None = None
                        ) -> tuple[dict[str, list[dict]], dict]:
     """({"ta_plain": ..., "ta_cells": ...}, report): Revision 2's Target A volume.
 
     - `ta_plain`: ClickHouse's weekday and weekend rows, each a plain item whose reply stops at
       PLAIN_PHASE_TOKENS: `prefill.splice` cuts it and writes the convention there, in a wording
-      drawn per row, and the base continues (`ta_recall`). The plain reply itself never trains.
-    - `ta_cells`: the other cells' rows, each a plain item the base answers in full.
+      drawn per row from `wordings` (all of RECALL_WORDINGS by default), and the base continues
+      (`ta_recall`). The plain reply itself never trains.
+    - `ta_cells`: the other cells' rows, each a plain item the base answers in full. With
+      `cell_reps` 0 (the top-up) there is no such draw, and no `ta_cells`.
 
     Each draw has its own seed, so no table is shared between them, nor with the pilots (a
-    table's seed is the run's plus offsets per domain and repetition).
+    table's seed is the run's plus offsets per domain and repetition: `table_seed`).
     """
     from dsbench.sftgen.dialect_conventions import generate
     from dsbench.sftgen.schema import row_to_dict
 
     recall_reps = recall_reps or RECALL_REPS
-    report: dict = {"seed": seed, "rows_per_table": n,
-                    "ta_plain": {"draws": []}, "ta_cells": {"draws": []}}
+    # Drawn by index, so the default draws exactly what drawing among all the wordings drew
+    wordings = tuple(range(len(RECALL_WORDINGS))) if wordings is None else tuple(wordings)
+    if not wordings or not set(wordings) <= set(range(len(RECALL_WORDINGS))):
+        raise ValueError(f"wordings must be among 0..{len(RECALL_WORDINGS) - 1}: {wordings}")
+    report: dict = {"seed": seed, "rows_per_table": n, "wordings": list(wordings),
+                    "ta_plain": {"draws": []}}
     rng = random.Random(f"{seed}:recall")
-    out: dict[str, list[dict]] = {"ta_plain": [], "ta_cells": []}
+    out: dict[str, list[dict]] = {"ta_plain": []}
     rejected: Counter[str] = Counter()
     draws = [("ta_plain", seed + 2 * k, recall_reps[family], list(PREFILL_DIALECTS), [family])
              for k, family in enumerate(HINTED_FAMILIES)]
-    draws.append(("ta_cells", seed + 1, cell_reps, list(DIALECTS), list(FAMILIES)))
+    if cell_reps:
+        report["ta_cells"], out["ta_cells"] = {"draws": []}, []
+        draws.append(("ta_cells", seed + 1, cell_reps, list(DIALECTS), list(FAMILIES)))
     for name, draw_seed, reps, dialects, families in draws:
         rows, generated = generate(seed=draw_seed, reps=reps, n=n, dialects=dialects,
                                    families=families, thinking_frac=0.0)
@@ -595,7 +628,7 @@ def build_volume_items(*, seed: int = VOLUME_SEED, recall_reps: dict[str, int] |
             if name == "ta_cells":
                 out[name].append(plain)
                 continue
-            wording = rng.randrange(len(RECALL_WORDINGS))
+            wording = wordings[rng.randrange(len(wordings))]
             meta = {k: v for k, v in plain["meta"].items() if k not in ("hinted", "teacher")}
             out[name].append({
                 **plain, "id": f"{plain['id']}#1", "prefill": "",
@@ -775,6 +808,9 @@ def main() -> None:
     o.add_argument("--report", type=Path, required=True)
     o.add_argument("--seed", type=int, default=VOLUME_SEED)
     o.add_argument("--cell-reps", type=int, default=CELL_REPS)
+    o.add_argument("--topup", action="store_true",
+                   help="the top-up: TOPUP_SEED, TOPUP_RECALL_REPS and TOPUP_WORDINGS, no cells "
+                        "(--seed and --cell-reps don't apply)")
     v = sub.add_parser("verify")
     v.add_argument("--items", type=Path, required=True)
     v.add_argument("--gen", type=Path, required=True)
@@ -797,7 +833,12 @@ def main() -> None:
     checked = check_hints(engines)
     gate = strict_gate(args.battery_items)
     if args.cmd == "volume-items":
-        files, report = build_volume_items(seed=args.seed, cell_reps=args.cell_reps, gate=gate)
+        if args.topup:
+            files, report = build_volume_items(seed=TOPUP_SEED, recall_reps=TOPUP_RECALL_REPS,
+                                               cell_reps=0, wordings=TOPUP_WORDINGS, gate=gate)
+        else:
+            files, report = build_volume_items(seed=args.seed, cell_reps=args.cell_reps,
+                                               gate=gate)
         args.out_dir.mkdir(parents=True, exist_ok=True)
         for name, items in files.items():
             path = args.out_dir / f"{name}.jsonl"
@@ -805,7 +846,8 @@ def main() -> None:
             report[name]["out"] = str(path)
             report[name]["out_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
         args.report.write_text(json.dumps({"params": {"battery_items": args.battery_items,
-                                                      "plain_phase_tokens": PLAIN_PHASE_TOKENS},
+                                                      "plain_phase_tokens": PLAIN_PHASE_TOKENS,
+                                                      "topup": args.topup},
                                            "hint_checks_passed": checked, **report},
                                           indent=1) + "\n")
         print(json.dumps({name: report[name]["items"] for name in files}))
