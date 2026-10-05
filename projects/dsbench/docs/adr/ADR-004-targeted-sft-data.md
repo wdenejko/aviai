@@ -139,7 +139,7 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 
 ---
 
-# Revision 2 (2026-09-29, proposed): the mixture for the thinking-on retrain
+# Revision 2 (2026-09-29; decisions 1-8 taken 2026-10-03 and 2026-10-05): the mixture for the thinking-on retrain
 
 ## What changed since Revision 1
 
@@ -835,18 +835,86 @@ the block, the gate catches none, and 3 overlap a battery item below the line. T
 some 260 rows, not the table's 500, which assumed shorter prompts. Decision 6 can move tokens to
 it; the generated rows will tell.
 
+## The generation, run 2026-10-03/05
+
+Four windows on the box (`patches/rev2_generate_window.sh`), the bare base with thinking on and 8
+slots, each window resuming the one before. The next window was armed while one ran, and started
+once its server stopped. About 27 hours of GPU generated 11.9M tokens, at 109-138 a second, the
+slowest on SQL's long prompts. Each pool's check:
+
+| Pool | Replies | Kept | The rest |
+|---|---:|---:|---|
+| `tool_fit` | 509 (214 a top-up) | 506 | 2 cut at the budget, 1 with no call |
+| `tool_decline` | 223 | 209 | 13 cut (loops), 1 that called a tool |
+| SQL (SynSQL) | 1,112 | 368 | 354 right only on the dataset's tiny database, 263 wrong on it, 116 cut, 11 errors |
+| OpenCoder | 800 | 744 | 32 cut, 24 failing their tests in the sandbox |
+| SWE-Swiss | 211 | 208 | 3 cut |
+| oasst1 | 674 | 657 | 13 cut, 4 with no reasoning or no answer |
+| Aya, SciRIFF | 337 each | 329, 332 | cut; every JSON-only SciRIFF prompt got the JSON alone |
+| GSM8K | 337 | 283 | 35 with another number, 19 cut |
+| Target A, the other 14 cells | 252 | 222 | 12 wrong, 13 cut, 5 errors |
+| Target A, ClickHouse by `recall` | 522 | 162 | 490 verify, but 328 of those doubt; 28 wrong |
+
+- **`tool_fit` came short first.** Its rows are short, about 805 tokens, so its 293 held 236k
+  of its 400k. A top-up of 214 prompts (`tool_rows generate --fit 510`: the first 295 the same,
+  one repeat dropped) ran in the third window, with the owner's approval (2026-10-04).
+- **Replies ran shorter than this ADR assumed for replay** (2,560 tokens): oasst1 2,055, Aya
+  1,738, SciRIFF 2,213 and GSM8K 2,018 on average, its kept ones shorter. OpenCoder's ran 2,926
+  and SQL's 3,158. Few were cut at the budget: OpenCoder 32 of 800, where its quota allowed for a
+  fifth.
+- **Target A's doubts came back more often than in the pilot.** 328 of the 490 verified recall
+  traces state Sunday = 1 again after the convention (67%, against the pilot's 52%), so 162 rows
+  are kept where about 260 were planned. In a sample of 14, most are the old belief back ("Wait,
+  is there any chance `toDayOfWeek` returns 1 for Sunday?") and a few a contrast with other
+  databases, which the filter counts too; the traces reach the right SQL only after the detour.
+  Wording 2 did it in 85% of its kept traces (100 of 118), the others in 55-69%.
+
+**At 10M (decision 1's proposal) the pools held 8.89M tokens** (`assemble_rev2`, 3,825 rows).
+SQL, the tool rows, OpenCoder, SWE-Swiss and SciRIFF filled their budgets. The rest fell short:
+
+| Line | Tokens | Budget |
+|---|---:|---:|
+| Target A | 681,098 | 800,000 |
+| Target C | 803,029 | 1,000,000 |
+| oasst1 | 1,366,990 | 1,600,000 |
+| Aya | 547,807 | 800,000 |
+| GSM8K | 479,979 | 800,000 |
+
+Replay, at 3.20M, would have been 36% of the mixture rather than 40%. One OpenCoder reply was
+caught by the battery gate.
+
+**Decision 1, taken 2026-10-05: 10M, with a top-up** of the short single-turn pools before
+training. The other choices were to train on the 8.89M, or a budget of about 6M, which every pool
+fills. Target C stays 197k short, as its volume run left it. The top-up is sized by what the
+generation measured, with a tenth more:
+- **Replay, 547 prompts** (`select_prompts --exclude data/sft/rev2_prompts.jsonl --rows`): the
+  shortfall over the mean kept row, a tenth more, over the measured keep rate.
+
+  | Pool | Short | A kept row | Rows wanted | Keep rate | Prompts |
+  |---|---:|---:|---:|---:|---:|
+  | oasst1 | 233,010 | 2,081 | 123 | 0.975 | 127 |
+  | Aya | 252,193 | 1,665 | 167 | 0.976 | 172 |
+  | GSM8K | 320,021 | 1,696 | 208 | 0.840 | 248 |
+
+  None repeats a prompt the first selection took, by id or by text. On the way, `--exclude` was
+  found to let a prompt through under another id where a pool repeats it. It no longer does, and
+  neither selection changes.
+- **Target A, 246 plain items for `recall`** (`target_a_hints volume-items --topup`): ClickHouse's
+  weekday and weekend rows from new tables (no table seed meets an earlier draw's), in wordings 0,
+  1 and 3 only. 79 rows cover the shortfall. Those wordings kept 37.2% and 32.7% of the items, so
+  with a tenth more that is 204 weekday and 42 weekend items. The default volume still builds
+  byte for byte.
+- **One window of about 3.5 hours:** Target A's plain phase, splice and recall (about 1 hour),
+  then the replay prompts (about 1.1M tokens).
+
 ## Budget and time
 
-Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-03).
-- **Generation**, with production stopped:
-  - replay, code and SWE: about 2,700 prompts at 2,560 tokens a reply: about 6.9M tokens, 15
-    hours. The mini-battery's calibration measured the rate: 113-132 tokens a second on 8 slots,
-    thinking on;
-  - the verified pools, about 1,400 kept rows: at a 30-60% yield, 3-7M generated tokens,
-    7-15 hours;
-  - Target A: about 3.5 hours, once decision 2 is taken;
-  - Target C: done in its 2026-10-01/02 window (154 rows, 0.80M tokens);
-  - still to run: about 25-35 hours of box time.
+Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
+- **Generation**, with production stopped: **run 2026-10-03/05**, about 27 hours of box time in
+  four windows ("The generation" above), at 109-138 tokens a second on 8 slots:
+  - SQL 9.0 hours, code 6.3, replay 7.2, Target A 3.4, the tool rows 1.1;
+  - Target C: its 2026-10-01/02 window (154 rows, 0.80M tokens);
+  - the top-up (decision 1): about 3.5 hours more.
 - **Training:** about 15 hours for 10M tokens, at the 182 tokens a second the seq-4096 report
   measured for 8,192-token rows. The packed rows' warm step took 23.6 s for 8,192 tokens
   (2026-10-02), which would make it about 9 hours if it holds over a run. Target C's rows filled
@@ -930,8 +998,12 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
 
 ## Decisions for the owner
 
+**Taken.** On 2026-10-03 the owner took the proposals of decisions 2-8, and on 2026-10-05
+decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
+
 1. **Budget:** 10M tokens (9-15 hours of training, and 25-35 more of generation: "Budget and
-   time"), or more.
+   time"), or more. **Taken 2026-10-05:** 10M. The pools held 8.89M of it, so the short ones are
+   topped up before training.
 2. **Target A's reasoning.** The hint pilot ruled out the hint-conditioned base as designed: only
    4-11% of its traces didn't cite the hint. The prefill pilot (2026-10-01) found the route:
    - the base's own plain trace, cut where it first turns to the weekday function, the
@@ -1057,8 +1129,10 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
    - [x] the volume's items and tooling. **Built 2026-10-02:** 4 checked wordings of the
      sentence; the plain phase stopped at 512 tokens; the doubt filter, recorded by `verify` and
      applied by the assembler; rows spread over the prompts; the window's `splice` step.
-   - [ ] generate Target A's rows in a window (`ta_cells ta_plain splice:ta_plain:ta_recall
-     ta_recall`), once decision 2 is taken.
+   - [x] generate Target A's rows in a window (`ta_cells ta_plain splice:ta_plain:ta_recall
+     ta_recall`). **Run 2026-10-04/05:** 222 of the 252 cell rows and 162 of the 522 recall rows
+     kept; 328 recall traces doubt ("The generation" above).
+   - [ ] its top-up: 246 recall items without wording 2 (2026-10-05).
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
@@ -1097,8 +1171,10 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
      replay). **Built 2026-10-02:** `replay_verify.py`; `reasoning_pilot.py generate --block`;
      `patches/rev2_generate_window.sh`; rehearsed against a stand-in. OpenCoder's prompts now show
      their first test, and the dataset's own answers pass 748 of 750 items.
-   - [ ] the generation windows: 4,326 prompts, 22-30 hours by the budget above, so about three
-     windows of 9 hours.
+   - [x] the generation windows: 4,326 prompts. **Run 2026-10-03/05:** about 27 hours over four
+     windows, and 214 `tool_fit` prompts topped up in the third ("The generation" above).
+   - [ ] the top-up window (decision 1, 2026-10-05): 547 replay prompts and Target A's 246
+     items, about 3.5 hours.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
@@ -1116,7 +1192,8 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
-     box, whose exact counts check the assembler's. **Checked on Target C's 154 rows
+     box, whose exact counts check the assembler's. Previewed 2026-10-05 at 10M: 8.89M, short
+     where the top-up fills. **Checked on Target C's 154 rows
      2026-10-02** (`~/benchlab/runs/2026-10-02-rev2-assembly-check/`), the only pool generated so
      far:
      - no row too long. The server's counts are exact or over ("Assembly" above): 802,944 tokens
