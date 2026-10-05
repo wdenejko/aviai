@@ -41,6 +41,8 @@ projects/dsbench/data/sft/rev2_target_c/
 # Target A's volume items (target_a_hints volume-items: ta_plain, ta_cells), and the recall
 # items and checked replies the generation brings back
 projects/dsbench/data/sft/rev2_target_a/
+# Revision 2's single-turn generation brought back from the box: the replies and their checks
+projects/dsbench/data/sft/rev2_generation/
 # SynSQL's SQLite databases, extracted from its databases.zip (sftgen/synsql.py)
 projects/dsbench/data/synsql/
 

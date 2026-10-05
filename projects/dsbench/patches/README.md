@@ -473,3 +473,35 @@ and its blocks on the box, with `build_masked_dataset --records <the mixture>` (
 packed rows), whose exact counts check the assembler's: its report's `estimates` compares
 them with the counts each record was selected by. On Target C's rows (2026-10-02), 129 of 154
 matched and 25 were over by up to 28 tokens, never under.
+
+**Run 2026-10-03/05** (`~/benchlab/runs/2026-10-03-qwen36-rev2-generation/` and its README): four
+windows, about 27 hours, the next armed while one ran. The tool rows' top-up (`tool_fit`, 214
+prompts, `data/sft/rev2_tool_prompts_topup.jsonl`) ran as a step `tools_topup` in the third. The
+code and replay checks ran on the box (`rev2_verify_code_replay.sh RUN`, deployed beside
+`window.sh`), the others on the Mac. ADR-004's "The generation" has the results.
+
+**The top-up** (decision 1, 2026-10-05) fills the single-turn pools the generation left short.
+Its items, built on the Mac and staged:
+
+```bash
+uv run python -m dsbench.sftgen.select_prompts --battery-items data/battery/items \
+  --exclude data/sft/rev2_prompts.jsonl \
+  --rows oasst1=123 --rows aya=167 --rows gsm8k=208 \
+  --keep-rate oasst1=0.975 --keep-rate aya=0.976 --keep-rate gsm8k=0.840 \
+  --out data/sft/rev2_prompts_topup.jsonl --report data/sft/rev2_prompts_topup_manifest.json
+uv run python -m dsbench.sftgen.target_a_hints volume-items --topup \
+  --battery-items data/battery/items --out-dir data/sft/rev2_target_a/topup \
+  --report data/sft/rev2_target_a_topup_manifest.json
+scp data/sft/rev2_prompts_topup.jsonl dashi:$R/items/replay_topup.jsonl
+scp data/sft/rev2_target_a/topup/ta_plain.jsonl dashi:$R/items/ta_plain_topup.jsonl
+```
+
+One window runs them, Target A first, in about 3.5 hours:
+
+```bash
+ssh dashi "ARM=1 MAX_HOURS=4 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'ta_plain_topup splice:ta_plain_topup:ta_recall_topup ta_recall_topup replay_topup' </dev/null >/dev/null 2>&1 &"
+```
+
+The checks are the same: `target_a_hints verify` for `ta_recall_topup`, with its spliced items
+copied back, and `replay_verify` for `replay_topup`, which runs no code (no replay item has
+tests), so anywhere. The assembler takes each top-up as one more `--verified` pair.

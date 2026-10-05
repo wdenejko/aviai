@@ -1,0 +1,13 @@
+{
+ "what": "tool_fit top-up: rows tool_fit:0295-0509 of `tool_rows generate --fit 510` (same seed), whose first 295 fit rows are the staged ones byte for byte; less any row whose prompt and tool list repeat an earlier row",
+ "why": "the first window's 293 kept tool_fit rows hold 235,972 tokens against the pool's 400,000: tool_fit rows run about 805 tokens, so the pool needs about 500 rows",
+ "seed": 20260930,
+ "fit_generated": 510,
+ "rows": 214,
+ "dropped_repeats": [
+  "tool_fit:0471"
+ ],
+ "rejected_by_gate": {},
+ "out": "data/sft/rev2_tool_prompts_topup.jsonl",
+ "out_sha256": "569f3d6e472b46cc9db7a25c5ca4b53e62b5c8ddb23d44071c45e90d52c95e65"
+}
