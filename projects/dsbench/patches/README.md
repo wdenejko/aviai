@@ -104,6 +104,11 @@ trainer computes from it.
 The patches are applied in `~/src/transformers5-qwen3.5-recipe` when the training window is
 prepared, not before: the recipe is shared with every other training run on the box.
 
+**Started 2026-10-05** (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`, `MAX_HOURS=16`). The
+patches went in once the owner agreed to the window, after `train_qwen3_5_35b.py` was copied to
+`~/benchlab/attic/train_qwen3_5_35b.py.before-rev2-20261005`; the patched file matches a dry run
+on a copy. Without `seq_lens` and `QWEN35_SAVE_TOTAL_LIMIT` it trains as before.
+
 ## `torch-ggml-ops-gfx1151-build.patch` (`~/src/torch-ggml-ops`, box-local)
 The two source fixes the Gate-0 build of torch-ggml-ops needed on dashi, kept as working-tree
 changes there: `tools/mmq_deployment_bundle.py` imports torch before `tools.ggtensile` (TheRock's
@@ -505,3 +510,8 @@ ssh dashi "ARM=1 MAX_HOURS=4 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh 
 The checks are the same: `target_a_hints verify` for `ta_recall_topup`, with its spliced items
 copied back, and `replay_verify` for `replay_topup`, which runs no code (no replay item has
 tests), so anywhere. The assembler takes each top-up as one more `--verified` pair.
+
+**Run 2026-10-05**, 3 hours 19 minutes: 101 Target A rows and 489 replay rows kept. The mixture
+(`data/sft/rev2_mixture_manifest.json`) was then assembled from every pair, with
+`data/sft/rev2_prompts.jsonl` as the items of both code and replay, and built on the box
+(`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`, its README): 1,207 blocks.

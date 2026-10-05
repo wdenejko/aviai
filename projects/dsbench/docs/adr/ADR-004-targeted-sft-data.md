@@ -810,7 +810,9 @@ files. Revision 2's rows are the base's replies that passed their pool's check, 
 - **Drops a row the block can't hold**, on the server's counts: the prompt, the reply, the
   newline after it and the separator. `build_masked_dataset` counts again exactly, on the box,
   and compares (`estimates` in its report). On Target C's 154 rows (2026-10-02) the server's
-  count was exact for 129 and over by 1 to 28 tokens for 25, never under. On every row, the
+  count was exact for 129 and over by 1 to 28 tokens for 25, never under. On the whole mixture
+  (2026-10-05) it was under for 202 rows in three scripts, by up to 1,296 tokens ("The
+  generation"); the builder counts exactly, so no row went over the block. On every row, the
   last request tokenized exactly as the server counted it; the difference is all in the last
   turn, counted as it was generated, then rendered and tokenized again for training.
 - **Runs `decontaminate.py`'s gate over the whole record**, the replies included. The prompts were
@@ -907,6 +909,25 @@ generation measured, with a tenth more:
 - **One window of about 3.5 hours:** Target A's plain phase, splice and recall (about 1 hour),
   then the replay prompts (about 1.1M tokens).
 
+**The top-up, run 2026-10-05**, in one window of 3 hours 19 minutes:
+- **Target A:** 233 of the 246 replies verify, and 132 of those doubt (57%, against the volume's
+  67%). 101 rows are kept, 149k tokens, more than the 79 the shortfall needed. Without wording 2
+  the doubts fell as planned; wording 1 still doubts most (68%).
+- **Replay:** 489 of the 547 kept: oasst1 124, Aya 168, GSM8K 197 (37 with another number, 14
+  cut: 79% kept, against the 84% sized for).
+
+**The mixture, assembled 2026-10-05** (`data/sft/rev2_mixture_manifest.json`): 4,326 rows and
+9,821,199 tokens, 7,660,136 of them the base's own. Every line fills its budget but Target C
+(803,029 of 1,000,000). Target A takes 250 of its 263 recall rows and 216 of its 222 cell rows.
+
+**Its blocks** (`build_masked_dataset`, on the box): 1,207 blocks of 8,192 tokens, 99.8% full, at
+most 18 rows a block, 78.2% of the tokens trained, and no row too long. Against the assembler's
+counts, 3,663 rows are exact and 461 fewer by up to 28: the last turn, re-rendered, as on Target
+C. 202 are more, by up to 1,296: Telugu, Tamil and Thai replies in Aya (155) and oasst1 (39). The
+text the base generated in those scripts tokenizes into more tokens than it generated, so there
+the server's count is under; no reply holds a replacement character. In all, 9,858,792 tokens
+(0.4% over) and 7,735,532 trained.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -915,7 +936,9 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
   - SQL 9.0 hours, code 6.3, replay 7.2, Target A 3.4, the tool rows 1.1;
   - Target C: its 2026-10-01/02 window (154 rows, 0.80M tokens);
   - the top-up (decision 1): about 3.5 hours more.
-- **Training:** about 15 hours for 10M tokens, at the 182 tokens a second the seq-4096 report
+- **Training:** started 2026-10-05 on the mixture's 1,207 blocks
+  (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`). About 15 hours for 10M tokens, at the 182
+  tokens a second the seq-4096 report
   measured for 8,192-token rows. The packed rows' warm step took 23.6 s for 8,192 tokens
   (2026-10-02), which would make it about 9 hours if it holds over a run. Target C's rows filled
   their blocks 86.8%; shorter rows fill them better.
@@ -1132,7 +1155,8 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
    - [x] generate Target A's rows in a window (`ta_cells ta_plain splice:ta_plain:ta_recall
      ta_recall`). **Run 2026-10-04/05:** 222 of the 252 cell rows and 162 of the 522 recall rows
      kept; 328 recall traces doubt ("The generation" above).
-   - [ ] its top-up: 246 recall items without wording 2 (2026-10-05).
+   - [x] its top-up: 246 recall items without wording 2. **Run 2026-10-05:** 101 rows kept
+     ("The generation" above).
 3. [x] SQL: acquire SynSQL-2.5M's databases, build the prompts from them, write the
    execution-match verifier. **Done 2026-09-30:** 1,112 prompts, 0 battery overlaps. SynSQL's
    databases hold about two rows a table, so the check also runs every query on three bigger
@@ -1173,8 +1197,8 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
      their first test, and the dataset's own answers pass 748 of 750 items.
    - [x] the generation windows: 4,326 prompts. **Run 2026-10-03/05:** about 27 hours over four
      windows, and 214 `tool_fit` prompts topped up in the third ("The generation" above).
-   - [ ] the top-up window (decision 1, 2026-10-05): 547 replay prompts and Target A's 246
-     items, about 3.5 hours.
+   - [x] the top-up window (decision 1): 547 replay prompts and Target A's 246 items. **Run
+     2026-10-05**, 3 hours 19 minutes: 489 and 101 rows kept.
 7. [x] Decontamination: extend `decontaminate.py` with the battery's 13-gram index. **Done
    2026-09-29**, with short items matched whole and BFCL's schemas indexed
    (`reports/gate-evals/20260929-battery-decontamination.md`).
@@ -1191,9 +1215,9 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
      directory is prepared on the box.
 9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
-   - [ ] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
-     box, whose exact counts check the assembler's. Previewed 2026-10-05 at 10M: 8.89M, short
-     where the top-up fills. **Checked on Target C's 154 rows
+   - [x] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
+     box, whose exact counts check the assembler's. **Done 2026-10-05:** 4,326 rows, 9.82M
+     tokens, 1,207 blocks ("The generation" above). Previewed before the top-up at 8.89M. **Checked on Target C's 154 rows
      2026-10-02** (`~/benchlab/runs/2026-10-02-rev2-assembly-check/`), the only pool generated so
      far:
      - no row too long. The server's counts are exact or over ("Assembly" above): 802,944 tokens
@@ -1213,4 +1237,5 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
        0.9 GB each;
      - a checkpoint's gate: its adapter exported to a GGUF, its own run directory linking the
        calibration's base passes, and one battery window for its `adapter` passes.
-   - [ ] train, and gate the checkpoints.
+   - [ ] train, and gate the checkpoints. Training started 2026-10-05: 1,207 steps, a checkpoint
+     every 100, about 8-15 hours.
