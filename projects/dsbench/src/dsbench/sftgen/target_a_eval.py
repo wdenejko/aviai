@@ -29,14 +29,23 @@ the adapter. The sampling is the generation's (min_p 0.05), so the base state ca
 the generation's own rates. The budget is the mini-battery's 12,288 tokens, which a served reply
 gets.
 
+A reply is right only if it is right on more than its own table (`recheck`). Every item asks for a
+count, and on a single table a wrong count can equal the right one. In the base's first pass, two
+replies counted Sunday as ClickHouse's day 1, which is Monday. They verified anyway, because those
+tables hold as many Mondays as Sundays (215 and 215, 210 and 210). So a reply that verifies must
+also return the gold SQL's count on RECHECK_TABLES more tables of its domain, or it counts as a
+coincidence.
+
     uv run python -m dsbench.sftgen.target_a_eval items \\
         --out data/sft/rev2_target_a_test/items.jsonl \\
         --report data/sft/rev2_target_a_test_manifest.json --mixture data/sft/rev2_mixture.jsonl
     # the box: one window, "ta_test:base ta_test:adapter" (patches/README.md, the Target A test)
     uv run python -m dsbench.sftgen.target_a_hints verify --items <items> \\
         --gen <run>/gen/ta_test.base.jsonl --out <run>/verified/ta_test.base.jsonl   # and .adapter
+    uv run python -m dsbench.sftgen.target_a_eval recheck --items <items> \\
+        --verified <run>/verified/ta_test.base.jsonl --out <run>/rechecked/ta_test.base.jsonl
     uv run python -m dsbench.sftgen.target_a_eval compare --items <items> \\
-        --base <run>/verified/ta_test.base.jsonl --adapter <run>/verified/ta_test.adapter.jsonl \\
+        --base <run>/rechecked/ta_test.base.jsonl --adapter <run>/rechecked/ta_test.adapter.jsonl \\
         --out <run>/compare.json
 
 Building the items needs the sandbox's four engines, since every item's gold SQL is checked against
@@ -50,7 +59,7 @@ import hashlib
 import json
 import math
 import statistics as st
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from dsbench.sftgen import synth
@@ -67,6 +76,10 @@ TEST_CELL_REPS = 2
 TEST_EXTRA_REPS = {"weekday-numbering": 4, "weekend-flag": 2}
 TEST_MAX_TOKENS = 12288  # the mini-battery's budget (battery/mini.BUDGET): what a served reply gets
 TARGET_CELLS = ("clickhouse/weekday-numbering", "clickhouse/weekend-flag")
+# A verified reply must also be right on this many more tables of its domain (`recheck`). Their
+# seeds are a large prime stride past the item's table, so they meet no table the test drew.
+RECHECK_TABLES = 2
+RECHECK_STRIDE = 1_000_003
 
 
 def _cell(item: dict) -> str:
@@ -147,6 +160,63 @@ def training_overlap(items: list[dict], mixture_path: Path) -> dict:
             "rows_naming_a_held_out_name": {name: naming[name] for name in sorted(names)}}
 
 
+# --- recheck -------------------------------------------------------------------------------------
+
+
+def recheck_seeds(seed: int, tables: int = RECHECK_TABLES) -> list[int]:
+    """The seeds of the more tables a verified reply is checked on: past the item's own."""
+    return [seed + k * RECHECK_STRIDE for k in range(1, tables + 1)]
+
+
+def recheck(items: dict[str, dict], records: list[dict], engines: dict,
+            tables: int = RECHECK_TABLES) -> list[dict]:
+    """The records again, each verified one with `check.recheck`: its SQL and the gold SQL run on
+    `tables` more tables of the item's domain, and `held` when they agree on every one. A reply
+    that is right on its own table only counted the wrong rows, and its count matched by chance.
+    Unverified records are left as they are. `engines` ({dialect: Engine}) runs model SQL, so the
+    sandboxed ones."""
+    from dsbench.sftgen.target_a_hints import parse_row_id
+
+    out = json.loads(json.dumps(records, default=str))  # the caller's records stay as they were
+    jobs: dict[tuple, list[tuple[int, dict]]] = defaultdict(list)
+    for r in out:
+        if r["check"]["status"] != "verified":
+            continue
+        v = items[r["id"]]["verify"]
+        _, domain, seed = parse_row_id(v["row_id"])
+        seeds = recheck_seeds(seed, tables)
+        r["check"]["recheck"] = {"seeds": seeds, "truths": [None] * tables,
+                                 "got": [None] * tables}
+        for k, table_seed in enumerate(seeds):
+            jobs[(v["dialect"], domain, table_seed, v["n"])].append((k, r))
+    for (dialect, domain_name, table_seed, n), group in sorted(jobs.items()):
+        engine = engines[dialect]
+        domain = synth.build(domain_name, table_seed, n)
+        engine.setup()
+        try:
+            engine.load(domain.name, domain.df)
+            for k, r in group:
+                done = r["check"]["recheck"]
+                done["truths"][k] = engine.scalar(items[r["id"]]["verify"]["gold_sql"])
+                try:
+                    done["got"][k] = engine.scalar(r["sql"])
+                except Exception as exc:  # noqa: BLE001 - an engine error is a wrong answer
+                    done["got"][k] = f"error: {str(exc)[:120]}"
+        finally:
+            engine.teardown()
+    for r in out:
+        done = r["check"].get("recheck")
+        if done:
+            done["held"] = done["truths"] == done["got"]
+    return out
+
+
+def right(record: dict) -> bool:
+    """Verified, and on the recheck's tables too when they were checked."""
+    check = record["check"]
+    return check["status"] == "verified" and (check.get("recheck") or {}).get("held", True)
+
+
 # --- compare -------------------------------------------------------------------------------------
 
 
@@ -173,7 +243,8 @@ def _pair_stats(pairs: list[tuple[bool, bool]]) -> dict:
     n = len(pairs)
     return {"n": n, "base": sum(b for b, _ in pairs), "adapter": sum(a for _, a in pairs),
             "base_only": base_only, "adapter_only": adapter_only,
-            "p_mcnemar": round(mcnemar_p(base_only, adapter_only), 6)}
+            # three significant figures: a strong effect's p is far below any fixed decimal place
+            "p_mcnemar": float(f"{mcnemar_p(base_only, adapter_only):.3g}")}
 
 
 def _median(values: list[int]) -> float | None:
@@ -181,16 +252,16 @@ def _median(values: list[int]) -> float | None:
 
 
 def compare(items: dict[str, dict], base: dict[str, dict], adapter: dict[str, dict]) -> dict:
-    """Base against adapter, item by item. An item counts when it is verified: it finished, with
-    reasoning, as one ```sql block, and the block returns the truth (target_a_hints.check_reply).
-    Only items both states answered are paired; an item whose table didn't rebuild to its truth
-    (`rebuild_mismatch`) is the data's fault and counts for neither."""
+    """Base against adapter, item by item. An item counts when it is right: it finished, with
+    reasoning, as one ```sql block, and the block returns the truth (target_a_hints.check_reply),
+    on the recheck's tables too (`right`). Only items both states answered are paired; an item
+    whose table didn't rebuild to its truth (`rebuild_mismatch`) is the data's fault and counts for
+    neither."""
     paired = [i for i in items if i in base and i in adapter]
     mismatched = [i for i in paired if "rebuild_mismatch" in (base[i]["check"]["status"],
                                                               adapter[i]["check"]["status"])]
     paired = [i for i in paired if i not in mismatched]
-    ok = {i: (base[i]["check"]["status"] == "verified",
-              adapter[i]["check"]["status"] == "verified") for i in paired}
+    ok = {i: (right(base[i]), right(adapter[i])) for i in paired}
     cells: dict[str, list[str]] = {}
     for i in paired:
         cells.setdefault(_cell(items[i]), []).append(i)
@@ -214,6 +285,11 @@ def compare(items: dict[str, dict], base: dict[str, dict], adapter: dict[str, di
                   for cell, ids in sorted(cells.items())},
         "statuses": {s: dict(Counter(recs[i]["check"]["status"] for i in paired))
                      for s, recs in states.items()},
+        # verified on the item's table, wrong on the recheck's: a count that matched by chance
+        "coincidences": {s: sum(recs[i]["check"]["status"] == "verified" and not right(recs[i])
+                                for i in paired) for s, recs in states.items()},
+        "rechecked": {s: sum("recheck" in recs[i]["check"] for i in paired)
+                      for s, recs in states.items()},
     }
     # ClickHouse's Sunday = 1 (target_a_hints.doubts): the base's belief, and in the adapter's
     # training traces a doubt that the assembler dropped. Its rate in the target cells, per state.
@@ -249,19 +325,42 @@ def main() -> None:
     b.add_argument("--report", type=Path, required=True)
     b.add_argument("--mixture", type=Path, required=True,
                    help="the training mixture: no test prompt may be one of its prompts")
+    r = sub.add_parser("recheck", help="a verified reply's SQL on more tables of its domain")
+    r.add_argument("--items", type=Path, required=True)
+    r.add_argument("--verified", type=Path, required=True, help="target_a_hints verify's records")
+    r.add_argument("--out", type=Path, required=True)
     c = sub.add_parser("compare", help="base against adapter, item by item")
     c.add_argument("--items", type=Path, required=True)
-    c.add_argument("--base", type=Path, required=True, help="target_a_hints verify's records")
+    c.add_argument("--base", type=Path, required=True,
+                   help="the records, rechecked (or as target_a_hints verify wrote them)")
     c.add_argument("--adapter", type=Path, required=True)
     c.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
+    if args.cmd == "recheck":
+        from dsbench.sftgen.engines import available_engines
+
+        items = {i["id"]: i for i in map(json.loads, args.items.open())}
+        engines = {e.name: e for e in available_engines(sandboxed=True)}  # model SQL
+        records = list(_records(args.verified).values())
+        missing = {items[r["id"]]["verify"]["dialect"] for r in records} - set(engines)
+        if missing:
+            raise SystemExit(f"no sandboxed engine for {sorted(missing)}: bring the sandbox up")
+        out = recheck(items, records, engines)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text("".join(json.dumps(r, ensure_ascii=False, default=str) + "\n"
+                                    for r in out))
+        done = [r["check"]["recheck"] for r in out if r["check"].get("recheck")]
+        print(json.dumps({"records": len(out), "rechecked": len(done),
+                          "held": sum(d["held"] for d in done)}))
+        return
     if args.cmd == "compare":
         items = {i["id"]: i for i in map(json.loads, args.items.open())}
         result = compare(items, _records(args.base), _records(args.adapter))
         args.out.write_text(json.dumps(result, indent=1) + "\n")
         print(markdown(result))
-        print(json.dumps({k: result[k] for k in ("paired", "statuses", "target_states_sunday_1",
+        print(json.dumps({k: result[k] for k in ("paired", "statuses", "coincidences",
+                                                 "target_states_sunday_1",
                                                  "reasoning_tokens_median")}, indent=1))
         return
 

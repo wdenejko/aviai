@@ -1,0 +1,425 @@
+{
+ "test": "Target A, base vs Revision 2's final adapter, paired (ADR-004 Revision 2, action item 10)",
+ "items": {
+  "n": 228,
+  "sha256": "b2e71610126493a7412c98bd3f64f8361819711e5f0534bb692dd7944c43ef01",
+  "items_by_cell": {
+   "clickhouse/month-bucket": 12,
+   "clickhouse/timezone-direction": 12,
+   "clickhouse/weekday-numbering": 36,
+   "clickhouse/weekend-flag": 24,
+   "duckdb/month-bucket": 12,
+   "duckdb/timezone-direction": 12,
+   "duckdb/weekday-numbering": 12,
+   "duckdb/weekend-flag": 12,
+   "mysql/month-bucket": 12,
+   "mysql/timezone-direction": 12,
+   "mysql/weekday-numbering": 12,
+   "mysql/weekend-flag": 12,
+   "postgres/month-bucket": 12,
+   "postgres/timezone-direction": 12,
+   "postgres/weekday-numbering": 12,
+   "postgres/weekend-flag": 12
+  },
+  "domains": [
+   "library_loans",
+   "ride_trips",
+   "hotel_stays",
+   "parcel_scans",
+   "clinic_visits",
+   "bike_rentals"
+  ],
+  "training_overlap": {
+   "mixture": "data/sft/rev2_mixture.jsonl",
+   "mixture_rows": 4326,
+   "prompts_in_training": 0,
+   "rows_naming_a_held_out_name": {
+    "arrival_ts": 0,
+    "bike_rentals": 0,
+    "clinic_visits": 0,
+    "hotel_stays": 0,
+    "library_loans": 0,
+    "loaned_ts": 0,
+    "parcel_scans": 0,
+    "pickup_ts": 0,
+    "rented_ts": 0,
+    "ride_trips": 0,
+    "scanned_ts": 0,
+    "visit_ts": 0
+   }
+  }
+ },
+ "window": {
+  "box_clock": "2026-10-06 15:50:23-18:17:26 (CEST 17:49-20:16)",
+  "server": "battery_server.sh, 8 slots, LoRA loaded, global scale 0",
+  "adapter": "~/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf",
+  "parity": {
+   "scale0_equals_nolora": 8,
+   "scale0_repeat_equals_scale0": 8,
+   "scale1_differs_from_scale0": 4,
+   "n": 8
+  },
+  "base_step": "15:52:29-17:03:00",
+  "adapter_step": "17:03:00-18:17:22"
+ },
+ "sampling": {
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.05
+ },
+ "max_tokens": 12288,
+ "generation": {
+  "base": {
+   "replies": 228,
+   "errors": 0,
+   "finish": {
+    "stop": 219,
+    "length": 9
+   },
+   "completion_tokens": {
+    "total": 546784,
+    "median": 1496.0,
+    "mean": 2398
+   },
+   "wall_seconds": 4232,
+   "tokens_per_second": 129.2
+  },
+  "adapter": {
+   "replies": 228,
+   "errors": 0,
+   "finish": {
+    "stop": 222,
+    "length": 6
+   },
+   "completion_tokens": {
+    "total": 491089,
+    "median": 1527.0,
+    "mean": 2154
+   },
+   "wall_seconds": 4462,
+   "tokens_per_second": 110.1
+  }
+ },
+ "recheck": {
+  "tables": 2,
+  "base": {
+   "rechecked": 159,
+   "coincidences": 2
+  },
+  "adapter": {
+   "rechecked": 214,
+   "coincidences": 0
+  }
+ },
+ "compare": {
+  "items": 228,
+  "paired": 228,
+  "rebuild_mismatch": 0,
+  "unpaired": {
+   "base": 0,
+   "adapter": 0
+  },
+  "groups": {
+   "target": {
+    "n": 60,
+    "base": 10,
+    "adapter": 58,
+    "base_only": 1,
+    "adapter_only": 49,
+    "p_mcnemar": 9.06e-14
+   },
+   "other cells": {
+    "n": 168,
+    "base": 147,
+    "adapter": 156,
+    "base_only": 8,
+    "adapter_only": 17,
+    "p_mcnemar": 0.108
+   },
+   "other cells: weekday-numbering": {
+    "n": 36,
+    "base": 30,
+    "adapter": 31,
+    "base_only": 3,
+    "adapter_only": 4,
+    "p_mcnemar": 1.0
+   },
+   "other cells: weekend-flag": {
+    "n": 36,
+    "base": 28,
+    "adapter": 30,
+    "base_only": 4,
+    "adapter_only": 6,
+    "p_mcnemar": 0.754
+   },
+   "other cells: timezone-direction": {
+    "n": 48,
+    "base": 42,
+    "adapter": 48,
+    "base_only": 0,
+    "adapter_only": 6,
+    "p_mcnemar": 0.0312
+   },
+   "other cells: month-bucket": {
+    "n": 48,
+    "base": 47,
+    "adapter": 47,
+    "base_only": 1,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "other cells: clickhouse": {
+    "n": 24,
+    "base": 21,
+    "adapter": 24,
+    "base_only": 0,
+    "adapter_only": 3,
+    "p_mcnemar": 0.25
+   },
+   "other cells: duckdb": {
+    "n": 48,
+    "base": 38,
+    "adapter": 39,
+    "base_only": 6,
+    "adapter_only": 7,
+    "p_mcnemar": 1.0
+   },
+   "other cells: postgres": {
+    "n": 48,
+    "base": 41,
+    "adapter": 45,
+    "base_only": 2,
+    "adapter_only": 6,
+    "p_mcnemar": 0.289
+   },
+   "other cells: mysql": {
+    "n": 48,
+    "base": 47,
+    "adapter": 48,
+    "base_only": 0,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   }
+  },
+  "cells": {
+   "clickhouse/month-bucket": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "clickhouse/timezone-direction": {
+    "n": 12,
+    "base": 9,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 3,
+    "p_mcnemar": 0.25
+   },
+   "clickhouse/weekday-numbering": {
+    "n": 36,
+    "base": 9,
+    "adapter": 34,
+    "base_only": 1,
+    "adapter_only": 26,
+    "p_mcnemar": 4.17e-07
+   },
+   "clickhouse/weekend-flag": {
+    "n": 24,
+    "base": 1,
+    "adapter": 24,
+    "base_only": 0,
+    "adapter_only": 23,
+    "p_mcnemar": 2.38e-07
+   },
+   "duckdb/month-bucket": {
+    "n": 12,
+    "base": 11,
+    "adapter": 11,
+    "base_only": 1,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "duckdb/timezone-direction": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "duckdb/weekday-numbering": {
+    "n": 12,
+    "base": 8,
+    "adapter": 8,
+    "base_only": 3,
+    "adapter_only": 3,
+    "p_mcnemar": 1.0
+   },
+   "duckdb/weekend-flag": {
+    "n": 12,
+    "base": 7,
+    "adapter": 8,
+    "base_only": 2,
+    "adapter_only": 3,
+    "p_mcnemar": 1.0
+   },
+   "mysql/month-bucket": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "mysql/timezone-direction": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "mysql/weekday-numbering": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "mysql/weekend-flag": {
+    "n": 12,
+    "base": 11,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "postgres/month-bucket": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "postgres/timezone-direction": {
+    "n": 12,
+    "base": 9,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 3,
+    "p_mcnemar": 0.25
+   },
+   "postgres/weekday-numbering": {
+    "n": 12,
+    "base": 10,
+    "adapter": 11,
+    "base_only": 0,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "postgres/weekend-flag": {
+    "n": 12,
+    "base": 10,
+    "adapter": 10,
+    "base_only": 2,
+    "adapter_only": 2,
+    "p_mcnemar": 1.0
+   }
+  },
+  "statuses": {
+   "base": {
+    "wrong": 57,
+    "verified": 159,
+    "unfinished": 9,
+    "error": 2,
+    "not_sql_only": 1
+   },
+   "adapter": {
+    "verified": 214,
+    "wrong": 7,
+    "unfinished": 6,
+    "error": 1
+   }
+  },
+  "coincidences": {
+   "base": 2,
+   "adapter": 0
+  },
+  "rechecked": {
+   "base": 159,
+   "adapter": 214
+  },
+  "target_states_sunday_1": {
+   "base": 60,
+   "adapter": 29
+  },
+  "reasoning_tokens_median": {
+   "base": {
+    "target": 1545.0,
+    "other cells": 1460.0
+   },
+   "adapter": {
+    "target": 1488.5,
+    "other cells": 1518.5
+   }
+  }
+ },
+ "clickhouse_weekday_by_day": {
+  "Monday": {
+   "n": 4,
+   "base": 0,
+   "adapter": 4
+  },
+  "Tuesday": {
+   "n": 4,
+   "base": 1,
+   "adapter": 4
+  },
+  "Wednesday": {
+   "n": 6,
+   "base": 1,
+   "adapter": 6
+  },
+  "Thursday": {
+   "n": 9,
+   "base": 3,
+   "adapter": 7
+  },
+  "Friday": {
+   "n": 3,
+   "base": 0,
+   "adapter": 3
+  },
+  "Saturday": {
+   "n": 5,
+   "base": 2,
+   "adapter": 5
+  },
+  "Sunday": {
+   "n": 5,
+   "base": 2,
+   "adapter": 5
+  }
+ },
+ "training_audit": {
+  "ta_cells": {
+   "verified": 222,
+   "held": 222
+  },
+  "ta_recall": {
+   "verified": 490,
+   "held": 487
+  },
+  "ta_recall_topup": {
+   "verified": 233,
+   "held": 232
+  },
+  "in_mixture": "1 of 250 recall rows: Thursday as toDayOfWeek(...) = 5 (Friday); the other 3 coincidences doubted and were dropped"
+ }
+}

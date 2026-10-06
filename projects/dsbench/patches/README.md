@@ -567,9 +567,19 @@ The check and the comparison, on the Mac, with `$R/gen/` copied back into
 D=data/sft/rev2_target_a_test
 mkdir -p $D/verified
 for s in base adapter; do uv run python -m dsbench.sftgen.target_a_hints verify \
-  --items $D/items.jsonl --gen $D/gen/ta_test.$s.jsonl --out $D/verified/ta_test.$s.jsonl; done
+  --items $D/items.jsonl --gen $D/gen/ta_test.$s.jsonl --out $D/verified/ta_test.$s.jsonl
+  uv run python -m dsbench.sftgen.target_a_eval recheck --items $D/items.jsonl \
+    --verified $D/verified/ta_test.$s.jsonl --out $D/rechecked/ta_test.$s.jsonl; done
 uv run python -m dsbench.sftgen.target_a_eval compare --items $D/items.jsonl \
-  --base $D/verified/ta_test.base.jsonl --adapter $D/verified/ta_test.adapter.jsonl \
+  --base $D/rechecked/ta_test.base.jsonl --adapter $D/rechecked/ta_test.adapter.jsonl \
   --out $D/compare.json
 ```
+
+`recheck` runs each verified reply's SQL on two more tables of its domain, since on one table a
+wrong count can match the right one by chance (ADR-004, "The training and its gate").
+
+**Run 2026-10-06** (box clock 15:50-18:17) with the final adapter, `PARITY=1`, right after the box
+had restarted with production off. Parity held, and no request failed. The base took 70 minutes
+at 129 tokens a second and the adapter 74 at 110. Results in
+`reports/gate-evals/20261006-target-a-test.md`.
 
