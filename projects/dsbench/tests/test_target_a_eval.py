@@ -10,7 +10,7 @@ import pytest
 from dsbench.sftgen import synth
 from dsbench.sftgen import target_a_eval as te
 from dsbench.sftgen.conventions import _friendly_type
-from dsbench.sftgen.dialect_conventions import generate
+from dsbench.sftgen.dialect_conventions import generate, table_seed
 from dsbench.sftgen.schema import row_to_dict
 
 TRAINING = ["retail_orders", "iot_readings", "support_tickets", "payments", "web_sessions",
@@ -180,7 +180,7 @@ def test_compare_pairs_each_item_and_counts_who_alone_got_it():
     assert (result["paired"], result["rebuild_mismatch"]) == (12, 1)
     assert result["unpaired"] == {"base": 0, "adapter": 1}
     assert result["groups"]["target"] == {"n": 10, "base": 1, "adapter": 9, "base_only": 0,
-                                          "adapter_only": 8, "p_mcnemar": round(2 / 256, 6)}
+                                          "adapter_only": 8, "p_mcnemar": 0.00781}
     other = result["groups"]["other cells"]
     assert (other["n"], other["base"], other["adapter"], other["base_only"]) == (2, 2, 1, 1)
     assert result["groups"]["other cells: mysql"] == other
@@ -198,3 +198,53 @@ def test_a_retried_reply_replaces_its_failed_record(tmp_path):
     path.write_text(json.dumps(_rec(1, "unfinished")) + "\n" + json.dumps(_rec(1, "verified"))
                     + "\n")
     assert te._records(path)["t1"]["check"]["status"] == "verified"
+
+
+# --- recheck: right on more than its own table ---------------------------------------------------
+
+
+@pytest.fixture
+def duckdb_item():
+    from dsbench.sftgen.target_a_hints import make_items
+
+    rows, _ = generate(seed=11, reps=1, n=300, dialects=["duckdb"],
+                       families=["weekday-numbering"], thinking_frac=0.0,
+                       domains=["ride_trips"])
+    return te.eval_item(make_items(row_to_dict(rows[0]), 300, hinted=False)[0])
+
+
+def test_a_count_that_matched_by_chance_does_not_hold_on_more_tables(duckdb_item):
+    from dsbench.sftgen.engines import DuckDBEngine
+
+    item = duckdb_item
+    truth = item["verify"]["truth"]
+
+    def rec(i, sql, status="verified"):
+        return {"id": item["id"], "sql": sql, "check": {"status": status, "truth": truth}, "n": i}
+
+    gold, constant = rec(1, item["verify"]["gold_sql"]), rec(2, f"SELECT {truth}")
+    wrong = rec(3, "SELECT 0", status="wrong")
+    out = te.recheck({item["id"]: item}, [gold, constant, wrong], {"duckdb": DuckDBEngine()})
+    held, chance, untouched = out
+    assert held["check"]["recheck"]["held"] and te.right(held)
+    assert held["check"]["recheck"]["seeds"] == te.recheck_seeds(int(item["id"].split("-")[-1]))
+    # the constant is the item's count, so it verified; the other tables count otherwise
+    assert not chance["check"]["recheck"]["held"] and not te.right(chance)
+    assert chance["check"]["recheck"]["got"] == [truth, truth]
+    assert chance["check"]["recheck"]["truths"] != [truth, truth]
+    assert "recheck" not in untouched["check"] and not te.right(untouched)
+    assert "recheck" not in constant["check"]  # the caller's records are left as they were
+    # compare counts the coincidence as wrong, and says so
+    result = te.compare({item["id"]: item}, {item["id"]: held}, {item["id"]: chance})
+    assert result["groups"]["other cells"]["base_only"] == 1
+    assert result["coincidences"] == {"base": 0, "adapter": 1}
+    assert result["rechecked"] == {"base": 1, "adapter": 1}
+
+
+def test_the_recheck_s_tables_are_none_of_the_test_s_own():
+    held_out = synth.held_out_domain_names()
+    drawn = {table_seed(s, d, r) for s, reps in ((te.TEST_SEED, te.TEST_CELL_REPS),
+                                                 (te.TEST_SEED + 1, 4), (te.TEST_SEED + 2, 2))
+             for d in range(len(held_out)) for r in range(reps)}
+    rechecked = {s for seed in drawn for s in te.recheck_seeds(seed)}
+    assert len(rechecked) == te.RECHECK_TABLES * len(drawn) and not rechecked & drawn

@@ -986,11 +986,54 @@ on its dialect's sandboxed engine.
   - The sampling is the generation's (min_p 0.05), so the base can be read against its own rates
     in the generation.
   - The budget is the mini-battery's 12,288 tokens.
-- **Read as the gate reads:** per cell and per group, how many items each state verifies, how many
-  only one of them does, and an exact McNemar test on those. Also counted: the ClickHouse replies
-  that state Sunday = 1 (`target_a_hints.doubts`), and reasoning length.
+- **Right means right on more than one table** (`target_a_eval recheck`, added 2026-10-06 during
+  the run). Every item asks for a count, and on a single table a wrong count can equal the right
+  one.
+  - In the base's pass, two replies counted Sunday as ClickHouse's day 1, which is Monday. They
+    verified anyway: those tables hold as many Mondays as Sundays (215 and 215, 210 and 210).
+  - So a reply that verifies must also return the gold SQL's count on two more tables of its
+    domain. That caught those two and no other of the base's 159 verified replies.
+- **Read as the gate reads:** per cell and per group, how many items each state gets right, how
+  many only one of them does, and an exact McNemar test on those. Also counted: the ClickHouse
+  replies that state Sunday = 1 (`target_a_hints.doubts`), and reasoning length.
 - **One window of about 2.5 hours:** 456 replies at about 2,400 tokens each, at the generation's
   rate (`patches/README.md`, "The Target A test").
+
+**The same check on the training's Target A rows** (2026-10-06) finds one wrong row in the
+mixture:
+- every verified reply of the generation's Target A pools was rechecked on two more tables;
+- the 222 cell rows all hold;
+- of the 723 verified ClickHouse `recall` replies, 4 matched by chance. Three of them doubted the
+  convention, so the assembler had dropped them already;
+- the fourth is in the mixture, 1 of its 250 recall rows: Thursday as `toDayOfWeek(...) = 5`,
+  which is Friday.
+
+The effect on the adapter is negligible. The fix is for later generations: their Target A replies
+go through the recheck before assembly.
+
+**The Target A test, run 2026-10-06** (`reports/gate-evals/20261006-target-a-test.md`), in one
+window of 2 hours 27 minutes. Parity held: scale 0 equalled the bare base on all 8 prompts, and
+scale 1 changed 4 of them.
+- **The adapter has learned ClickHouse's weekday numbering.** On the target cells, the base got 10
+  of 60 right and the adapter 58. 49 items were right for the adapter alone and 1 for the base alone
+  (exact McNemar p = 9e-14).
+  - Weekdays: 9 of 36 → 34 of 36.
+  - Weekends: 1 of 24 → 24 of 24.
+  - Its two misses both count Thursday as 5, MySQL's number.
+- **Nothing else got worse.** On the 14 other cells, 147 of 168 → 156 (17 items for the adapter
+  alone, 8 for the base alone, p = 0.11).
+  - ISO didn't spread to the other dialects: their weekday and weekend items went from 58 to 61 of
+    72.
+  - Timezones went from 42 to 48 of 48 (p = 0.03). The base's PostgreSQL misses there were the
+    direction trap.
+- **The old belief survives as a doubt.** 29 of the adapter's 60 ClickHouse traces still state
+  Sunday = 1, typically once, against a median of 7 times in all 60 of the base's. All 29 settle
+  on ISO.
+- **Reasoning keeps its length:** a median of 1,489 and 1,519 tokens, against the base's 1,545 and
+  1,460.
+- **Left:** DuckDB's `dayofweek` (Sunday 0) gets MySQL's numbering in about a third of its items,
+  in both states. Target A trained DuckDB only on the base's verified replies, which can't fix a
+  mistake the base makes. The recall prefill that fixed ClickHouse would apply there.
 
 ## Budget and time
 
@@ -1309,5 +1352,8 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       in `sftgen/synth.py`, `--lora-scale` in `reasoning_pilot generate`, steps `NAME:STATE` in
       `patches/rev2_generate_window.sh`): 228 items
       (`data/sft/rev2_target_a_test_manifest.json`).
-    - [ ] its window (about 2.5 hours, production off), the check on the Mac and the comparison.
+    - [x] its window, the check on the Mac and the comparison. **Run 2026-10-06**, 2 hours 27
+      minutes: ClickHouse's weekdays and weekends 10 → 58 of 60, the other cells 147 → 156 of
+      168 ("The training and its gate" above). The check now reruns every verified reply on two
+      more tables (`target_a_eval recheck`).
     - [ ] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap.
