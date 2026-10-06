@@ -139,7 +139,9 @@ _BUILDERS = {b.__name__: b for b in (
 # five of the training domains have (an id, a 2025 timestamp, a US city, a category, a number), so
 # only the names change. They are not in domain_names(): a generator run over the training domains
 # must draw what it drew before (a table's seed follows its domain's position,
-# dialect_conventions.table_seed).
+# dialect_conventions.table_seed). Never train on them either: two are the held-out probe's domains
+# too (sftgen/probe: clinic visits, rideshare trips), and the probe's weekday task has a
+# `clinic_visits` table.
 
 
 def library_loans(seed: int, n: int = 4000) -> Domain:

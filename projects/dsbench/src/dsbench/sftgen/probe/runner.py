@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 from dsbench.agentic.loop import prepare_context
-from dsbench.agentic.pi_runner import _RUNS, _render, run_pi_agent
+from dsbench.agentic.pi_runner import _RUNS, _render, pi_reply_cap, run_pi_agent
 from dsbench.agentic.schema import AgentResult
 from dsbench.sftgen.probe.tasks import PROBE_TASKS
 
@@ -64,7 +64,10 @@ def main() -> None:
         raise SystemExit("no probe tasks matched --ids")
 
     label = args.label or dt.datetime.now().strftime("probe-%Y%m%d-%H%M%S")
-    print(f"running {len(tasks)} PROBE task(s) via pi, thinking {args.thinking}, k={args.repeat}")
+    # Recorded as the eval runner records it: a run compares only with runs at the same cap.
+    reply_cap = pi_reply_cap(args.provider, args.model)
+    print(f"running {len(tasks)} PROBE task(s) via pi, thinking {args.thinking}, k={args.repeat}, "
+          f"reply cap {reply_cap or 'unknown'} tokens")
     results: list[AgentResult] = []
     for task in tasks:
         for k in range(args.repeat):
@@ -88,7 +91,7 @@ def main() -> None:
                   f"{r.latency_s}s){extra}")
 
     meta = {"label": label, "harness": "pi-probe", "model": args.model, "provider": args.provider,
-            "thinking": args.thinking, "repeat": args.repeat,
+            "thinking": args.thinking, "repeat": args.repeat, "reply_max_tokens": reply_cap,
             "timestamp": dt.datetime.now().isoformat(timespec="seconds"), "n": len(results)}
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
