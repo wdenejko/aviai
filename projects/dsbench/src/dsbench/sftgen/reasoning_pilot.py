@@ -19,7 +19,9 @@ Subcommands, each run where its dependencies live:
     generate  (box)  query a llama-server in thinking mode; resumable; stdlib + httpx only, so it
                      runs in the box's lean batteryvenv. An item with a `prefill` has the model
                      continue its thinking from it (sftgen/prefill.py). Revision 2's volume runs
-                     use it too, with `--block`: no reply runs past what its training row can hold
+                     use it too, with `--block`: no reply runs past what its training row can hold.
+                     With `--lora-scale`, every request names the adapter's scale, so the base (0)
+                     and the adapter (1) answer on one server, as the battery's states do
     verify    (Mac)  execute Target A's ClickHouse answers in the dsbench sandbox against the truth
     report    (Mac)  lengths, fits, throughput and yield, as JSON and a Markdown summary
 """
@@ -150,11 +152,20 @@ def _seed(item: dict) -> int:
     return int(hashlib.sha1(item["id"].encode()).hexdigest()[:8], 16)
 
 
-def request_body(item: dict, max_tokens: int) -> dict:
+def lora_field(lora_scale: float | None) -> dict:
+    """The request's adapter state, as the battery names it (battery/generate.py): nothing on a
+    server without an adapter, else the scale of the server's one adapter. A server started with
+    the adapter applies it at scale 1 to a request that names none (`--lora-init-without-apply`
+    doesn't zero it), so on such a server every request names its scale."""
+    return {} if lora_scale is None else {"lora": [{"id": 0, "scale": lora_scale}]}
+
+
+def request_body(item: dict, max_tokens: int, lora_scale: float | None = None) -> dict:
     # `enable_thinking` overrides the server's thinking-off default (battery_server.sh) for these
     # requests only.
     body = {"model": "base", "messages": item["messages"], **SAMPLING, "seed": _seed(item),
-            "max_tokens": max_tokens, "chat_template_kwargs": {"enable_thinking": True}}
+            "max_tokens": max_tokens, "chat_template_kwargs": {"enable_thinking": True},
+            **lora_field(lora_scale)}
     if item.get("tools"):
         # Tool rows (sftgen/tool_rows.py) stream, as the battery's BFCL items do: the fork's
         # non-stream endpoint 500s on a malformed call, and a streamed one comes back as text.
@@ -186,9 +197,11 @@ def render_prompt(client, item: dict) -> str:
     return prompt
 
 
-def completion_body(item: dict, prompt: str, max_tokens: int) -> dict:
+def completion_body(item: dict, prompt: str, max_tokens: int,
+                    lora_scale: float | None = None) -> dict:
     return {"prompt": prompt + item["prefill"], "n_predict": max_tokens, **SAMPLING,
-            "seed": _seed(item), "cache_prompt": True, "preserved_tokens": THINK_TOKENS}
+            "seed": _seed(item), "cache_prompt": True, "preserved_tokens": THINK_TOKENS,
+            **lora_field(lora_scale)}
 
 
 def split_completion(prefill: str, text: str) -> tuple[str, str]:
@@ -205,9 +218,10 @@ def finish_reason(stop_type: str | None) -> str:
     return "stop" if stop_type in ("eos", "word") else "length"
 
 
-def _complete_prefilled(client, item: dict, max_tokens: int) -> tuple[str, str, str, dict, dict]:
+def _complete_prefilled(client, item: dict, max_tokens: int, lora_scale: float | None = None
+                        ) -> tuple[str, str, str, dict, dict]:
     """(reasoning, answer, finish_reason, usage, timings) of a prefilled item."""
-    body = completion_body(item, render_prompt(client, item), max_tokens)
+    body = completion_body(item, render_prompt(client, item), max_tokens, lora_scale)
     r = client.post("/completion", json=body)
     r.raise_for_status()
     data = r.json()
@@ -277,10 +291,13 @@ def _complete(client, body: dict) -> tuple[dict, str | None, dict, dict]:
             data.get("timings") or {})
 
 
-def run_one(client, item: dict, max_tokens: int, block: int = 0) -> dict:
+def run_one(client, item: dict, max_tokens: int, block: int = 0,
+            lora_scale: float | None = None) -> dict:
     # The sampling travels with the row: it is the training row's provenance (assemble_rev2.py).
     record = {"id": item["id"], "pool": item["pool"], "error": "",
               "sampling": {**SAMPLING, "seed": _seed(item)}}
+    if lora_scale is not None:
+        record["lora_scale"] = lora_scale
     started = time.time()
     try:
         # An item may cap its own reply below the run's: Target A's plain phase stops at 512
@@ -295,9 +312,11 @@ def run_one(client, item: dict, max_tokens: int, block: int = 0) -> dict:
                 return record
         if "prefill" in item:  # an empty prefill too: a plain reply, rendered the same way
             message = {}
-            reasoning, answer, finish, usage, timings = _complete_prefilled(client, item, budget)
+            reasoning, answer, finish, usage, timings = _complete_prefilled(client, item, budget,
+                                                                            lora_scale)
         else:
-            message, finish, usage, timings = _complete(client, request_body(item, budget))
+            message, finish, usage, timings = _complete(client,
+                                                        request_body(item, budget, lora_scale))
             reasoning, answer = split_reasoning(message)
         record.update(
             reasoning=reasoning, answer=answer, finish_reason=finish,
@@ -342,7 +361,7 @@ def answered(out_path: Path) -> set[str]:
 
 
 def generate(items_path: Path, out_path: Path, base_url: str, workers: int,
-             max_tokens: int, block: int = 0) -> None:
+             max_tokens: int, block: int = 0, lora_scale: float | None = None) -> None:
     import httpx  # the box's batteryvenv has it; imported here so `items` needs nothing extra
 
     from dsbench.battery.items import append_row
@@ -356,7 +375,7 @@ def generate(items_path: Path, out_path: Path, base_url: str, workers: int,
     def one(item: dict) -> dict:
         if not hasattr(local, "client"):  # one connection per worker thread
             local.client = httpx.Client(base_url=base_url, timeout=httpx.Timeout(3600.0))
-        return run_one(local.client, item, max_tokens, block)
+        return run_one(local.client, item, max_tokens, block, lora_scale)
 
     fd = os.open(out_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
     if os.fstat(fd).st_size:
@@ -504,6 +523,9 @@ def main() -> None:
     s.add_argument("--max-tokens", type=int, default=16384)
     s.add_argument("--block", type=int, default=0,
                    help="the training block (8192): a reply stops where its row would outgrow it")
+    s.add_argument("--lora-scale", type=float, default=None,
+                   help="the adapter's scale in every request (0 = the base, 1 = the adapter), on "
+                        "a server started with it (battery_server.sh with LORA); unset: no field")
     s = sub.add_parser("verify")
     s.add_argument("--items", type=Path, required=True)
     s.add_argument("--gen", type=Path, required=True)
@@ -521,7 +543,8 @@ def main() -> None:
         args.out.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items))
         print(f"{len(items)} items -> {args.out}")
     elif args.cmd == "generate":
-        generate(args.items, args.out, args.base_url, args.workers, args.max_tokens, args.block)
+        generate(args.items, args.out, args.base_url, args.workers, args.max_tokens, args.block,
+                 args.lora_scale)
     elif args.cmd == "verify":
         verify(args.items, args.gen, args.out, args.dialect)
     else:

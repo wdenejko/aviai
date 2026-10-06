@@ -131,9 +131,103 @@ _BUILDERS = {b.__name__: b for b in (
 )}
 
 
+# --- held out: the Target A test's domains (sftgen/target_a_test.py) ------------------------------
+# The model sees a table's schema and the question, never its rows. So a new table in a training
+# domain asks a training prompt again: Revision 2's training drew 124 of ClickHouse's 126 weekday
+# prompts and all 18 weekend ones. These six domains' table names, timestamp columns and row nouns
+# appear in no training row, so every prompt built on them is new. Their columns have the shape
+# five of the training domains have (an id, a 2025 timestamp, a US city, a category, a number), so
+# only the names change. They are not in domain_names(): a generator run over the training domains
+# must draw what it drew before (a table's seed follows its domain's position,
+# dialect_conventions.table_seed).
+
+
+def library_loans(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "loan_id": np.arange(1, n + 1, dtype="int64"),
+        "loaned_ts": _timestamps(rng, n),
+        "library_city": _cities(rng, n),
+        "genre": rng.choice(["fiction", "history", "science", "children"], size=n),
+        "days_out": np.round(rng.gamma(2.0, 7.0, size=n), 1),
+    })
+    return Domain("library_loans", df, "loaned_ts", "library_city", "loans")
+
+
+def ride_trips(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "trip_id": np.arange(1, n + 1, dtype="int64"),
+        "pickup_ts": _timestamps(rng, n),
+        "depot_city": _cities(rng, n),
+        "vehicle": rng.choice(["sedan", "suv", "van"], size=n),
+        "fare": np.round(rng.gamma(2.2, 9.0, size=n), 2),
+    })
+    return Domain("ride_trips", df, "pickup_ts", "depot_city", "trips")
+
+
+def hotel_stays(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "stay_id": np.arange(1, n + 1, dtype="int64"),
+        "arrival_ts": _timestamps(rng, n),
+        "hotel_city": _cities(rng, n),
+        "room_type": rng.choice(["single", "double", "suite"], size=n),
+        "nightly_rate": np.round(rng.gamma(4.0, 35.0, size=n), 2),
+    })
+    return Domain("hotel_stays", df, "arrival_ts", "hotel_city", "stays")
+
+
+def parcel_scans(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "scan_id": np.arange(1, n + 1, dtype="int64"),
+        "scanned_ts": _timestamps(rng, n),
+        "hub_city": _cities(rng, n),
+        "service": rng.choice(["ground", "express", "overnight"], size=n),
+        "weight_kg": np.round(rng.gamma(1.5, 2.0, size=n), 2),
+    })
+    return Domain("parcel_scans", df, "scanned_ts", "hub_city", "scans")
+
+
+def clinic_visits(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "visit_id": np.arange(1, n + 1, dtype="int64"),
+        "visit_ts": _timestamps(rng, n),
+        "clinic_city": _cities(rng, n),
+        "department": rng.choice(["cardiology", "dermatology", "pediatrics", "radiology"], size=n),
+        "wait_min": np.round(rng.exponential(25.0, size=n), 1),
+    })
+    return Domain("clinic_visits", df, "visit_ts", "clinic_city", "visits")
+
+
+def bike_rentals(seed: int, n: int = 4000) -> Domain:
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame({
+        "rental_id": np.arange(1, n + 1, dtype="int64"),
+        "rented_ts": _timestamps(rng, n),
+        "dock_city": _cities(rng, n),
+        "bike_type": rng.choice(["classic", "electric"], size=n),
+        "ride_min": np.round(rng.exponential(22.0, size=n), 1),
+    })
+    return Domain("bike_rentals", df, "rented_ts", "dock_city", "rentals")
+
+
+_HELD_OUT = {b.__name__: b for b in (
+    library_loans, ride_trips, hotel_stays, parcel_scans, clinic_visits, bike_rentals,
+)}
+
+
 def build(domain: str, seed: int, n: int = 4000) -> Domain:
-    return _BUILDERS[domain](seed, n)
+    return (_BUILDERS | _HELD_OUT)[domain](seed, n)
 
 
 def domain_names() -> list[str]:
+    """The training domains, in the order the generator draws their tables."""
     return list(_BUILDERS)
+
+
+def held_out_domain_names() -> list[str]:
+    """The Target A test's domains: no training row names them."""
+    return list(_HELD_OUT)

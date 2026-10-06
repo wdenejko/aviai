@@ -260,10 +260,11 @@ def test_a_resumed_run_skips_a_torn_row_and_appends_whole_ones(tmp_path, monkeyp
                    + json.dumps({"id": "b", "error": "boom"}) + "\n" + '{"id": "c", "rea')
     assert rp.answered(out) == {"a"}
     ran = []
-    monkeypatch.setattr(rp, "run_one", lambda client, item, max_tokens, block: ran.append(
-        (item["id"], max_tokens, block)) or {"id": item["id"], "error": ""})
+    monkeypatch.setattr(rp, "run_one", lambda client, item, max_tokens, block, lora_scale:
+                        ran.append((item["id"], max_tokens, block, lora_scale))
+                        or {"id": item["id"], "error": ""})
     rp.generate(items, out, "http://127.0.0.1:9", workers=2, max_tokens=99, block=8192)
-    assert sorted(ran) == [("b", 99, 8192), ("c", 99, 8192), ("d", 99, 8192)]
+    assert sorted(ran) == [("b", 99, 8192, None), ("c", 99, 8192, None), ("d", 99, 8192, None)]
     lines = out.read_text().splitlines()
     assert lines[2] == '{"id": "c", "rea'  # the torn row is left as it was, on a line of its own
     assert rp.answered(out) == {"a", "b", "c", "d"}
@@ -279,3 +280,44 @@ def test_a_checker_reads_one_row_an_item_the_answered_one(tmp_path):
     assert (rows["a"]["answer"], rows["b"]["answer"], rows["c"]["error"]) == (
         "second", "kept", "boom again")
     assert list(rows) == ["a", "b", "c"]  # in the order the items first appear
+
+
+# --- the adapter's scale: base and adapter on one server (the Target A test) ----------------------
+
+
+def test_a_request_names_the_adapter_scale_only_when_given():
+    item = {"id": "targetA_test:A-x", "pool": "targetA_test",
+            "messages": [{"role": "user", "content": "Sundays?"}]}
+    assert "lora" not in rp.request_body(item, 99)  # a server without an adapter, as before
+    base, adapter = rp.request_body(item, 99, 0.0), rp.request_body(item, 99, 1.0)
+    assert base["lora"] == [{"id": 0, "scale": 0.0}]
+    assert adapter["lora"] == [{"id": 0, "scale": 1.0}]
+    # the pair differs in the scale alone: same prompt, sampling and seed
+    assert {k: v for k, v in base.items() if k != "lora"} == {
+        k: v for k, v in adapter.items() if k != "lora"}
+
+
+def test_a_reply_records_the_scale_it_was_asked_at_on_both_paths():
+    item = {"id": "targetA_test:A-x", "pool": "targetA_test",
+            "messages": [{"role": "user", "content": "Sundays?"}]}
+    chat = _ChatServer()
+    record = rp.run_one(chat, item, 512, lora_scale=1.0)
+    assert chat.sent["/v1/chat/completions"]["lora"] == [{"id": 0, "scale": 1.0}]
+    assert record["lora_scale"] == 1.0 and record["error"] == ""
+    assert "lora_scale" not in rp.run_one(_ChatServer(), item, 512)
+    raw = _Server(" So `= 7`.\n</think>\n\n```sql\nSELECT 1\n```")
+    record = rp.run_one(raw, PREFILLED, 512, lora_scale=0.0)
+    assert raw.sent["/completion"]["lora"] == [{"id": 0, "scale": 0.0}]
+    assert record["lora_scale"] == 0.0
+
+
+def test_a_run_passes_its_scale_to_every_reply(tmp_path, monkeypatch):
+    items = tmp_path / "items.jsonl"
+    items.write_text("".join(json.dumps({"id": i, "pool": "p", "messages": []}) + "\n"
+                             for i in ("a", "b")))
+    ran = []
+    monkeypatch.setattr(rp, "run_one", lambda client, item, max_tokens, block, lora_scale:
+                        ran.append(lora_scale) or {"id": item["id"], "error": ""})
+    rp.generate(items, tmp_path / "gen.jsonl", "http://127.0.0.1:9", workers=1, max_tokens=99,
+                lora_scale=1.0)
+    assert ran == [1.0, 1.0]

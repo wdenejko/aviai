@@ -69,15 +69,16 @@ def table_seed(seed: int, domain_index: int, rep: int) -> int:
 def generate(
     *, seed: int = 7, reps: int = 1, n: int = 4000,
     dialects: list[str] | None = None, families: list[str] | None = None,
-    thinking_frac: float = 0.4, sink=None,
+    thinking_frac: float = 0.4, sink=None, domains: list[str] | None = None,
 ) -> tuple[list[SFTRow], dict]:
     # `sink(row)`, if given, is called as each row is verified -- the caller writes+flushes it so a
     # long run is crash-safe (partial output survives). The returned list still powers the report;
-    # rows are tiny, so keeping both is cheap.
+    # rows are tiny, so keeping both is cheap. `domains` defaults to the training domains; the
+    # Target A test passes the held-out ones (synth.held_out_domain_names).
     rng = np.random.default_rng(seed)
     conv_map = conventions_by_family()
     convs = [conv_map[f] for f in (families or list(conv_map))]
-    domains = synth.domain_names()
+    domains = domains or synth.domain_names()
     engines = available_engines(only=dialects)
 
     report: dict[str, Any] = {
