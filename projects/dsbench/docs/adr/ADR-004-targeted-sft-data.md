@@ -1356,4 +1356,11 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       minutes: ClickHouse's weekdays and weekends 10 → 58 of 60, the other cells 147 → 156 of
       168 ("The training and its gate" above). The check now reruns every verified reply on two
       more tables (`target_a_eval recheck`).
-    - [ ] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap.
+    - [x] the probe's and dsbench's run, base against the adapter. **Built 2026-10-06**
+      (`patches/rev2_probe_mac.sh` with a battery window's hold, `agentic/compare_runs.py`):
+      - pi's own settings for the model, checked against a stand-in server: thinking on
+        (`enable_thinking`), temperature 0, 12,288 tokens a reply;
+      - the state set on the server before each suite;
+      - the probe's oracle gate passes, 6 of 6, and dsbench's, 23 of 23.
+    - [ ] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap: one
+      window of about 3.5 hours.

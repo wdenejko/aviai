@@ -583,3 +583,63 @@ had restarted with production off. Parity held, and no request failed. The base 
 at 129 tokens a second and the adapter 74 at 110. Results in
 `reports/gate-evals/20261006-target-a-test.md`.
 
+## The held-out probe and dsbench (ADR-004 Revision 2, action item 10)
+
+The base and the final adapter go through the owner's pi harness, k = 5:
+- the held-out probe (`sftgen/probe`): 6 problems, 2 a skill, on domains in neither dsbench nor
+  the training data;
+- dsbench: the 23 problems.
+
+**pi's settings for `dashi-qwen36` stay as the owner set them.** They were checked 2026-10-06
+against a stand-in server that recorded pi 0.84.4's request bodies:
+- `--thinking high` sends `chat_template_kwargs: {"enable_thinking": true}`, which overrides the
+  battery server's thinking-off default;
+- temperature 0;
+- `max_completion_tokens: 12288`, which the box's server takes as its token limit.
+
+Both states run with these. The probe's 2026-09-20 baseline of the base (22 of 30) ran with the
+same settings, on the production server.
+
+**The box holds a battery window** (`battery_window.sh` with a single step, `hold:probe`). It loads
+the adapter with the global scale at 0, and `PARITY=1` checks first that scale 0 is the bare base.
+
+**The Mac runs `rev2_probe_mac.sh`.** It waits for the hold and tunnels `localhost:18080`, where pi's
+provider points, to the server. Then it runs `probe:base probe:adapter dsbench:base
+dsbench:adapter`, the probe first:
+- pi can't name a LoRA state per request, so before each step the script sets the server's scale
+  and reads it back (`dsbench.battery.dsbench_suite set-scale`);
+- each step writes `reports/agentic-runs/<stamp>-rev2-<suite>-<state>.{json,md}`;
+- however the script ends, it sets the scale back to 0, closes the tunnel and releases the hold.
+
+Stage, from `projects/dsbench`. The battery's scripts are on the box already, and match the repo:
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-probe
+ssh dashi "mkdir -p $R"
+uv run --package dsbench python -m dsbench.sftgen.probe.tasks   # the probe's oracle gate
+uv run --package dsbench dsbench-agent-selftest                 # dsbench's
+```
+
+Launch the Mac side first, then the window (the owner stops production; about 3.5 hours, the
+probe's two states about 35 minutes of it):
+
+```bash
+docker compose -f sandbox/docker-compose.yml up -d --no-build clickhouse workspace
+RUN_BOX=$R nohup caffeinate -is patches/rev2_probe_mac.sh >>reports/agentic-runs/rev2-probe-mac.log 2>&1 &
+ssh dashi "ARM=1 PARITY=1 HOLD_MAX=21600 LORA=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf nohup setsid ~/benchlab/scripts/battery/battery_window.sh $R hold:probe </dev/null >/dev/null 2>&1 &"
+```
+
+Then compare each suite's two runs (`dsbench.agentic.compare_runs`):
+- per problem, the runs that pass in each state, with Fisher's exact test;
+- over problems, the problems that pass by majority, with the exact McNemar test.
+
+```bash
+uv run python -m dsbench.agentic.compare_runs --base reports/agentic-runs/<stamp>-rev2-probe-base.json \
+  --adapter reports/agentic-runs/<stamp>-rev2-probe-adapter.json --out <out>.json
+```
+
+**Rehearsed 2026-10-06** against a hold made by hand (`~/benchlab/scratch/probe-rehearsal-20261006/`)
+with no server behind it. The Mac checked its prerequisites, found the hold and tunnelled. It
+found no server, and on the way out it closed the tunnel, logged that the scale couldn't be reset,
+and released the hold.
+

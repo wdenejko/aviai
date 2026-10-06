@@ -48,6 +48,9 @@ projects/dsbench/data/sft/rev2_generation/
 projects/dsbench/data/sft/rev2_target_a_test/
 # SynSQL's SQLite databases, extracted from its databases.zip (sftgen/synsql.py)
 projects/dsbench/data/synsql/
+# A Mac-side window script's own log (patches/rev2_probe_mac.sh): the runs it starts write the
+# reports beside it, which are committed
+projects/dsbench/reports/agentic-runs/*.log
 
 # Frozen eval sets and run reports ARE committed (reproducibility contract),
 # so they are intentionally NOT ignored here.
