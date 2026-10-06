@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29, proposed)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -139,7 +139,7 @@ The gate is a script (`sftgen/decontaminate.py`) run over the rendered mixture b
 
 ---
 
-# Revision 2 (2026-09-29; decisions 1-8 taken 2026-10-03 and 2026-10-05): the mixture for the thinking-on retrain
+# Revision 2 (2026-09-29; decisions 1-8 taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06): the mixture for the thinking-on retrain
 
 ## What changed since Revision 1
 
@@ -928,6 +928,70 @@ text the base generated in those scripts tokenizes into more tokens than it gene
 the server's count is under; no reply holds a replacement character. In all, 9,858,792 tokens
 (0.4% over) and 7,735,532 trained.
 
+## The training and its gate, run 2026-10-05/06
+
+**The training** (`patches/rev2_train.sh`, `~/benchlab/runs/2026-10-05-qwen36-rev2-train/`) ran
+the recipe as Gate 2 ran it on the 1,207 blocks: rank 4, learning rate 1e-4, one epoch. 1,207
+steps took 8 hours 15 minutes, 24.3 seconds a step. A checkpoint was saved every 100 steps, 13 GB
+in all. train_loss came out at 0.1548, and it was flat from the start: 0.175 over the first 100
+steps, 0.14-0.16 per 100 after. The rows are mostly the base's own replies, so there is little in
+them the base doesn't already predict. A flat loss is what on-policy data gives, and it says
+little about what the rows teach; the targeted tests measure that.
+
+**The gate** (the thinking-on mini-battery, "Validation" below) ran the final adapter on 2026-10-06
+in one window of 5 hours 8 minutes, against the calibration's base passes. **It passes, with no
+flag:**
+
+| Benchmark | Base | Adapter | Worse / better | p | A/A |
+|---|---:|---:|---|---:|---:|
+| IFEval | 88.0 | 86.0 | 12 / 8 | 0.50 | 87.5 |
+| BFCL irrelevance | 81.7 | 82.5 | 2 / 3 | 1 | 78.3 |
+| BIRD | 70.0 | 67.3 | 7 / 3 | 0.34 | 68.7 |
+| HumanEval+ | 84.0 | 82.8 | 11 / 9 | 0.82 | 86.5 |
+
+- No reply opens a second reasoning block.
+- Reasoning that never closes: BFCL 7 → 3, HumanEval+ 18 → 22, IFEval 5 → 7, BIRD 0 → 0. None of
+  these changes is significant.
+- HumanEval+'s reasoning is shorter: a ratio of 0.865 to the base's, sign test p = 0.006. The
+  brevity flag needs a ratio under 0.8, and its pass rate is unchanged.
+- Every change is within what two draws of the base differ by.
+
+The same checks flag Gate 2's adapter on all four benchmarks (the calibration). This one keeps
+what the base does, which is what the gate asks of it. It shows no gain either, and none was expected: none of the four benchmarks asks
+for what the mixture targets. The earlier checkpoints stay on the box for a dose check, should a
+targeted test call for one.
+
+**The Target A test** (`sftgen/target_a_eval.py`, built 2026-10-06) asks for the conventions
+directly. The base and the adapter answer the same 228 Target A prompts, and every reply is checked
+on its dialect's sandboxed engine.
+- **What is held out is the prompt, not only the table.** The model sees a table's schema and the
+  question, never its rows. So a new table in a training domain asks a training prompt again: the
+  training drew 124 of ClickHouse's 126 weekday prompts and all 18 of its weekend ones. The test's
+  tables come from six domains that no training row names (`synth.held_out_domain_names`): new
+  table names, timestamp columns and row nouns, with the training domains' column shapes.
+  - Checked against the mixture: none of the test's prompts is a training prompt, and none of the
+    4,326 rows names a held-out table or timestamp column.
+  - The question wordings are the training ones. So the test measures the conventions on unseen
+    tables, and the held-out probe measures the far transfer.
+- **The cells:**
+  - ClickHouse's weekday and weekend cells, 36 and 24 items. The base believes Sunday = 1 there:
+    its plain sampling verified 7 of 96 in the prefill pilot.
+  - The 14 other cells, 12 items each, 168 in all. Target A taught ISO for ClickHouse. A model
+    that learned "ISO everywhere" would now fail DuckDB's, PostgreSQL's and MySQL's weekdays,
+    which the base mostly gets right.
+- **Paired, on one server.** The battery's server loads the adapter, and each request names its
+  scale (`reasoning_pilot generate --lora-scale`): 0 for the base, 1 for the adapter. Both states
+  use the same sampling and the same seed for an item, so an item's two replies differ only in the
+  adapter. A parity check first confirms that scale 0 is the bare base.
+  - The sampling is the generation's (min_p 0.05), so the base can be read against its own rates
+    in the generation.
+  - The budget is the mini-battery's 12,288 tokens.
+- **Read as the gate reads:** per cell and per group, how many items each state verifies, how many
+  only one of them does, and an exact McNemar test on those. Also counted: the ClickHouse replies
+  that state Sunday = 1 (`target_a_hints.doubts`), and reasoning length.
+- **One window of about 2.5 hours:** 456 replies at about 2,400 tokens each, at the generation's
+  rate (`patches/README.md`, "The Target A test").
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -936,15 +1000,14 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
   - SQL 9.0 hours, code 6.3, replay 7.2, Target A 3.4, the tool rows 1.1;
   - Target C: its 2026-10-01/02 window (154 rows, 0.80M tokens);
   - the top-up (decision 1): about 3.5 hours more.
-- **Training:** started 2026-10-05 on the mixture's 1,207 blocks
-  (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`). About 15 hours for 10M tokens, at the 182
-  tokens a second the seq-4096 report
-  measured for 8,192-token rows. The packed rows' warm step took 23.6 s for 8,192 tokens
-  (2026-10-02), which would make it about 9 hours if it holds over a run. Target C's rows filled
-  their blocks 86.8%; shorter rows fill them better.
-- **Checks:** a checkpoint's mini-battery takes one window of about 5 hours. The full battery with
-  thinking on takes about 18 hours a state for four of its eight benchmarks, and more for the
-  other four (decision 9).
+- **Training:** **run 2026-10-05/06** on the mixture's 1,207 blocks, 8 hours 15 minutes: 24.3
+  seconds a step, about the packed rows' warm step (23.6 s, 2026-10-02). It was planned at 9-15
+  hours, the upper end from the 182 tokens a second the seq-4096 report measured for 8,192-token
+  rows.
+- **Checks:** a checkpoint's mini-battery takes one window of about 5 hours (the final adapter's,
+  5 hours 8 minutes). The Target A test takes one of about 2.5. The full battery with thinking on
+  takes about 18 hours a state for four of its eight benchmarks, and more for the other four
+  (decision 9).
 
 ## Validation
 
@@ -1213,7 +1276,7 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
      benchmarks the calibration measured, before the other four (decision 9). Its items, the
      report's rules and the window's sample step are built (2026-10-02); the base's run
      directory is prepared on the box.
-9. [ ] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
+9. [x] Assemble, train (rank 4, 8,192 tokens), and gate checkpoints on the mini-battery.
    - [x] the assembler. **Built 2026-10-02** (`sftgen/assemble_rev2.py`, "Assembly" above).
    - [x] assemble, once the pools are generated and checked; then `build_masked_dataset` on the
      box, whose exact counts check the assembler's. **Done 2026-10-05:** 4,326 rows, 9.82M
@@ -1237,5 +1300,14 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
        0.9 GB each;
      - a checkpoint's gate: its adapter exported to a GGUF, its own run directory linking the
        calibration's base passes, and one battery window for its `adapter` passes.
-   - [ ] train, and gate the checkpoints. Training started 2026-10-05: 1,207 steps, a checkpoint
-     every 100, about 8-15 hours.
+   - [x] train, and gate the checkpoints. **Trained 2026-10-05/06**, 1,207 steps in 8 hours 15
+     minutes; **the final adapter passed its gate 2026-10-06**, with no flag ("The training and
+     its gate" above). The checkpoints every 100 steps stay for a dose check, should a targeted
+     test call for one.
+10. [ ] The targeted tests, with the adapter against the base.
+    - [x] the Target A test. **Built 2026-10-06** (`sftgen/target_a_eval.py`, held-out domains
+      in `sftgen/synth.py`, `--lora-scale` in `reasoning_pilot generate`, steps `NAME:STATE` in
+      `patches/rev2_generate_window.sh`): 228 items
+      (`data/sft/rev2_target_a_test_manifest.json`).
+    - [ ] its window (about 2.5 hours, production off), the check on the Mac and the comparison.
+    - [ ] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap.

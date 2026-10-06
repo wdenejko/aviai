@@ -104,10 +104,13 @@ trainer computes from it.
 The patches are applied in `~/src/transformers5-qwen3.5-recipe` when the training window is
 prepared, not before: the recipe is shared with every other training run on the box.
 
-**Started 2026-10-05** (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`, `MAX_HOURS=16`). The
-patches went in once the owner agreed to the window, after `train_qwen3_5_35b.py` was copied to
+**Run 2026-10-05/06** (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`, `MAX_HOURS=16`): 1,207
+steps in 8 hours 15 minutes, a checkpoint every 100. The patches went in once the owner agreed to
+the window, after `train_qwen3_5_35b.py` was copied to
 `~/benchlab/attic/train_qwen3_5_35b.py.before-rev2-20261005`; the patched file matches a dry run
-on a copy. Without `seq_lens` and `QWEN35_SAVE_TOTAL_LIMIT` it trains as before.
+on a copy. Without `seq_lens` and `QWEN35_SAVE_TOTAL_LIMIT` it trains as before. The final
+adapter's gate (`mini-battery/checkpoint.sh`, then one battery window) passed 2026-10-06
+(`~/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/`; ADR-004, "The training and its gate").
 
 ## `torch-ggml-ops-gfx1151-build.patch` (`~/src/torch-ggml-ops`, box-local)
 The two source fixes the Gate-0 build of torch-ggml-ops needed on dashi, kept as working-tree
@@ -515,3 +518,58 @@ tests), so anywhere. The assembler takes each top-up as one more `--verified` pa
 (`data/sft/rev2_mixture_manifest.json`) was then assembled from every pair, with
 `data/sft/rev2_prompts.jsonl` as the items of both code and replay, and built on the box
 (`~/benchlab/runs/2026-10-05-qwen36-rev2-train/`, its README): 1,207 blocks.
+
+## The Target A test (ADR-004 Revision 2, action item 10)
+
+The base and the Revision 2 adapter answer the same 228 held-out Target A prompts
+(`sftgen/target_a_eval.py`), paired, in one window of `rev2_generate_window.sh`:
+- **`LORA=adapter.gguf`** makes the window start the battery's server with that adapter and set
+  its global scale to 0, as `battery_window.sh` does;
+- **`PARITY=1`** first checks that scale 0 is the bare base (`dsbench.battery.parity`): a server
+  without the adapter, then scales 0, 1 and 0 again on this one;
+- **a step `NAME:STATE`** answers `RUN/items/NAME.jsonl` into `RUN/gen/NAME.STATE.jsonl`. Every
+  request names the state's scale (`base` 0, `adapter` 1), and a reply gets the item's budget,
+  12,288 tokens, with no block: these are a test's items, not training rows. Each state is a step
+  of its own, since requests at different scales never batch together.
+
+The items, on the Mac. The sandbox's four engines check every item's gold SQL, and the mixture
+check refuses a test prompt that is also a training prompt:
+
+```bash
+uv run python -m dsbench.sftgen.target_a_eval items --out data/sft/rev2_target_a_test/items.jsonl \
+  --report data/sft/rev2_target_a_test_manifest.json --mixture data/sft/rev2_mixture.jsonl
+```
+
+Deploy and stage. The window script replaces the generation's, which it extends: every step it
+had runs as before.
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-target-a-test
+ssh dashi "mkdir -p $R/items && cp -n ~/benchlab/scripts/rev2-gen/window.sh ~/benchlab/attic/rev2-gen-window.sh.before-target-a-test"
+rsync -a --exclude __pycache__ src/ dashi:benchlab/scripts/rev2-gen/src/
+scp patches/rev2_generate_window.sh dashi:benchlab/scripts/rev2-gen/window.sh
+scp data/sft/rev2_target_a_test/items.jsonl dashi:$R/items/ta_test.jsonl
+```
+
+Launch (the owner stops production; about 2.5 hours):
+
+```bash
+ssh dashi "ARM=1 MAX_HOURS=4 PARITY=1 LORA=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'ta_test:base ta_test:adapter' </dev/null >/dev/null 2>&1 &"
+```
+
+A request that failed leaves a row with an `error`. The same command again retries it, since
+every step skips the items already answered.
+
+The check and the comparison, on the Mac, with `$R/gen/` copied back into
+`data/sft/rev2_target_a_test/gen/`:
+
+```bash
+D=data/sft/rev2_target_a_test
+mkdir -p $D/verified
+for s in base adapter; do uv run python -m dsbench.sftgen.target_a_hints verify \
+  --items $D/items.jsonl --gen $D/gen/ta_test.$s.jsonl --out $D/verified/ta_test.$s.jsonl; done
+uv run python -m dsbench.sftgen.target_a_eval compare --items $D/items.jsonl \
+  --base $D/verified/ta_test.base.jsonl --adapter $D/verified/ta_test.adapter.jsonl \
+  --out $D/compare.json
+```
+
