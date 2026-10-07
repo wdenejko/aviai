@@ -1,0 +1,328 @@
+{
+ "round": "ADR-004 Revision 2, action item 11: the recall round",
+ "run": {
+  "windows": [
+   {
+    "plan": "rr_plain splice:rr_plain:rr_recall rr_recall",
+    "box_clock": "11:58:41-14:01:04",
+    "log": "~/benchlab/logs/rev2-gen-window-20261007-115841.log",
+    "steps": {
+     "rr_plain": "11:59:49-12:27:10",
+     "splice": "12:27:10",
+     "rr_recall": "12:27:10-14:01:00"
+    }
+   },
+   {
+    "plan": "rr_recall_ww",
+    "box_clock": "12:45:27 armed, 14:02:01-14:15:42",
+    "log": "~/benchlab/logs/rev2-gen-window-20261007-124527.log"
+   }
+  ],
+  "box_clock_behind_cest": "about 1 h 58 min",
+  "server": "the bare base, 8 slots, thinking on, min_p 0.05; rr_plain 512 tokens a reply, the recall steps up to the 8,192-token block",
+  "finish_reasons": {
+   "rr_recall:stop": 468,
+   "rr_recall_ww:stop": 71
+  }
+ },
+ "items": {
+  "file": "data/sft/target_a_recall_round/ta_plain.jsonl",
+  "md5": "6aa47854b94bd3e896ee4b9236a1a5bd",
+  "n": 468
+ },
+ "plain_phase": {
+  "clickhouse/weekend-filtered": {
+   "replies": 120,
+   "finish_length": 120,
+   "states_sunday_1": 118,
+   "cut_chars_median": 364.0
+  },
+  "clickhouse/weekend-flag": {
+   "replies": 36,
+   "finish_length": 36,
+   "states_sunday_1": 36,
+   "cut_chars_median": 443.5
+  },
+  "clickhouse/workweek": {
+   "replies": 60,
+   "finish_length": 60,
+   "states_sunday_1": 60,
+   "cut_chars_median": 439.5
+  },
+  "duckdb/weekday-numbering": {
+   "replies": 120,
+   "finish_length": 120,
+   "states_sunday_1": 71,
+   "cut_chars_median": 208.0
+  },
+  "duckdb/weekend-filtered": {
+   "replies": 60,
+   "finish_length": 60,
+   "states_sunday_1": 37,
+   "cut_chars_median": 175.0
+  },
+  "duckdb/weekend-flag": {
+   "replies": 36,
+   "finish_length": 36,
+   "states_sunday_1": 24,
+   "cut_chars_median": 277.0
+  },
+  "duckdb/workweek": {
+   "replies": 36,
+   "finish_length": 36,
+   "states_sunday_1": 23,
+   "cut_chars_median": 156.0
+  }
+ },
+ "splice": {
+  "plain": 468,
+  "spliced": 468,
+  "false_cut": {
+   "workweek_items": 96,
+   "cut_on_prose_weekday": 71,
+   "clickhouse": 41,
+   "duckdb": 30
+  },
+  "recut": {
+   "same": 397,
+   "changed": 71,
+   "lost": 0,
+   "new": 0
+  }
+ },
+ "checks": {
+  "cells": {
+   "clickhouse/weekend-flag": {
+    "replies": 36,
+    "verified": 33,
+    "cites": 0,
+    "doubting": 19,
+    "recheck_failed": 0,
+    "trains": 14,
+    "wrong": 3
+   },
+   "clickhouse/weekend-filtered": {
+    "replies": 120,
+    "verified": 120,
+    "cites": 0,
+    "doubting": 75,
+    "recheck_failed": 0,
+    "trains": 45
+   },
+   "clickhouse/workweek": {
+    "replies": 60,
+    "verified": 59,
+    "cites": 0,
+    "doubting": 40,
+    "recheck_failed": 0,
+    "trains": 19,
+    "error": 1
+   },
+   "duckdb/weekday-numbering": {
+    "replies": 120,
+    "verified": 104,
+    "cites": 0,
+    "doubting": 51,
+    "recheck_failed": 0,
+    "trains": 53,
+    "wrong": 16
+   },
+   "duckdb/weekend-flag": {
+    "replies": 36,
+    "wrong": 3,
+    "cites": 0,
+    "doubting": 17,
+    "recheck_failed": 0,
+    "trains": 15,
+    "verified": 32,
+    "error": 1
+   },
+   "duckdb/weekend-filtered": {
+    "replies": 60,
+    "verified": 45,
+    "cites": 0,
+    "doubting": 30,
+    "recheck_failed": 0,
+    "trains": 15,
+    "wrong": 14,
+    "error": 1
+   },
+   "duckdb/workweek": {
+    "replies": 36,
+    "verified": 36,
+    "cites": 0,
+    "doubting": 17,
+    "recheck_failed": 0,
+    "trains": 19
+   }
+  },
+  "wordings": {
+   "clickhouse/w3": {
+    "replies": 73,
+    "verified": 72,
+    "cites": 0,
+    "doubting": 46,
+    "recheck_failed": 0,
+    "trains": 26,
+    "wrong": 1
+   },
+   "clickhouse/w0": {
+    "replies": 85,
+    "verified": 84,
+    "cites": 0,
+    "doubting": 45,
+    "recheck_failed": 0,
+    "trains": 39,
+    "error": 1
+   },
+   "clickhouse/w1": {
+    "replies": 58,
+    "verified": 56,
+    "cites": 0,
+    "doubting": 43,
+    "recheck_failed": 0,
+    "trains": 13,
+    "wrong": 2
+   },
+   "duckdb/w0": {
+    "replies": 89,
+    "verified": 70,
+    "cites": 0,
+    "doubting": 38,
+    "recheck_failed": 0,
+    "trains": 32,
+    "wrong": 18,
+    "error": 1
+   },
+   "duckdb/w2": {
+    "replies": 77,
+    "verified": 67,
+    "cites": 0,
+    "doubting": 33,
+    "recheck_failed": 0,
+    "trains": 34,
+    "wrong": 9,
+    "error": 1
+   },
+   "duckdb/w1": {
+    "replies": 86,
+    "verified": 80,
+    "cites": 0,
+    "doubting": 44,
+    "recheck_failed": 0,
+    "trains": 36,
+    "wrong": 6
+   }
+  },
+  "reasoning_tokens_median": {
+   "clickhouse/weekend-flag": 1745.5,
+   "clickhouse/weekend-filtered": 1710.0,
+   "clickhouse/workweek": 1453.5,
+   "duckdb/weekday-numbering": 1815.0,
+   "duckdb/weekend-flag": 2095.0,
+   "duckdb/weekend-filtered": 2175.0,
+   "duckdb/workweek": 1842.0
+  },
+  "kept_reasoning_tokens_median": {
+   "clickhouse/weekend-filtered": 1500,
+   "clickhouse/workweek": 1147,
+   "clickhouse/weekend-flag": 1542.0,
+   "duckdb/weekday-numbering": 1720,
+   "duckdb/weekend-flag": 2027,
+   "duckdb/weekend-filtered": 2046,
+   "duckdb/workweek": 1696
+  },
+  "total": {
+   "replies": 468,
+   "verified": 429,
+   "cites": 0,
+   "doubting": 249,
+   "recheck_failed": 0,
+   "trains": 180,
+   "wrong": 36,
+   "error": 3
+  },
+  "doubting_share_of_verified": 0.58,
+  "revision_2_doubting_share": {
+   "volume_recall": "328 of 490 (67%), wordings 0-3",
+   "topup_recall": "132 of 233 (57%), wordings 0, 1, 3"
+  }
+ },
+ "false_cut_vs_recall_on_71_prompts": {
+  "false cut (convention opens the trace)": {
+   "verified": 69,
+   "doubting": 25,
+   "trains": 44,
+   "trains_clickhouse": 28,
+   "wrong": 1,
+   "trains_duckdb": 16,
+   "error": 1,
+   "prefill_chars_median": 263,
+   "reasoning_tokens_median": 1120,
+   "kept_reasoning_tokens_median": 1012.0
+  },
+  "fixed cut (recall)": {
+   "verified": 70,
+   "doubting": 42,
+   "trains": 28,
+   "trains_clickhouse": 12,
+   "error": 1,
+   "trains_duckdb": 16,
+   "prefill_chars_median": 431,
+   "reasoning_tokens_median": 1627,
+   "kept_reasoning_tokens_median": 1470.5
+  },
+  "paired": {
+   "(True, False)": 30,
+   "(False, False)": 13,
+   "(False, True)": 14,
+   "(True, True)": 14
+  }
+ },
+ "wording_tests": {
+  "duckdb_w0_vs_w1_wrong": {
+   "w0": [
+    18,
+    89
+   ],
+   "w1": [
+    6,
+    86
+   ],
+   "fisher_p": 0.0147
+  },
+  "clickhouse_w1_vs_w0_doubting_of_verified": {
+   "w1": [
+    43,
+    56
+   ],
+   "w0": [
+    45,
+    84
+   ],
+   "fisher_p": 0.0072
+  },
+  "note": "DuckDB: post hoc, among six wordings. ClickHouse: repeats Revision 2's top-up, where wording 1 doubted most too (68%)."
+ },
+ "mixture_preview": {
+  "rev2_reproduced": {
+   "rows": 4326,
+   "tokens": 9821199,
+   "out_sha256_prefix": "e92a5b1781a3d909"
+  },
+  "with_round_target_a_budget_open": {
+   "targetA_rows": 665,
+   "targetA_tokens": 1155368,
+   "targetA_rows_rev2": 466,
+   "targetA_tokens_rev2": 802188,
+   "round_rows": 180,
+   "round_tokens": 325198,
+   "rev2_rows_newly_in": 19,
+   "rev2_rows_newly_in_tokens": 27982,
+   "rev2_rows_dropped": 0,
+   "other_pools_identical": true,
+   "total_rows": 4525,
+   "total_tokens": 10174379
+  }
+ }
+}

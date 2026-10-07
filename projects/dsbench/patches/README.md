@@ -717,3 +717,18 @@ recheck didn't hold. It reads the round as two pairs, whose ids don't overlap:
 `--verified $D/rr_recall.same.jsonl $D/rr_recall.rechecked.jsonl` and
 `--verified $D/rr_recall_ww.jsonl $D/rr_recall_ww.rechecked.jsonl`.
 
+Run notes, 2026-10-07 (box clock, about 1 h 58 min behind CEST):
+- **Window 1**, 11:58 to 14:01:
+  - `rr_plain`: 27 minutes, every reply at its 512-token budget;
+  - the splice: 468 of 468;
+  - `rr_recall`: 94 minutes, about 5 replies a minute, all finished.
+- **Window 2**, armed at 12:45, started 14:02 once OCR was back, and ended 14:15 (`rr_recall_ww`,
+  71 replies).
+- OCR was restored after each window without a kill.
+- **The checks:**
+  - `verify` of the 397 took about 10 minutes, since every item loads its own table;
+  - the recheck of each half took a few more;
+  - run them one after the other: two checks at once would load the same table names into the
+    same sandboxes.
+- **The result:** 180 rows train (`reports/gate-evals/20261007-target-a-recall-round.md`).
+
