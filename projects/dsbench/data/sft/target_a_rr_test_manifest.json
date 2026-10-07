@@ -1,0 +1,148 @@
+{
+ "seed": 40261007,
+ "rows_per_table": 1500,
+ "domains": [
+  "library_loans",
+  "ride_trips",
+  "hotel_stays",
+  "parcel_scans",
+  "clinic_visits",
+  "bike_rentals"
+ ],
+ "draws": [
+  {
+   "cell": "clickhouse/weekend-filtered",
+   "seed": 40261007,
+   "reps": 4,
+   "target": true,
+   "rows": 24,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "clickhouse/workweek",
+   "seed": 40261008,
+   "reps": 4,
+   "target": true,
+   "rows": 24,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "duckdb/weekday-numbering",
+   "seed": 40261009,
+   "reps": 6,
+   "target": true,
+   "rows": 36,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "duckdb/weekend-flag",
+   "seed": 40261010,
+   "reps": 4,
+   "target": true,
+   "rows": 24,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "duckdb/weekend-filtered",
+   "seed": 40261011,
+   "reps": 4,
+   "target": true,
+   "rows": 24,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "duckdb/workweek",
+   "seed": 40261012,
+   "reps": 4,
+   "target": true,
+   "rows": 24,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "postgres/weekend-filtered",
+   "seed": 40261013,
+   "reps": 2,
+   "target": false,
+   "rows": 12,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "postgres/workweek",
+   "seed": 40261014,
+   "reps": 2,
+   "target": false,
+   "rows": 12,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "mysql/weekend-filtered",
+   "seed": 40261015,
+   "reps": 2,
+   "target": false,
+   "rows": 12,
+   "generator_rejected": 0
+  },
+  {
+   "cell": "mysql/workweek",
+   "seed": 40261016,
+   "reps": 2,
+   "target": false,
+   "rows": 12,
+   "generator_rejected": 0
+  }
+ ],
+ "items": 204,
+ "items_by_cell": {
+  "clickhouse/weekend-filtered": 24,
+  "clickhouse/workweek": 24,
+  "duckdb/weekday-numbering": 36,
+  "duckdb/weekend-filtered": 24,
+  "duckdb/weekend-flag": 24,
+  "duckdb/workweek": 24,
+  "mysql/weekend-filtered": 12,
+  "mysql/workweek": 12,
+  "postgres/weekend-filtered": 12,
+  "postgres/workweek": 12
+ },
+ "target_items": 156,
+ "prompts_by_cell": {
+  "clickhouse/weekend-filtered": 20,
+  "clickhouse/workweek": 15,
+  "duckdb/weekday-numbering": 31,
+  "duckdb/weekend-filtered": 19,
+  "duckdb/weekend-flag": 13,
+  "duckdb/workweek": 14,
+  "mysql/weekend-filtered": 12,
+  "mysql/workweek": 8,
+  "postgres/weekend-filtered": 11,
+  "postgres/workweek": 10
+ },
+ "max_tokens": 12288,
+ "sampling": {
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.05
+ },
+ "training_overlap": {
+  "mixture": "data/sft/rev2_1_mixture.jsonl",
+  "mixture_rows": 4525,
+  "prompts_in_training": 0,
+  "rows_naming_a_held_out_name": {
+   "arrival_ts": 0,
+   "bike_rentals": 0,
+   "clinic_visits": 0,
+   "hotel_stays": 0,
+   "library_loans": 0,
+   "loaned_ts": 0,
+   "parcel_scans": 0,
+   "pickup_ts": 0,
+   "rented_ts": 0,
+   "ride_trips": 0,
+   "scanned_ts": 0,
+   "visit_ts": 0
+  }
+ },
+ "out": "data/sft/target_a_rr_test/items.jsonl",
+ "out_sha256": "f735ea75b870d2c60e7ea9a995012bd47c7219783b1f40e03cf6884cb1a10649"
+}

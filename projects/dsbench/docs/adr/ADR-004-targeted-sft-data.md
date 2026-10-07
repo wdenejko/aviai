@@ -1159,6 +1159,33 @@ are 468 plain items from the training domains, each (dialect, family) its own dr
      held-out domains;
    - the probe and dsbench (3.6 hours): `da_weekend_delay` is the problem the round is for.
 
+**Revision 2.1, steps 1 and 3 prepared 2026-10-07.** The owner took the proposal: open the line,
+and build the test of the new shapes. Runbooks are in `patches/README.md`, "Revision 2.1" and "The
+recall round's test".
+- **The mixture** (`data/sft/rev2_1_mixture_manifest.json`) uses `assemble_rev2 --bucket-tokens
+  target_a=1200000`. The defaults still rebuild Revision 2 bit for bit.
+  - It holds 4,525 rows and 10,174,379 tokens. Target A has 665 rows; every other pool is
+    Revision 2's, row for row by id.
+  - Its blocks are on the box (`~/benchlab/runs/2026-10-07-qwen36-rev2-1-train/`): 1,251 of 8,192
+    tokens (Revision 2: 1,207), 99.7% full, 8.07M tokens trained. At Revision 2's 24.3 seconds a
+    step, that is about 8 hours 27 minutes.
+- **The round's test** (`target_a_eval round-items`, `data/sft/target_a_rr_test_manifest.json`)
+  has 204 items on the held-out domains.
+  - **Target cells (156 items):** ClickHouse weekend-filtered and workweek, 24 each; DuckDB
+    weekday-numbering 36, and its three weekend families, 24 each.
+  - **Guard cells (48 items):** PostgreSQL's and MySQL's weekend-filtered and workweek, 12 each.
+    DuckDB's rows teach `dayofweek` = Sunday 0, and MySQL's `DAYOFWEEK`, spelled the same,
+    counts Sunday 1. A model that carried DuckDB's numbering over would fail MySQL here.
+  - **The checks:** no test prompt is a prompt of the mixture, and no mixture row names a held-out
+    table or column. The test's tables, recheck tables included, meet none of the Target A
+    test's.
+- **The test runs once per adapter, against the base.**
+  - **Revision 2's adapter can run it now:** how far does Revision 2 already get on the new shapes?
+    dsbench's `da_weekend_delay` says not far, but that was one problem, k = 5.
+  - **Revision 2.1's adapter runs it after its gate.**
+  - Revision 2 against Revision 2.1 then reads the round's effect, and the two base runs check each
+    other across windows.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1498,4 +1525,14 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       **Run 2026-10-07**, two windows (2 hours, then 14 minutes for the 71 workweek items the
       false cut had cut at their first sentence; PR #49): 180 rows train, ClickHouse 78 and DuckDB
       102 (`reports/gate-evals/20261007-target-a-recall-round.md`).
-    - [ ] how the rows train (the owner's decision; "The recall round, run" above).
+    - [x] how the rows train: the owner took the proposal 2026-10-07 (Revision 2.1: Revision
+      2's mixture with Target A's line opened, retrained from the base).
+12. [ ] Revision 2.1 ("The recall round", "Revision 2.1, steps 1 and 3 prepared").
+    - [x] the mixture and its blocks. **Built 2026-10-07**: `assemble_rev2 --bucket-tokens`,
+      4,525 rows, 10.17M tokens, 1,251 blocks on the box.
+    - [x] the round's test. **Built 2026-10-07**: `target_a_eval round-items`, 204 items (156
+      target, 48 guard), staged for Revision 2's adapter.
+    - [ ] the round's test on Revision 2's adapter (about 2 h 15 min; can run before the training).
+    - [ ] the training window (about 8.5 hours).
+    - [ ] the gate (the mini-battery, about 5 hours), then the round's test, the Target A test, the
+      probe and dsbench on Revision 2.1's adapter.

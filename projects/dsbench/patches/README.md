@@ -732,3 +732,112 @@ Run notes, 2026-10-07 (box clock, about 1 h 58 min behind CEST):
     same sandboxes.
 - **The result:** 180 rows train (`reports/gate-evals/20261007-target-a-recall-round.md`).
 
+
+## Revision 2.1: Revision 2 with the recall round's rows (ADR-004, "the recall round")
+
+Revision 2.1 is Revision 2's mixture plus the round's 180 rows. Target A's line is opened
+(`assemble_rev2 --bucket-tokens`) so that the round's rows join Revision 2's instead of displacing
+them. Every other pool keeps Revision 2's rows exactly, because each draws from its own seeded
+generator. The defaults still rebuild Revision 2 bit for bit (sha256 `e92a5b17...`, checked
+2026-10-07).
+
+The mixture, on the Mac. These are Revision 2's inputs in its manifest's order (the order of the
+`--verified` pairs is part of the draw), then the round's two pairs:
+
+```bash
+D=data/sft/target_a_recall_round
+uv run python -m dsbench.sftgen.assemble_rev2 --battery-items data/battery/items --seed 20261002 \
+  --verified data/sft/rev2_tool_prompts.jsonl data/sft/rev2_generation/tools.verified.jsonl \
+  --verified data/sft/rev2_tool_prompts_topup.jsonl data/sft/rev2_generation/tools_topup.verified.jsonl \
+  --verified data/sft/rev2_sql_prompts.jsonl data/sft/rev2_generation/sql.verified.jsonl \
+  --verified data/sft/rev2_prompts.jsonl data/sft/rev2_generation/code.verified.jsonl \
+  --verified data/sft/rev2_prompts.jsonl data/sft/rev2_generation/replay.verified.jsonl \
+  --verified data/sft/rev2_prompts_topup.jsonl data/sft/rev2_generation/replay_topup.verified.jsonl \
+  --verified data/sft/rev2_target_a/ta_cells.jsonl data/sft/rev2_generation/ta_cells.verified.jsonl \
+  --verified data/sft/rev2_target_a/ta_recall.jsonl data/sft/rev2_generation/ta_recall.verified.jsonl \
+  --verified data/sft/rev2_target_a/topup/ta_recall.jsonl data/sft/rev2_generation/ta_recall_topup.verified.jsonl \
+  --trajectories data/sft/rev2_target_c/trajectories.jsonl \
+  --verified $D/rr_recall.same.jsonl $D/rr_recall.rechecked.jsonl \
+  --verified $D/rr_recall_ww.jsonl $D/rr_recall_ww.rechecked.jsonl \
+  --bucket-tokens target_a=1200000 \
+  --out data/sft/rev2_1_mixture.jsonl --report data/sft/rev2_1_mixture_manifest.json
+```
+
+Its blocks, on the box, as Revision 2's were built: CPU only, in the training toolbox, whose venv
+has no dsbench (hence the two modules copied beside each other):
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-07-qwen36-rev2-1-train
+ssh dashi "mkdir -p $R/scripts"
+scp data/sft/rev2_1_mixture.jsonl dashi:$R/mixture.jsonl
+scp data/sft/rev2_1_mixture_manifest.json dashi:$R/mixture_manifest.json
+scp src/dsbench/sftgen/build_masked_dataset.py src/dsbench/sftgen/tokenize_masked.py dashi:$R/scripts/
+ssh dashi "nohup setsid toolbox run -c llama-rocm-unlimited-build bash -lc 'source ~/ftgguf/bin/activate; cd $R/scripts; python build_masked_dataset.py --records ../mixture.jsonl --out ../data_tokenized' > $R/build.log 2>&1 < /dev/null &"
+```
+
+The training, with Revision 2's window (`rev2_train.sh`, deployed as `~/benchlab/scripts/rev2-train/train.sh`).
+The owner stops production; it runs about 8.5 hours. The recipe still carries both patches from
+Revision 2 (checked 2026-10-07), and the window checks them again before it stops anything. The
+trainer writes `$R/out_qwen36_35b_rev2/`: the name is the script's, and the directory is this run's.
+
+```bash
+ssh dashi "ARM=1 MAX_HOURS=12 nohup setsid ~/benchlab/scripts/rev2-train/train.sh $R </dev/null >/dev/null 2>&1 &"
+```
+
+**Prepared 2026-10-07.**
+- **The mixture:** 4,525 rows and 10,174,379 tokens. Its md5 is
+  `322397f89bad94cd60b6b96ac7534a08`, and the manifest is `data/sft/rev2_1_mixture_manifest.json`.
+  - Target A: 665 rows (1,155,368 tokens) under its 1.2M line. These are Revision 2's 466 rows,
+    the 19 its line left out, and the round's 180.
+  - Every other pool is identical to Revision 2's, row for row by id.
+- **Its blocks** (`$R/data_tokenized/`, `build.log`): 1,251 blocks of 8,192 tokens (Revision 2:
+  1,207), 99.7% full, at most 19 rows a block, none rejected or too long.
+  - Against the assembler's counts: 3,861 rows exact (Revision 2's 3,663 and 198 of the round's),
+    462 fewer and 202 more, as in Revision 2.
+  - 8,070,508 tokens train.
+
+## The recall round's test (ADR-004, "the recall round")
+
+The round's cells on the held-out domains (`target_a_eval round-items`, `ROUND_TEST_CELLS`): 204
+items.
+- **The target cells (156 items),** what the round trained:
+  - ClickHouse weekend-filtered and workweek, 24 each;
+  - DuckDB weekday-numbering 36, and weekend-flag, weekend-filtered and workweek, 24 each.
+- **The guard cells (48 items):** PostgreSQL's and MySQL's weekend-filtered and workweek, 12 each.
+  DuckDB's rows teach that `dayofweek` counts Sunday 0, and MySQL's `DAYOFWEEK`, spelled the
+  same, counts it 1.
+- **How it runs:** as the Target A test does (above), paired on one server, with the item's budget
+  of 12,288 tokens. `compare` reads which cells are targets from the items themselves.
+
+```bash
+uv run python -m dsbench.sftgen.target_a_eval round-items --out data/sft/target_a_rr_test/items.jsonl \
+  --report data/sft/target_a_rr_test_manifest.json --mixture data/sft/rev2_1_mixture.jsonl
+```
+
+There are two runs, one per adapter, each against the base.
+- **Revision 2's adapter.** It can run now: it shows how far Revision 2 already gets on the new
+  shapes.
+- **Revision 2.1's adapter,** once trained and exported by its gate.
+
+`compare --base A --adapter B` takes any two states' records. So Revision 2's adapter against
+Revision 2.1's reads the change the round made, and each run's base against the other's is an A/A
+check across windows.
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-07-qwen36-rr-test-rev2
+ssh dashi "mkdir -p $R/items"
+scp data/sft/target_a_rr_test/items.jsonl dashi:$R/items/rr_test.jsonl
+ssh dashi "ARM=1 MAX_HOURS=4 PARITY=1 LORA=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'rr_test:base rr_test:adapter' </dev/null >/dev/null 2>&1 &"
+```
+
+It takes about 2 h 15 min, at the Target A test's 18 seconds an item and state. The checks are the
+Target A test's, with `rr_test` for `ta_test` and `data/sft/target_a_rr_test` for its directory.
+
+**Built 2026-10-07:**
+- 204 items, md5 `96562ea8f49ce46bfb78a53f58252a21`; the manifest is
+  `data/sft/target_a_rr_test_manifest.json`.
+- No generator rejection.
+- None of the items is a prompt of Revision 2.1's mixture, and none of the mixture's 4,525 rows
+  names a held-out table or column.
+- Staged for Revision 2's run in `~/benchlab/runs/2026-10-07-qwen36-rr-test-rev2/` (its README).
+  Not run.

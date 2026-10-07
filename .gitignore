@@ -49,6 +49,9 @@ projects/dsbench/data/sft/rev2_target_a_test/
 # The Target A recall round (target_a_hints recall-round-items): its items, and the replies and
 # checks brought back from the box
 projects/dsbench/data/sft/target_a_recall_round/
+# The recall round's test (target_a_eval round-items): its items, regenerable from the seed (the
+# manifest beside the directory holds their sha256), and the replies and checks from the box
+projects/dsbench/data/sft/target_a_rr_test/
 # SynSQL's SQLite databases, extracted from its databases.zip (sftgen/synsql.py)
 projects/dsbench/data/synsql/
 # A Mac-side window script's own log (patches/rev2_probe_mac.sh): the runs it starts write the
