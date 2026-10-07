@@ -58,7 +58,8 @@ def test_the_hints_hold_on_the_sandboxed_engines():
     engines = {e.name: e for e in available_engines(sandboxed=True)}
     if set(th.DIALECTS) - set(engines):
         pytest.skip("the sandbox's four engines are not all running")
-    assert th.check_hints(engines) == {"clickhouse": 17, "duckdb": 17, "postgres": 17,
+    # DuckDB's 24: its two functions and EXTRACT(DOW), which its recall sentences also name
+    assert th.check_hints(engines) == {"clickhouse": 17, "duckdb": 24, "postgres": 17,
                                        "mysql": 17}
 
 
@@ -78,9 +79,10 @@ def test_the_recall_sentence_states_the_checked_numberings():
     assert mysql.shown == _dow_expr("mysql", "date") and _dow_int("mysql", 6) == 1  # Sunday
 
 
-def test_only_clickhouse_gets_a_prefill():
+@pytest.mark.parametrize("dialect", ["postgres", "mysql"])
+def test_only_clickhouse_and_duckdb_get_a_prefill(dialect):
     with pytest.raises(ValueError):
-        th.recall("duckdb")
+        th.recall(dialect)
 
 
 # --- the citation filter -------------------------------------------------------------------------
@@ -243,14 +245,16 @@ def test_verify_keeps_a_verified_reply_that_does_not_read_as_told(tmp_path, duck
     summary = th.verify(tmp_path / "items.jsonl", tmp_path / "gen.jsonl", tmp_path / "out.jsonl",
                         engines={"duckdb": DuckDBEngine()})
     cell = summary["duckdb/weekend-flag"]
+    # DuckDB's weekend rows have their doubts counted (Sunday = 1 is wrong there too); these
+    # traces state none.
     assert cell["plain"] == {"replies": 4, "verified": 1, "unfinished": 1, "no_reasoning": 1,
                              "error": 1, "cites": 0, "soft_flagged": 0, "kept": 1, "rows": 1,
                              "rows_kept": 1, "reasoning_tokens_median": 40,
-                             "kept_reasoning_tokens_median": 40}
+                             "kept_reasoning_tokens_median": 40, "kept_doubting": 0}
     assert cell["hinted"] == {"replies": 4, "verified": 2, "wrong": 1, "not_sql_only": 1,
                               "cites": 1, "soft_flagged": 1, "kept": 1, "rows": 1,
                               "rows_kept": 1, "reasoning_tokens_median": 40,
-                              "kept_reasoning_tokens_median": 40}
+                              "kept_reasoning_tokens_median": 40, "kept_doubting": 0}
     out = [json.loads(line) for line in (tmp_path / "out.jsonl").open()]
     kept = [r for r in out if r["check"]["kept"]]
     assert all(r["train_messages"] == plain["messages"] for r in kept)  # never the hint
@@ -332,6 +336,10 @@ def test_doubts_are_counted_after_the_prefill_and_only_where_sunday_1_is_wrong()
     assert th.doubt_checked(item)
     assert not th.doubt_checked({"verify": {"dialect": "mysql", "family": "weekend-flag"}})
     assert not th.doubt_checked({"verify": {"dialect": "clickhouse", "family": "month-bucket"}})
+    # DuckDB numbers Sunday 0 (`dayofweek`) or 7 (`isodow`): Sunday = 1 is wrong there too
+    for family in th.RECALL_FAMILIES:
+        assert th.doubt_checked({"verify": {"dialect": "duckdb", "family": family}})
+    assert not th.doubt_checked({"verify": {"dialect": "duckdb", "family": "month-bucket"}})
 
 
 def test_verify_records_doubts_and_leaves_keeping_to_the_assembler(tmp_path, duckdb_pair,
@@ -441,3 +449,85 @@ def test_the_top_up_draws_tables_no_earlier_draw_used():
     assert len(weekdays) == 6 * 34 and len(weekends) == 6 * 7
     assert not (weekdays | weekends) & earlier and not weekdays & weekends
     assert 2 not in th.TOPUP_WORDINGS
+
+
+# --- the recall round (2026-10-07): ClickHouse's weekend shapes, DuckDB --------------------------
+
+
+@pytest.mark.parametrize("wording", range(len(th.DUCKDB_RECALL_WORDINGS)))
+def test_every_duckdb_wording_makes_the_checked_claims(wording):
+    sentence = th.recall("duckdb", wording)
+    for claim in ("`dayofweek(date)`", "`EXTRACT(DOW FROM date)`", "0 for Sunday, 1 for Monday, "
+                  "..., 6 for Saturday", "`isodow(date)`", "1 for Monday, 2 for Tuesday, ..., 7 "
+                  "for Sunday", "ISO", "MySQL's `DAYOFWEEK`", "Sunday = 1"):
+        assert claim in sentence
+    assert "{" not in sentence
+    assert th.doubts(sentence) == []  # its own Sunday = 1 names MySQL
+    # every function it names is checked on the engine, with the numbering it states
+    named = {"dayofweek(date)": "sun0", "EXTRACT(DOW FROM date)": "sun0", "isodow(date)": "iso"}
+    checked = {fn.shown: fn.scheme for fn in th.WEEKDAY_FUNCTIONS["duckdb"] + th.ALIASES["duckdb"]}
+    assert named.items() <= checked.items()
+
+
+def test_the_clickhouse_sentences_are_as_they_were():
+    assert th.recall("clickhouse") == (
+        "In ClickHouse, `toDayOfWeek(date)` (alias `dayOfWeek`) returns 1 for Monday, 2 for "
+        "Tuesday, ..., 7 for Sunday: the ISO numbering. (MySQL's `DAYOFWEEK` is the one that "
+        "starts at Sunday = 1.)")
+    assert th.recall_wordings("clickhouse") == th.RECALL_WORDINGS
+
+
+def test_the_recall_round_draws_each_cell_from_its_own_seed(monkeypatch):
+    from dsbench.sftgen import dialect_conventions, schema
+
+    calls = []
+
+    def fake_generate(*, seed, reps, n, dialects, families, thinking_frac):
+        calls.append((seed, reps, tuple(dialects), tuple(families)))
+        rows = [_row(id=f"A-{f}-{d}-retail_orders-{seed * 100 + r}", family=f, dialect=d)
+                for r in range(reps) for d in dialects for f in families]
+        return rows, {"engines": list(dialects), "rejected": 0}
+
+    monkeypatch.setattr(dialect_conventions, "generate", fake_generate)
+    monkeypatch.setattr(schema, "row_to_dict", lambda row: row)
+    plan = (("clickhouse", "workweek", 2), ("duckdb", "weekday-numbering", 3))
+    items, report = th.build_recall_round_items(seed=50, plan=plan, n=200)
+    assert calls == [(50, 2, ("clickhouse",), ("workweek",)),
+                     (51, 3, ("duckdb",), ("weekday-numbering",))]
+    assert len(items) == 5 == report["items"]
+    assert report["items_by_cell"] == {"clickhouse/workweek": 2, "duckdb/weekday-numbering": 3}
+    for item in items:
+        meta, dialect = item["meta"], item["meta"]["dialect"]
+        assert item["prefill"] == "" and item["max_tokens"] == th.PLAIN_PHASE_TOKENS
+        assert meta["placement"] == "plain" and meta["sample"] == 1
+        assert meta["recall_wording"] in th.RECALL_ROUND_WORDINGS[dialect]
+        assert meta["recall"] == th.recall(dialect, meta["recall_wording"])
+        assert item["id"].startswith("targetA:A-") and item["id"].endswith("#1")
+    assert not any(i["meta"]["recall_wording"] == 2 for i in items
+                   if i["meta"]["dialect"] == "clickhouse")
+    again, _ = th.build_recall_round_items(seed=50, plan=plan, n=200)
+    assert again == items  # the wordings are drawn with a seed
+    with pytest.raises(ValueError, match="no recall"):
+        th.build_recall_round_items(seed=50, plan=(("mysql", "workweek", 1),), n=200)
+
+
+def test_the_recall_round_draws_tables_no_earlier_draw_used():
+    from dsbench.sftgen import synth
+    from dsbench.sftgen.dialect_conventions import table_seed
+
+    def tables(seed, reps):
+        return {table_seed(seed, d, r) for d in range(len(synth.domain_names()))
+                for r in range(reps)}
+
+    def recall_draws(seed, reps):  # build_volume_items: family k draws from seed + 2k
+        return [tables(seed + 2 * k, reps[f]) for k, f in enumerate(th.HINTED_FAMILIES)]
+
+    earlier = (tables(th.SEED, th.PILOT_REPS) | tables(th.PREFILL_SEED, th.PILOT_REPS)
+               | tables(th.VOLUME_SEED + 1, th.CELL_REPS)
+               | set().union(*recall_draws(th.VOLUME_SEED, th.RECALL_REPS))
+               | set().union(*recall_draws(th.TOPUP_SEED, th.TOPUP_RECALL_REPS)))
+    draws = [tables(th.RECALL_ROUND_SEED + k, reps)
+             for k, (_, _, reps) in enumerate(th.RECALL_ROUND_PLAN)]
+    assert not set().union(*draws) & earlier
+    assert sum(map(len, draws)) == 6 * sum(reps for _, _, reps in th.RECALL_ROUND_PLAN) == 468
+

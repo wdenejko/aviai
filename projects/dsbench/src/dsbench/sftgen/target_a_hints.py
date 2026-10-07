@@ -71,6 +71,15 @@ tables and without the wording whose traces doubted the convention most (TOPUP_S
         --battery-items data/battery/items --out-dir data/sft/rev2_target_a/topup \\
         --report data/sft/rev2_target_a_topup_manifest.json
 
+The recall round (2026-10-07, RECALL_ROUND_PLAN) takes the same route to the two gaps the
+targeted tests left: ClickHouse's weekend inside a compound condition, in two new shapes
+(conventions.WeekendFiltered, Workweek), and DuckDB's weekday numbering, with its own sentences
+(DUCKDB_RECALL_WORDINGS):
+
+    uv run python -m dsbench.sftgen.target_a_hints recall-round-items \\
+        --battery-items data/battery/items --out data/sft/target_a_recall_round/ta_plain.jsonl \\
+        --report data/sft/target_a_recall_round_manifest.json
+
 All of them need the sandbox's four engines: docker compose -f sandbox/docker-compose.yml up -d
 --build clickhouse postgres mysql duckdb.
 """
@@ -143,6 +152,36 @@ PLAIN_PHASE_TOKENS = 512
 TOPUP_SEED = 20261005
 TOPUP_RECALL_REPS = {"weekday-numbering": 34, "weekend-flag": 7}
 TOPUP_WORDINGS = (0, 1, 3)
+# The families whose rows carry a weekday numbering, so that a `recall` prefill can state it:
+# Revision 2's two, and the recall round's weekend shapes (conventions.WeekendFiltered, Workweek).
+RECALL_FAMILIES = HINTED_FAMILIES + ("weekend-filtered", "workweek")
+# The recall round (2026-10-07; ADR-004, "After the targeted tests"). The Revision 2 adapter
+# answers ClickHouse's weekdays with ISO, on held-out tables, on the probe and on dsbench, but two
+# gaps remain:
+# - ClickHouse's weekend inside an aggregate: dsbench's da_weekend_delay passed 1 of 5, the
+#   adapter writing `IN (1, 6)`, ISO's Saturday beside the old Sunday;
+# - DuckDB's `dayofweek` (Sunday 0): both the base and the adapter give it MySQL's numbering in a
+#   third of the Target A test's DuckDB weekday and weekend items. Revision 2 trained DuckDB only on
+#   the base's verified replies, which can't fix a mistake the base makes.
+# Both go through `recall`, the route that fixed ClickHouse's weekdays. Each (dialect, family) is
+# its own draw from the training domains. Revision 2's recall kept about 40% of its items once the
+# doubting traces were dropped (the top-up: 101 of 246), so the sizes aim at about 85 ClickHouse
+# weekend rows and 100 DuckDB rows:
+# - ClickHouse: weekend-flag 36 items (its 18 prompts again, from new tables), weekend-filtered
+#   120 and workweek 60, the new shapes taking most;
+# - DuckDB: weekday-numbering 120, weekend-flag 36, weekend-filtered 60, workweek 36.
+# The seed is the date plus ten million. Every earlier draw's table seeds lie between its seed and
+# about 1.1 million past it (table_seed's strides), so all of them sit below 21.4 million, and
+# 20261007 itself was the top-up's weekend draw (TOPUP_SEED + 2). A test checks every one.
+RECALL_ROUND_SEED = 30261007
+RECALL_ROUND_PLAN: tuple[tuple[str, str, int], ...] = (  # (dialect, family, tables per domain)
+    ("clickhouse", "weekend-flag", 6), ("clickhouse", "weekend-filtered", 20),
+    ("clickhouse", "workweek", 10),
+    ("duckdb", "weekday-numbering", 20), ("duckdb", "weekend-flag", 6),
+    ("duckdb", "weekend-filtered", 10), ("duckdb", "workweek", 6),
+)
+# ClickHouse's wording 2 doubted most (85% of its kept traces), so the round draws the top-up's.
+RECALL_ROUND_WORDINGS = {"clickhouse": TOPUP_WORDINGS, "duckdb": (0, 1, 2)}
 
 # --- the hints -----------------------------------------------------------------------------------
 
@@ -184,6 +223,10 @@ WEEKDAY_FUNCTIONS: dict[str, tuple[Function, ...]] = {
 ALIASES: dict[str, tuple[Function, ...]] = {
     "clickhouse": (Function("dayOfWeek(date)", "SELECT dayOfWeek(toDate('{d}'))", "iso",
                             "dayofweek"),),
+    # The recall round (2026-10-07): DuckDB's prefill names EXTRACT(DOW), which the base reaches
+    # for about as often as `dayofweek` (the Target A test's base traces), so it is checked too.
+    "duckdb": (Function("EXTRACT(DOW FROM date)", "SELECT EXTRACT(DOW FROM DATE '{d}')", "sun0",
+                        "dow"),),
 }
 MONTH_FUNCTIONS: dict[str, Function] = {
     "clickhouse": Function("toMonth(date)", "SELECT toMonth(toDate('{d}'))", "month", "tomonth"),
@@ -220,7 +263,7 @@ def hint(family: str, dialect: str) -> str:
 
 def hint_terms(family: str, dialect: str) -> set[str]:
     """Words that tie an "as stated" to the hint rather than to the question."""
-    if family in ("weekday-numbering", "weekend-flag"):
+    if family in RECALL_FAMILIES:
         return {fn.term for fn in WEEKDAY_FUNCTIONS[dialect]} | {"iso"}
     if family == "month-bucket":
         return {MONTH_FUNCTIONS[dialect].term} - {""}
@@ -256,9 +299,35 @@ RECALL_WORDINGS = (
 )
 
 
+# DuckDB's `recall` sentences (the recall round, 2026-10-07). In the Target A test, 19 of the
+# base's 24 DuckDB weekday and weekend traces state that DuckDB's `dayofweek` "returns 1 for
+# Sunday, 7 for Saturday", MySQL's numbering, and 8 of its 9 wrong answers follow from it. DuckDB's
+# `dayofweek` and `EXTRACT(DOW ...)` count Sunday 0 to Saturday 6, and `isodow` is ISO. So these
+# name all three, and say again whose numbering Sunday = 1 is. Like ClickHouse's, every wording
+# makes the same checked claims; there are three, none phrased as ClickHouse's wording 2, whose
+# traces doubted most.
+DUCKDB_RECALL_WORDINGS = (
+    "In {dialect}, `{fn}` (the same as `{alias}`) {returns}, and `{iso}` is the ISO numbering: "
+    "it {iso_returns}. (MySQL's `{mysql}` is the one that starts at Sunday = {mysql_sunday}.)",
+    "Let me recall {dialect}'s numbering: `{fn}`, like `{alias}`, {returns}; `{iso}` "
+    "{iso_returns}, which is ISO. Sunday = {mysql_sunday} is MySQL's `{mysql}`, not {dialect}'s.",
+    "For {dialect}, `{fn}` and `{alias}` {returns_plural}, while `{iso}` follows ISO: it "
+    "{iso_returns}. (It's MySQL's `{mysql}` that counts from Sunday = {mysql_sunday}.)",
+)
+# The dialects a `recall` prefill is written for. PREFILL_DIALECTS stays ClickHouse alone: the
+# pilots and Revision 2's volume draw from it, and must draw what they drew.
+RECALL_DIALECTS = ("clickhouse", "duckdb")
+
+
+def recall_wordings(dialect: str) -> tuple[str, ...]:
+    """The `recall` sentences written for a dialect."""
+    return {"clickhouse": RECALL_WORDINGS, "duckdb": DUCKDB_RECALL_WORDINGS}[dialect]
+
+
 def recall(dialect: str, wording: int = 0) -> str:
     """The convention as a reasoning prefill writes it into the base's own thinking
-    (sftgen/prefill.py), for a weekday or a weekend row, in one of RECALL_WORDINGS.
+    (sftgen/prefill.py), for a weekday or a weekend row, in one of the dialect's wordings
+    (`recall_wordings`).
 
     It reads as the base's own recall, in the register of its plain traces ("`toDayOfWeek`
     returns 1 for Sunday, 2 for Monday, ..., 7 for Saturday"), but right. It names the alias the
@@ -266,8 +335,10 @@ def recall(dialect: str, wording: int = 0) -> str:
     MySQL, so that a base that doubts the sentence has the reason in front of it. Every claim in
     it is one of `hint_checks`.
     """
-    if dialect not in PREFILL_DIALECTS:
+    if dialect not in RECALL_DIALECTS:
         raise ValueError(f"no prefill for {dialect}: the base gets its weekdays right")
+    if dialect == "duckdb":
+        return _duckdb_recall(wording)
     fn, alias = WEEKDAY_FUNCTIONS[dialect][0], ALIASES[dialect][0]
     mysql = WEEKDAY_FUNCTIONS["mysql"][0]
     if not fn.scheme == alias.scheme == "iso":  # every wording calls the numbering ISO
@@ -277,6 +348,18 @@ def recall(dialect: str, wording: int = 0) -> str:
         dialect=DIALECT_DISPLAY[dialect], fn=fn.shown, alias=_name(alias), returns=returns,
         returns_plural="return" + returns.removeprefix("returns"), mysql=_name(mysql),
         mysql_sunday=_SCHEMES[mysql.scheme](6))
+
+
+def _duckdb_recall(wording: int) -> str:
+    fn, iso = WEEKDAY_FUNCTIONS["duckdb"]
+    alias, mysql = ALIASES["duckdb"][0], WEEKDAY_FUNCTIONS["mysql"][0]
+    if not fn.scheme == alias.scheme == "sun0" or iso.scheme != "iso":
+        raise ValueError("DuckDB's weekday numberings are not the ones its wordings state")
+    returns = _returns(fn)
+    return DUCKDB_RECALL_WORDINGS[wording].format(
+        dialect=DIALECT_DISPLAY["duckdb"], fn=fn.shown, alias=alias.shown, iso=iso.shown,
+        returns=returns, returns_plural="return" + returns.removeprefix("returns"),
+        iso_returns=_returns(iso), mysql=_name(mysql), mysql_sunday=_SCHEMES[mysql.scheme](6))
 
 
 def hint_checks(dialect: str) -> list[tuple[str, int]]:
@@ -343,9 +426,12 @@ def after_prefill(item: dict, reasoning: str) -> str:
 
 
 def doubt_checked(item: dict) -> bool:
-    """Whether doubts are counted for an item: ClickHouse's weekday and weekend rows, where Sunday
-    = 1 is the wrong belief. In MySQL's rows it is the right one."""
-    return item["verify"]["dialect"] == "clickhouse" and item["verify"]["family"] in HINTED_FAMILIES
+    """Whether doubts are counted for an item: the weekday and weekend rows of ClickHouse and
+    DuckDB, where Sunday = 1 is the wrong belief (ClickHouse numbers Sunday 7, DuckDB 0 or, in
+    `isodow`, 7). In MySQL's rows it is the right one. DuckDB's since the recall round
+    (2026-10-07)."""
+    return (item["verify"]["dialect"] in RECALL_DIALECTS
+            and item["verify"]["family"] in RECALL_FAMILIES)
 
 
 # --- the citation filter -------------------------------------------------------------------------
@@ -652,6 +738,68 @@ def build_volume_items(*, seed: int = VOLUME_SEED, recall_reps: dict[str, int] |
     return out, report
 
 
+def build_recall_round_items(*, seed: int = RECALL_ROUND_SEED,
+                             plan: tuple[tuple[str, str, int], ...] = RECALL_ROUND_PLAN,
+                             n: int = ROWS_PER_TABLE,
+                             wordings: dict[str, tuple[int, ...]] | None = None,
+                             gate: Callable[[dict], str | None] | None = None
+                             ) -> tuple[list[dict], dict]:
+    """(items, report): the recall round's plain items, one draw a (dialect, family) of `plan`,
+    each from its own seed (seed + its index). An item is answered plain up to
+    PLAIN_PHASE_TOKENS; `prefill.splice` then cuts the reply and writes the dialect's convention
+    there, in a wording drawn per row from `wordings`, and the base continues. As in
+    `build_volume_items`, the plain reply itself never trains."""
+    from dsbench.sftgen.dialect_conventions import generate
+    from dsbench.sftgen.schema import row_to_dict
+
+    wordings = wordings or RECALL_ROUND_WORDINGS
+    rng = random.Random(f"{seed}:recall-round")
+    items: list[dict] = []
+    rejected: Counter[str] = Counter()
+    report: dict = {"seed": seed, "rows_per_table": n, "draws": [],
+                    "wordings": {d: list(w) for d, w in wordings.items()}}
+    for k, (dialect, family, reps) in enumerate(plan):
+        if dialect not in RECALL_DIALECTS or family not in RECALL_FAMILIES:
+            raise ValueError(f"no recall for {dialect}/{family}")
+        rows, generated = generate(seed=seed + k, reps=reps, n=n, dialects=[dialect],
+                                   families=[family], thinking_frac=0.0)
+        if dialect not in generated["engines"]:
+            raise RuntimeError(f"no engine for {dialect}: bring the sandbox up")
+        report["draws"].append({"dialect": dialect, "family": family, "seed": seed + k,
+                                "reps": reps, "rows": len(rows),
+                                "generator_rejected": generated["rejected"]})
+        for row in map(row_to_dict, rows):
+            plain = make_items(row, n, hinted=False)[0]
+            reason = gate(plain) if gate else None  # every item of a row has its training text
+            if reason:
+                rejected[reason.split(" ", 1)[0]] += 1
+                continue
+            choices = wordings[dialect]
+            wording = choices[rng.randrange(len(choices))]
+            meta = {k2: v for k2, v in plain["meta"].items() if k2 not in ("hinted", "teacher")}
+            items.append({
+                **plain, "id": f"{plain['id']}#1", "prefill": "", "max_tokens": PLAIN_PHASE_TOKENS,
+                "meta": {**meta, "sample": 1, "placement": "plain",
+                         "recall": recall(dialect, wording), "recall_wording": wording,
+                         "round": "recall-2026-10-07",
+                         "teacher": "none: the base answers; its reply is cut for the recall "
+                                    "prefill and never trains"}})
+    ids = Counter(i["id"] for i in items)
+    if any(count > 1 for count in ids.values()):
+        raise RuntimeError("two items share an id: two draws met on a table")
+    report["items"] = len(items)
+    report["items_by_cell"] = dict(sorted(Counter(
+        f"{i['meta']['dialect']}/{i['meta']['family']}" for i in items).items()))
+    prompts = {(f"{i['meta']['dialect']}/{i['meta']['family']}", json.dumps(i["messages"]))
+               for i in items}
+    report["prompts_by_cell"] = dict(sorted(Counter(c for c, _ in prompts).items()))
+    report["recall_wordings"] = dict(sorted(Counter(
+        f"{i['meta']['dialect']}:{i['meta']['recall_wording']}" for i in items).items()))
+    report["gate_rejected"] = dict(rejected)
+    report["recall"] = {d: [recall(d, w) for w in wordings[d]] for d in sorted(wordings)}
+    return items, report
+
+
 # --- verify --------------------------------------------------------------------------------------
 
 def check_reply(item: dict, rec: dict) -> tuple[str, str | None, str | None]:
@@ -811,6 +959,11 @@ def main() -> None:
     o.add_argument("--topup", action="store_true",
                    help="the top-up: TOPUP_SEED, TOPUP_RECALL_REPS and TOPUP_WORDINGS, no cells "
                         "(--seed and --cell-reps don't apply)")
+    r = sub.add_parser("recall-round-items",
+                       help="the recall round (2026-10-07): ClickHouse's weekend shapes, DuckDB")
+    r.add_argument("--battery-items", required=True, help="a battery run's items/ dir")
+    r.add_argument("--out", type=Path, required=True)
+    r.add_argument("--report", type=Path, required=True)
     v = sub.add_parser("verify")
     v.add_argument("--items", type=Path, required=True)
     v.add_argument("--gen", type=Path, required=True)
@@ -832,6 +985,19 @@ def main() -> None:
                          "duckdb")
     checked = check_hints(engines)
     gate = strict_gate(args.battery_items)
+    if args.cmd == "recall-round-items":
+        items, report = build_recall_round_items(gate=gate)
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items))
+        args.report.write_text(json.dumps({
+            "params": {"battery_items": args.battery_items,
+                       "plain_phase_tokens": PLAIN_PHASE_TOKENS,
+                       "plan": [list(step) for step in RECALL_ROUND_PLAN]},
+            "hint_checks_passed": checked, **report, "out": str(args.out),
+            "out_sha256": hashlib.sha256(args.out.read_bytes()).hexdigest()}, indent=1) + "\n")
+        print(json.dumps({k: report[k] for k in ("items", "items_by_cell", "gate_rejected")},
+                         indent=1))
+        return
     if args.cmd == "volume-items":
         if args.topup:
             files, report = build_volume_items(seed=TOPUP_SEED, recall_reps=TOPUP_RECALL_REPS,

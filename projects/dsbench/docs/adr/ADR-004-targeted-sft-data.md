@@ -1055,6 +1055,61 @@ minutes.
 The generalisation claim ADR-004 set, that the fine-tune moves both the probe and dsbench, holds
 for the dialect skill.
 
+## After the targeted tests: the recall round (proposed 2026-10-07)
+
+The targeted tests leave two gaps in Target A's skill. Both are mistakes the base makes and the
+adapter kept. The route that fixed ClickHouse's weekdays, `recall` (the convention written into
+the base's own reasoning, where its plain trace first turns to the weekday function), applies to
+both:
+- **ClickHouse's weekend inside a larger query.**
+  - On dsbench's `da_weekend_delay`, the adapter wrote `IN (1, 6)` three times in five: ISO's
+    Saturday beside the old Sunday = 1.
+  - Revision 2's weekend rows were one shape, a bare count, over 18 prompts, and the adapter got
+    every such item right in the Target A test.
+  - So the round adds two shapes (`conventions.WeekendFiltered`, `Workweek`):
+    - the weekend beside a category filter;
+    - its complement, Monday to Friday. That range is 1-5 in ISO and in Sunday = 0, and the old
+      belief moves the whole range to 2-6.
+- **DuckDB's `dayofweek`** numbers Sunday 0, and `isodow` is ISO.
+  - In the Target A test, 19 of the base's 24 DuckDB weekday and weekend traces call `dayofweek`
+    "1 for Sunday, 7 for Saturday", MySQL's numbering. 8 of its 9 wrong answers follow from it.
+  - The adapter is no better (16 of 24), because Revision 2 trained DuckDB only on the base's own
+    verified replies.
+  - DuckDB gets its own three `recall` sentences (`target_a_hints.DUCKDB_RECALL_WORDINGS`). They
+    name `dayofweek`, `EXTRACT(DOW ...)` and `isodow`, and every claim is checked on the engine.
+  - A DuckDB trace that states Sunday = 1 now counts as a doubt, as a ClickHouse one does.
+
+**The items** (`target_a_hints recall-round-items`, `data/sft/target_a_recall_round_manifest.json`)
+are 468 plain items from the training domains, each (dialect, family) its own draw:
+
+| Dialect | Family | Items | Prompts |
+|---|---|---:|---:|
+| ClickHouse | weekend-flag | 36 | 15 |
+| ClickHouse | weekend-filtered | 120 | 58 |
+| ClickHouse | workweek | 60 | 17 |
+| DuckDB | weekday-numbering | 120 | 78 |
+| DuckDB | weekend-flag | 36 | 18 |
+| DuckDB | weekend-filtered | 60 | 40 |
+| DuckDB | workweek | 36 | 17 |
+
+- **What is excluded:**
+  - none is a Target A test prompt (those are on held-out domains);
+  - none fails the battery gate;
+  - no table seed meets an earlier draw's. The round's seed sits past them all; the date itself
+    was the top-up's weekend seed.
+- **The sizing:** Revision 2's recall kept about 40% of its items once the doubting traces were
+  dropped, so 468 items aim at about 85 ClickHouse weekend rows and 100 DuckDB rows. ClickHouse
+  draws only the top-up's wordings.
+- **The checks:** `target_a_hints verify`, then `target_a_eval recheck` on two more tables. The
+  assembler now drops a reply the recheck didn't hold.
+- **The window:** one generation window of about 2 hours, the bare base, the plan `rr_plain
+  splice:rr_plain:rr_recall rr_recall` (`patches/README.md`, "The recall round").
+
+How the rows train is a decision for after they are checked. Retraining from the base on Revision
+2's mixture with them added keeps the data on-policy, as Revision 2 is. The Target A test, the
+probe and dsbench, rerun, would measure the change. A new held-out test of the two new shapes
+would need the held-out domains, which no training row uses.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1386,3 +1441,9 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       **Run 2026-10-06/07**, 3 hours 36 minutes: the probe 25 → 28 of 30 runs, its weekday task
       0 → 4 of 5; dsbench 94 → 103 of 115, `da_cancel_dow` 0 → 5 of 5 ("The training and its
       gate" above).
+11. [ ] The recall round: ClickHouse's weekend shapes and DuckDB ("After the targeted tests").
+    - [x] the items and tooling. **Built 2026-10-07**: two weekend families, DuckDB's `recall`
+      sentences, `recall-round-items` (468 items), DuckDB's doubts counted, and the assembler
+      dropping a reply the recheck didn't hold.
+    - [ ] the generation window (about 2 hours), then the checks on the Mac, with the recheck.
+    - [ ] how the rows train (the owner's decision).

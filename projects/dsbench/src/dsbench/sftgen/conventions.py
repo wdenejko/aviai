@@ -303,10 +303,103 @@ class MonthBucket(Convention):
         )
 
 
+def category_column(domain: Domain) -> str:
+    """A domain's first categorical column other than its city: what WeekendFiltered filters on."""
+    return next(c for c, dt in domain.df.dtypes.items()
+                if _friendly_type(dt) == "text" and c != domain.location_col)
+
+
+class WeekendFiltered(Convention):
+    """The weekend inside a compound condition: the weekend rows of one category.
+
+    Added for the recall round of 2026-10-07 (ADR-004, "After the targeted tests"). The Revision 2
+    adapter answered every ClickHouse weekend count of the Target A test right, but inside an
+    aggregate on dsbench's aviation data (`avgIf(DepDelayMinutes, toDayOfWeek(FlightDate) IN
+    (1, 6))`) it mixed ISO's Saturday with the old Sunday = 1 three times in five. Revision 2's
+    weekend rows were one shape, a bare count, over 18 prompts. Here the weekend condition sits
+    beside another filter.
+    """
+
+    family = "weekend-filtered"
+    tags = ("date", "weekend", "dialect")
+
+    def params(self, rng: np.random.Generator) -> dict:
+        return {"variant": int(rng.integers(0, 3)), "value": int(rng.integers(0, 4))}
+
+    def _value(self, domain: Domain, params: dict) -> str:
+        # Every category occurs in a table of 1,500 rows, so this is the domain's own list.
+        values = sorted(domain.df[category_column(domain)].unique())
+        return str(values[params["value"] % len(values)])
+
+    def truth(self, domain: Domain, params: dict) -> int:
+        df = domain.df
+        weekend = df[domain.ts_col].dt.dayofweek >= 5  # Sat=5, Sun=6
+        return int((weekend & (df[category_column(domain)] == self._value(domain, params))).sum())
+
+    def question(self, domain: Domain, params: dict) -> str:
+        col, lab, cat = domain.ts_col, domain.label, category_column(domain)
+        value = self._value(domain, params)
+        return [
+            (f"How many {lab} with {cat} '{value}' fall on a weekend (Saturday or Sunday), "
+             f"according to {col}?"),
+            f"Count the {lab} whose {cat} is '{value}' and whose {col} is a Saturday or a Sunday.",
+            (f"Among the {lab} with {cat} = '{value}', how many have a {col} on the weekend "
+             f"(Sat or Sun)?"),
+        ][params["variant"]]
+
+    def sql(self, domain: Domain, dialect: str, params: dict) -> str:
+        expr = _dow_expr(dialect, domain.ts_col)
+        sat, sun = _dow_int(dialect, 5), _dow_int(dialect, 6)
+        return (f"SELECT count(*) FROM {domain.name} WHERE {expr} IN ({sat}, {sun}) "
+                f"AND {category_column(domain)} = '{self._value(domain, params)}'")
+
+    def thinking(self, dialect: str, params: dict) -> str:
+        sat, sun = _dow_int(dialect, 5), _dow_int(dialect, 6)
+        return (f"In {DIALECT_DISPLAY[dialect]}, Saturday = {sat} and Sunday = {sun}, so the "
+                f"weekend is IN ({sat}, {sun}), beside the category's own filter.")
+
+
+class Workweek(Convention):
+    """The weekend's complement, Monday to Friday. It is contiguous in every numbering, but where:
+    ISO and Sunday = 0 both give 1-5, and MySQL's Sunday = 1 gives 2-6, so the old belief moves
+    the whole range by a day. Added with WeekendFiltered."""
+
+    family = "workweek"
+    tags = ("date", "weekend", "dialect")
+
+    def params(self, rng: np.random.Generator) -> dict:
+        return {"variant": int(rng.integers(0, 3))}
+
+    def truth(self, domain: Domain, params: dict) -> int:
+        return int((domain.df[domain.ts_col].dt.dayofweek <= 4).sum())  # Mon=0 .. Fri=4
+
+    def question(self, domain: Domain, params: dict) -> str:
+        col, lab = domain.ts_col, domain.label
+        return [
+            f"How many {lab} fall on a weekday (Monday to Friday), according to {col}?",
+            f"Count the {lab} whose {col} is a working day, Monday through Friday.",
+            f"Leaving out weekends, how many {lab} have a {col} from Monday to Friday?",
+        ][params["variant"]]
+
+    def sql(self, domain: Domain, dialect: str, params: dict) -> str:
+        expr = _dow_expr(dialect, domain.ts_col)
+        mon, fri = _dow_int(dialect, 0), _dow_int(dialect, 4)
+        return f"SELECT count(*) FROM {domain.name} WHERE {expr} BETWEEN {mon} AND {fri}"
+
+    def thinking(self, dialect: str, params: dict) -> str:
+        mon, fri = _dow_int(dialect, 0), _dow_int(dialect, 4)
+        return (f"In {DIALECT_DISPLAY[dialect]}, Monday = {mon} and Friday = {fri}, so the "
+                f"workweek is BETWEEN {mon} AND {fri}.")
+
+
+# The families Revisions 1 and 2 drew. generate() draws these when it is given no families, and in
+# this order, so the draws made before WeekendFiltered and Workweek existed are made again exactly.
 ALL_CONVENTIONS: tuple[Convention, ...] = (
     WeekdayNumbering(), WeekendFlag(), TimezoneDirection(), MonthBucket(),
 )
+# The recall round's weekend families (2026-10-07): drawn only when named.
+WEEKEND_CONVENTIONS: tuple[Convention, ...] = (WeekendFiltered(), Workweek())
 
 
 def conventions_by_family() -> dict[str, Convention]:
-    return {c.family: c for c in ALL_CONVENTIONS}
+    return {c.family: c for c in ALL_CONVENTIONS + WEEKEND_CONVENTIONS}

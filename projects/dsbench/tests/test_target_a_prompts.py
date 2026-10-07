@@ -11,7 +11,12 @@ import re
 
 import numpy as np
 from dsbench.sftgen import synth
-from dsbench.sftgen.conventions import ALL_CONVENTIONS, DIALECT_DISPLAY
+from dsbench.sftgen.conventions import (
+    ALL_CONVENTIONS,
+    DIALECT_DISPLAY,
+    WEEKEND_CONVENTIONS,
+    conventions_by_family,
+)
 from dsbench.sftgen.dialect_conventions import generate
 from dsbench.sftgen.schema import row_to_dict
 
@@ -19,7 +24,7 @@ from dsbench.sftgen.schema import row_to_dict
 def test_no_prompt_asks_for_a_number():
     domain = synth.build("web_sessions", seed=5, n=50)
     rng = np.random.default_rng(0)
-    for conv in ALL_CONVENTIONS:
+    for conv in conventions_by_family().values():  # the recall round's families too
         for dialect in DIALECT_DISPLAY:
             assert conv.system(domain, dialect).endswith("in a ```sql code block.")
         for _ in range(20):
@@ -41,9 +46,25 @@ def test_no_question_reads_as_a_grouping():
     # "How many orders fall on a weekend, by order_ts?" was answered with GROUP BY order_ts: a
     # count per timestamp, where the question wants one total (the Target A hints pilot).
     rng = np.random.default_rng(3)
-    for conv in ALL_CONVENTIONS:
+    for conv in conventions_by_family().values():  # the recall round's families too
         for name in synth.domain_names():
             domain = synth.build(name, 1, 50)
             for _ in range(12):  # every variant, by the variant draws' spread
                 question = conv.question(domain, conv.params(rng))
                 assert not re.search(r"\bby\b", question), question
+
+
+def test_with_no_families_named_the_generator_draws_revision_2_s_four():
+    # The draws a seed made before the recall round's families existed are made again exactly.
+    rows, _ = generate(seed=11, reps=1, n=300, dialects=["duckdb"])
+    assert {row_to_dict(r)["family"] for r in rows} == {c.family for c in ALL_CONVENTIONS}
+
+
+def test_the_weekend_families_answer_with_the_sql_that_returns_the_truth():
+    families = [c.family for c in WEEKEND_CONVENTIONS]
+    rows, report = generate(seed=11, reps=2, n=300, dialects=["duckdb"], families=families)
+    assert report["rejected"] == 0 and report["by_family"] == {f: 12 for f in families}
+    questions = {row_to_dict(r)["turns"][1]["content"] for r in rows}
+    assert any("'" in q and "weekend" in q for q in questions)  # a category value, quoted
+    assert any("Monday" in q and "Friday" in q for q in questions)
+

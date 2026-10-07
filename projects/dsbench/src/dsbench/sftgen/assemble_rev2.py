@@ -120,6 +120,11 @@ def passed(rec: dict, gsm8k: str = "gold", target_a_doubts: str = "drop") -> boo
         return bool(check.get("finished"))
     if target_a_doubts == "drop" and check.get("doubts"):
         return False
+    # A Target A reply rechecked on more tables of its domain (target_a_eval recheck) that matched
+    # its own table's count by chance: its SQL counts something else (ADR-004, "The training and
+    # its gate"). A record never rechecked passes on its own check, as before.
+    if (check.get("recheck") or {}).get("held") is False:
+        return False
     return bool(check["ok"] if "ok" in check else check.get("kept"))
 
 
