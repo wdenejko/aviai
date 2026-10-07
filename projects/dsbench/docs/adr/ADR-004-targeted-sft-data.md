@@ -1105,6 +1105,22 @@ are 468 plain items from the training domains, each (dialect, family) its own dr
 - **The window:** one generation window of about 2 hours, the bare base, the plan `rr_plain
   splice:rr_plain:rr_recall rr_recall` (`patches/README.md`, "The recall round").
 
+**A false cut, found during the run (2026-10-07).**
+- **What happened:** the cut's pattern took the prose "on a weekday (Monday to Friday)" for
+  MySQL's `WEEKDAY(`. The workweek prompts make the base restate that phrase in its first
+  sentence.
+- **The effect:** 71 of the 96 workweek items (41 ClickHouse, 30 DuckDB) were cut there, before the
+  trace had turned to any function. In them the convention opened the trace. That is a `start`
+  prefill, the placement decision 2 turned down. Once it even followed a heading, "**Understand
+  User Goal**:".
+- **The fix:** `prefill._FUNCTION` now counts `WEEKDAY(` only as code. Re-cut from the same plain
+  replies:
+  - the 71 fall on a real function (`toDayOfWeek`, `dayOfWeek`, `dow`);
+  - none of the other 397 moves, and none loses its cut.
+- **The second window:** `prefill recut` splits the splice so that the 397's replies stand. The 71
+  are answered again in a short second window, `rr_recall_ww`. Their first replies are not used.
+- **Revision 2 is not affected:** its 768 recall cuts all fell on `dayOfWeek` or `toDayOfWeek`.
+
 How the rows train is a decision for after they are checked. Retraining from the base on Revision
 2's mixture with them added keeps the data on-policy, as Revision 2 is. The Target A test, the
 probe and dsbench, rerun, would measure the change. A new held-out test of the two new shapes
