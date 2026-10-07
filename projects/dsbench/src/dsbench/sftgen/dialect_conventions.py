@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 
 from dsbench.sftgen import synth
-from dsbench.sftgen.conventions import conventions_by_family
+from dsbench.sftgen.conventions import ALL_CONVENTIONS, conventions_by_family
 from dsbench.sftgen.engines import available_engines
 from dsbench.sftgen.schema import (
     Provenance,
@@ -77,7 +77,9 @@ def generate(
     # Target A test passes the held-out ones (synth.held_out_domain_names).
     rng = np.random.default_rng(seed)
     conv_map = conventions_by_family()
-    convs = [conv_map[f] for f in (families or list(conv_map))]
+    # No families: Revisions 1 and 2's four, in their order (conventions.ALL_CONVENTIONS), so a
+    # family added since doesn't change the draws a seed makes.
+    convs = [conv_map[f] for f in (families or [c.family for c in ALL_CONVENTIONS])]
     domains = domains or synth.domain_names()
     engines = available_engines(only=dialects)
 

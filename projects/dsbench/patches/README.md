@@ -648,3 +648,51 @@ with no server behind it. The Mac checked its prerequisites, found the hold and 
 found no server, and on the way out it closed the tunnel, logged that the scale couldn't be reset,
 and released the hold.
 
+## The recall round (ADR-004, "After the targeted tests")
+
+The recall round has 468 plain items: ClickHouse's weekend shapes and DuckDB's weekday numbering
+(`target_a_hints recall-round-items`). They go through Revision 2's route, in one window of
+`rev2_generate_window.sh` with the bare base (no `LORA`):
+1. the plain phase (512 tokens a reply);
+2. the splice, which writes each dialect's convention where the trace first turns to the weekday
+   function;
+3. the recall continuation.
+
+The items, on the Mac:
+
+```bash
+uv run python -m dsbench.sftgen.target_a_hints recall-round-items --battery-items data/battery/items \
+  --out data/sft/target_a_recall_round/ta_plain.jsonl --report data/sft/target_a_recall_round_manifest.json
+```
+
+Stage them. The window script and `src/` are the ones the Target A test deployed (main since PR
+#44). The round's code is newer, so sync `src/` again:
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-07-qwen36-ta-recall-round
+ssh dashi "mkdir -p $R/items"
+rsync -a --exclude __pycache__ src/ dashi:benchlab/scripts/rev2-gen/src/
+scp data/sft/target_a_recall_round/ta_plain.jsonl dashi:$R/items/rr_plain.jsonl
+```
+
+Launch (the owner stops production; about 2 hours):
+
+```bash
+ssh dashi "ARM=1 MAX_HOURS=4 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'rr_plain splice:rr_plain:rr_recall rr_recall' </dev/null >/dev/null 2>&1 &"
+```
+
+The checks, on the Mac. Copy back `$R/gen/` and the spliced `$R/items/rr_recall.jsonl` into
+`data/sft/target_a_recall_round/`, then:
+
+```bash
+D=data/sft/target_a_recall_round
+uv run python -m dsbench.sftgen.target_a_hints verify --items $D/rr_recall.jsonl \
+  --gen $D/gen/rr_recall.jsonl --out $D/rr_recall.verified.jsonl
+uv run python -m dsbench.sftgen.target_a_eval recheck --items $D/rr_recall.jsonl \
+  --verified $D/rr_recall.verified.jsonl --out $D/rr_recall.rechecked.jsonl
+```
+
+A row trains when it verified, held on the recheck, and states no Sunday = 1. ClickHouse's and
+DuckDB's doubts are counted, and the assembler drops both the doubting rows and the ones the
+recheck didn't hold.
+

@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 from dsbench.sftgen import engines as eng_mod
 from dsbench.sftgen import synth
-from dsbench.sftgen.conventions import ALL_CONVENTIONS
+from dsbench.sftgen.conventions import conventions_by_family
 
 RUNNER = Path(__file__).parents[1] / "sandbox" / "duckdb" / "runner.py"
 
@@ -84,7 +84,7 @@ def test_every_familys_gold_sql_returns_the_truth(cls):
     engine.setup()
     try:
         engine.load(domain.name, domain.df)
-        for conv in ALL_CONVENTIONS:
+        for conv in conventions_by_family().values():  # the recall round's families too
             for _ in range(3):
                 params = conv.params(rng)
                 sql = conv.sql(domain, engine.name, params)

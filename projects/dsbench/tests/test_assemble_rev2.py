@@ -89,6 +89,16 @@ def test_target_a_s_doubting_traces_follow_decision_2():
     assert ar.passed(plain_cell)  # no doubts are counted where Sunday = 1 isn't the wrong belief
 
 
+def test_a_target_a_count_that_matched_by_chance_is_dropped():
+    # target_a_eval recheck: right on its own table, wrong on two more of its domain
+    lucky = {"pool": "targetA_recall", "check": {"status": "verified", "kept": True, "doubts": 0,
+                                                 "recheck": {"held": False}}}
+    held = {"pool": "targetA_recall", "check": {"status": "verified", "kept": True, "doubts": 0,
+                                                "recheck": {"held": True}}}
+    assert not ar.passed(lucky) and not ar.passed(lucky, target_a_doubts="keep")
+    assert ar.passed(held)
+
+
 def _loop():
     call = {"type": "function", "function": {"name": "get_time", "arguments": '{"city": "Oslo"}'}}
     messages = [
