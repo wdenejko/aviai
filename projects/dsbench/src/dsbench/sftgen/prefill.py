@@ -30,6 +30,12 @@ replies. The items, the convention's sentence and its checks are in `target_a_hi
 
     python -m dsbench.sftgen.prefill splice --items <phase-1 items> --gen <phase-1 replies> \\
         --out <recall items>
+
+After a fix to the cut, `recut` splits a recall phase that already ran into the items whose
+prefill stays (their replies stand) and the ones to generate again:
+
+    python -m dsbench.sftgen.prefill recut --items <phase-1 items> --gen <phase-1 replies> \\
+        --previous <the generated recall items> --same <kept> --changed <to generate again>
 """
 from __future__ import annotations
 
@@ -44,7 +50,13 @@ from dsbench.sftgen.reasoning_pilot import latest_rows
 _DAY = r"(?:mon|tues|wednes|thurs|fri|satur|sun)day"
 # Where the base turns to the weekday function. ClickHouse's `toDayOfWeek` and its alias
 # `dayOfWeek` are what it writes; the other dialects' names are here in case it reaches for one.
-_FUNCTION = re.compile(r"\b(?:to)?(?:iso)?day_?of_?week\b|\bisodow\b|\bdow\b|\bweekday\s*\(",
+# MySQL's `WEEKDAY(` counts only as code: written straight onto its parenthesis, which doesn't
+# open a day name. Its prose twin, "on a weekday (Monday to Friday)", is how the base restates the
+# recall round's workweek prompts, in its first sentence: when `\s*` allowed the space, the cut
+# fell there in 71 of the 96 workweek traces, before the trace had turned to any function, and
+# the convention opened the trace (ADR-004, "the recall round").
+_FUNCTION = re.compile(r"\b(?:to)?(?:iso)?day_?of_?week\b|\bisodow\b|\bdow\b"
+                       r"|\bweekday\((?!\s*(?:mon|tue|wed|thu|fri|sat|sun))",
                        re.IGNORECASE)
 # ...or where it states a numbering, with no function named: "Sunday=1", "1 for Sunday", "where
 # 1 is Sunday", "Saturday is day 7", "Sun = 1".
@@ -136,6 +148,34 @@ def splice_all(items: list[dict], records: list[dict]) -> tuple[list[dict], dict
     return out, dict(counts)
 
 
+def recut(previous: list[dict], current: list[dict]) -> tuple[list[dict], list[dict], dict]:
+    """(the items of a generated splice whose prefill the current cut keeps, the items it cuts
+    elsewhere or newly finds a place in, counts), for a fix to `cut` after the recall phase ran.
+    The replies to the kept items stand. The changed ones are generated again under a step of
+    their own, so no id is in both files and the assembler reads each once. An item the current
+    cut finds no place in is counted as lost."""
+    now = {i["id"]: i for i in current}
+    same, changed = [], []
+    counts: Counter[str] = Counter()
+    for item in previous:
+        new = now.pop(item["id"], None)
+        if new is None:
+            counts["lost"] += 1
+        elif new["prefill"] == item["prefill"]:
+            counts["same"] += 1
+            same.append(item)
+        else:
+            counts["changed"] += 1
+            changed.append(new)
+    counts["new"] += len(now)
+    changed += now.values()
+    return same, changed, dict(counts)
+
+
+def _write(path: Path, items: list[dict]) -> None:
+    path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -143,12 +183,26 @@ def main() -> None:
     s.add_argument("--items", type=Path, required=True)
     s.add_argument("--gen", type=Path, required=True)
     s.add_argument("--out", type=Path, required=True)
+    r = sub.add_parser("recut", help="after a fix to the cut: split a generated splice into the "
+                                     "items it keeps and the ones to generate again")
+    r.add_argument("--items", type=Path, required=True, help="the plain phase's items")
+    r.add_argument("--gen", type=Path, required=True, help="the plain phase's replies")
+    r.add_argument("--previous", type=Path, required=True, help="the splice that was generated")
+    r.add_argument("--same", type=Path, required=True, help="its items the current cut keeps")
+    r.add_argument("--changed", type=Path, required=True, help="the items to generate again")
     args = ap.parse_args()
     items = [json.loads(line) for line in args.items.open()]
     records = list(latest_rows(args.gen).values())  # a torn line skipped, retries resolved
     spliced, counts = splice_all(items, records)
-    args.out.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in spliced))
-    print(json.dumps(counts))
+    if args.cmd == "splice":
+        _write(args.out, spliced)
+        print(json.dumps(counts))
+        return
+    previous = [json.loads(line) for line in args.previous.open()]
+    same, changed, recounts = recut(previous, spliced)
+    _write(args.same, same)
+    _write(args.changed, changed)
+    print(json.dumps(recounts))
 
 
 if __name__ == "__main__":

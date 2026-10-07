@@ -681,18 +681,39 @@ Launch (the owner stops production; about 2 hours):
 ssh dashi "ARM=1 MAX_HOURS=4 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R 'rr_plain splice:rr_plain:rr_recall rr_recall' </dev/null >/dev/null 2>&1 &"
 ```
 
-The checks, on the Mac. Copy back `$R/gen/` and the spliced `$R/items/rr_recall.jsonl` into
-`data/sft/target_a_recall_round/`, then:
+The run's false cut (ADR-004, "the recall round"): the first window's splice cut 71 workweek
+traces at the prose "weekday (Monday to Friday)". With the cut fixed, `recut` splits that splice.
+The 397 items whose prefill stays keep their replies. The 71 re-cut ones are answered in a second
+window, armed while the first ran: ARM=1 waits while any llama-server but OCR's is up, so it
+starts once the first window has ended and OCR is back.
 
 ```bash
 D=data/sft/target_a_recall_round
-uv run python -m dsbench.sftgen.target_a_hints verify --items $D/rr_recall.jsonl \
-  --gen $D/gen/rr_recall.jsonl --out $D/rr_recall.verified.jsonl
-uv run python -m dsbench.sftgen.target_a_eval recheck --items $D/rr_recall.jsonl \
-  --verified $D/rr_recall.verified.jsonl --out $D/rr_recall.rechecked.jsonl
+scp dashi:$R/gen/rr_plain.jsonl $D/gen/rr_plain.jsonl
+scp dashi:$R/items/rr_recall.jsonl $D/rr_recall.jsonl
+uv run python -m dsbench.sftgen.prefill recut --items $D/ta_plain.jsonl --gen $D/gen/rr_plain.jsonl \
+  --previous $D/rr_recall.jsonl --same $D/rr_recall.same.jsonl --changed $D/rr_recall_ww.jsonl
+scp $D/rr_recall_ww.jsonl dashi:$R/items/rr_recall_ww.jsonl
+ssh dashi "ARM=1 MAX_HOURS=1 nohup setsid ~/benchlab/scripts/rev2-gen/window.sh $R rr_recall_ww </dev/null >/dev/null 2>&1 &"
+```
+
+The checks, on the Mac. Copy back `$R/gen/rr_recall.jsonl` and `$R/gen/rr_recall_ww.jsonl` into
+`$D/gen/`, then verify and recheck each half against its own items. `verify` reads only the
+replies whose id is in its items, so the 71 first replies drop out here:
+
+```bash
+for half in rr_recall.same:rr_recall rr_recall_ww:rr_recall_ww; do
+  items=$D/${half%%:*}.jsonl gen=$D/gen/${half##*:}.jsonl out=$D/${half##*:}
+  uv run python -m dsbench.sftgen.target_a_hints verify --items $items --gen $gen \
+    --out $out.verified.jsonl
+  uv run python -m dsbench.sftgen.target_a_eval recheck --items $items \
+    --verified $out.verified.jsonl --out $out.rechecked.jsonl
+done
 ```
 
 A row trains when it verified, held on the recheck, and states no Sunday = 1. ClickHouse's and
 DuckDB's doubts are counted, and the assembler drops both the doubting rows and the ones the
-recheck didn't hold.
+recheck didn't hold. It reads the round as two pairs, whose ids don't overlap:
+`--verified $D/rr_recall.same.jsonl $D/rr_recall.rechecked.jsonl` and
+`--verified $D/rr_recall_ww.jsonl $D/rr_recall_ww.rechecked.jsonl`.
 

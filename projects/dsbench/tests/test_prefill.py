@@ -42,6 +42,16 @@ def _cut_text(text: str) -> str | None:
      "I'll use toDayOfWeek(order_ts) = 7."),
     ("toDayOfWeek returns 1 for Sunday.", "toDayOfWeek returns 1 for Sunday."),
     ("Count the rows that fall on a weekend, with a date function.", None),
+    # A workweek prompt restated: "weekday (Monday to Friday)" is prose, not MySQL's WEEKDAY().
+    # From the recall round's plain ClickHouse traces, where the cut once fell on it.
+    ("The user wants orders that fall on a weekday (Monday to Friday).\nIn ClickHouse, I can use "
+     "`toDayOfWeek(order_ts)` which returns a number from 1 to 7, where 1 is Sunday.",
+     "In ClickHouse, I can use `toDayOfWeek(order_ts)`"),
+    ("Count tickets opened on a weekday(Mon-Fri). DuckDB's `dayofweek` gives 0 for Sunday.",
+     "DuckDB's `dayofweek` gives 0 for Sunday."),
+    # MySQL's own function, written as code, still counts.
+    ("Count them.\nIn MySQL, WEEKDAY(order_ts) returns 0 for Monday.",
+     "In MySQL, WEEKDAY(order_ts) returns 0 for Monday."),
 ])
 def test_the_cut_is_the_sentence_that_first_turns_to_the_weekday(trace, rest):
     got = _cut_text(trace)
@@ -98,3 +108,39 @@ def test_the_splice_command_reads_a_resumed_phase_with_a_torn_last_line(tmp_path
                                       str(gen), "--out", str(out)])
     prefill.main()
     assert [json.loads(line)["id"] for line in out.open()] == [f"targetA_recall:{ROW}#1"]
+
+
+def test_recut_keeps_the_items_whose_prefill_stays_and_regenerates_the_rest():
+    def item(sample: int, prefill_text: str) -> dict:
+        return {"id": f"targetA_recall:{ROW}#{sample}", "prefill": prefill_text,
+                "meta": {"cut_chars": sample}}
+    previous = [item(1, "Plan. RECALL."), item(2, "RECALL."), item(3, "Go. RECALL.")]
+    current = [item(1, "Plan. RECALL."), item(2, "Restated. RECALL."), item(4, "New. RECALL.")]
+    same, changed, counts = prefill.recut(previous, current)
+    assert same == [previous[0]]  # its reply stands
+    assert [i["id"] for i in changed] == [f"targetA_recall:{ROW}#2", f"targetA_recall:{ROW}#4"]
+    assert changed[0]["prefill"] == "Restated. RECALL."  # the current cut's item, not the old one
+    assert counts == {"same": 1, "changed": 1, "lost": 1, "new": 1}
+
+
+def test_the_recut_command_splits_a_generated_splice(tmp_path, monkeypatch):
+    items, gen = tmp_path / "items.jsonl", tmp_path / "gen.jsonl"
+    previous, same, changed = (tmp_path / n for n in ("prev.jsonl", "same.jsonl", "changed.jsonl"))
+    items.write_text("".join(json.dumps(i) + "\n" for i in (_plain(1), _plain(2))))
+    gen.write_text(
+        json.dumps({"id": f"targetA:{ROW}#1", "error": "",
+                    "reasoning": "Plan. toDayOfWeek is 1 for Sunday."}) + "\n"
+        + json.dumps({"id": f"targetA:{ROW}#2", "error": "",
+                      "reasoning": "Orders on a weekday (Monday to Friday). Use toDayOfWeek."})
+        + "\n")
+    # What the old cut made of them: #2 cut at its first sentence, on "weekday (".
+    old = [prefill.splice(_plain(1), {"reasoning": "Plan. toDayOfWeek is 1 for Sunday."}),
+           {**prefill.splice(_plain(2), {"reasoning": "Use toDayOfWeek."}), "prefill": "RECALL."}]
+    previous.write_text("".join(json.dumps(i) + "\n" for i in old))
+    monkeypatch.setattr(sys, "argv", ["prefill", "recut", "--items", str(items), "--gen", str(gen),
+                                      "--previous", str(previous), "--same", str(same),
+                                      "--changed", str(changed)])
+    prefill.main()
+    assert [json.loads(line) for line in same.open()] == [old[0]]
+    (new,) = [json.loads(line) for line in changed.open()]
+    assert new["prefill"] == "Orders on a weekday (Monday to Friday). RECALL."
