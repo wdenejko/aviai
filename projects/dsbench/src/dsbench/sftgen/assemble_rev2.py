@@ -71,7 +71,10 @@ from dsbench.sftgen.reasoning_pilot import latest_rows
 
 SEED = 20261002
 BLOCK = 8192
-# ADR-004 Revision 2's table: tokens per line, whole rows, 10M in all.
+# ADR-004 Revision 2's table: tokens per line, whole rows, 10M in all. `--bucket-tokens` changes a
+# line for one assembly and leaves the rest as they are. Revision 2.1 opens Target A's line, so the
+# recall round's rows join Revision 2's instead of displacing them (ADR-004, "the recall round").
+# Every pool draws from its own seeded generator, so the other lines keep Revision 2's rows exactly.
 BUCKET_TOKENS = {"target_a": 800_000, "sql": 1_000_000, "target_c": 1_000_000,
                  "tool_fit": 400_000, "tool_decline": 300_000, "code": 2_500_000,
                  "replay": 4_000_000}
@@ -105,11 +108,27 @@ def pool_of(row_pool: str) -> str:
     return "targetA" if row_pool.startswith("targetA") else row_pool
 
 
-def budget(pool: Pool, pools: tuple[Pool, ...], scale: float = 1.0) -> int:
+def budget(pool: Pool, pools: tuple[Pool, ...], scale: float = 1.0,
+           buckets: dict[str, int] | None = None) -> int:
+    """A pool's tokens: its line's (`buckets`, default BUCKET_TOKENS), times the scale, split over
+    the line by the shares."""
     total = sum(p.share for p in pools if p.bucket == pool.bucket)
     if pool.share <= 0 or total <= 0:
         return 0
-    return round(BUCKET_TOKENS[pool.bucket] * scale * pool.share / total)
+    return round((buckets or BUCKET_TOKENS)[pool.bucket] * scale * pool.share / total)
+
+
+def bucket_tokens(overrides: list[str]) -> dict[str, int]:
+    """BUCKET_TOKENS with the `--bucket-tokens LINE=N` overrides applied."""
+    out = dict(BUCKET_TOKENS)
+    for spec in overrides:
+        line, _, tokens = spec.partition("=")
+        if line not in BUCKET_TOKENS:
+            raise SystemExit(f"unknown line {line!r}: one of {sorted(BUCKET_TOKENS)}")
+        if not tokens.isdigit():
+            raise SystemExit(f"--bucket-tokens {spec!r}: give a whole number of tokens")
+        out[line] = int(tokens)
+    return out
 
 
 def passed(rec: dict, gsm8k: str = "gold", target_a_doubts: str = "drop") -> bool:
@@ -216,7 +235,8 @@ def select(rows: list[Row], target: int, rng: random.Random) -> list[Row]:
 
 def assemble(rows: list[Row], read: Counter, deny: DenyList | None, *,
              pools: tuple[Pool, ...] = POOLS, scale: float = 1.0, seed: int = SEED,
-             block: int = BLOCK) -> tuple[list[dict], dict]:
+             block: int = BLOCK, buckets: dict[str, int] | None = None
+             ) -> tuple[list[dict], dict]:
     """(the mixture's records, shuffled; the manifest's pool and total sections)."""
     by_pool: dict[str, list[Row]] = defaultdict(list)
     for row in rows:
@@ -228,7 +248,7 @@ def assemble(rows: list[Row], read: Counter, deny: DenyList | None, *,
     mixture: list[dict] = []
     report = []
     for pool in pools:
-        target = budget(pool, pools, scale)
+        target = budget(pool, pools, scale, buckets)
         candidates, over, uncounted = [], 0, 0
         contaminated: Counter[str] = Counter()
         below_line = 0
@@ -272,15 +292,15 @@ def assemble(rows: list[Row], read: Counter, deny: DenyList | None, *,
     random.Random(seed).shuffle(mixture)
 
     total = sum(entry["tokens"] for entry in report)
-    buckets: dict[str, dict] = {}
+    lines: dict[str, dict] = {}
     for entry in report:
-        b = buckets.setdefault(entry["bucket"], {"budget": 0, "tokens": 0, "reply_tokens": 0,
-                                                 "rows": 0})
+        b = lines.setdefault(entry["bucket"], {"budget": 0, "tokens": 0, "reply_tokens": 0,
+                                               "rows": 0})
         for key in ("budget", "tokens", "reply_tokens", "rows"):
             b[key] += entry[key]
-    for b in buckets.values():
+    for b in lines.values():
         b["pct_of_mixture"] = round(100 * b["tokens"] / total, 1) if total else 0.0
-    return mixture, {"pools": report, "buckets": buckets,
+    return mixture, {"pools": report, "buckets": lines,
                      "total": {"rows": len(mixture), "tokens": total,
                                "reply_tokens": sum(e["reply_tokens"] for e in report),
                                "budget": sum(e["budget"] for e in report)}}
@@ -305,6 +325,8 @@ def main() -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--scale", type=float, default=1.0, help="all budgets times this (decision 1)")
+    ap.add_argument("--bucket-tokens", action="append", default=[], metavar="LINE=N",
+                    help="one line's tokens instead of the table's, e.g. target_a=1200000")
     ap.add_argument("--share", action="append", default=[], metavar="POOL=W",
                     help="a pool's share of its line (decision 6), e.g. flan_v2=0.1")
     ap.add_argument("--gsm8k", choices=("gold", "finished"), default="gold",
@@ -323,6 +345,7 @@ def main() -> None:
     if unknown:
         raise SystemExit(f"unknown pools: {sorted(unknown)}")
     pools = tuple(replace(p, share=shares.get(p.name, p.share)) for p in POOLS)
+    buckets = bucket_tokens(args.bucket_tokens)
 
     rows: list[Row] = []
     read: Counter = Counter()
@@ -337,13 +360,14 @@ def main() -> None:
         rows += [trajectory(loop, mask) for loop in loops]  # kept by their own selection
 
     deny = build_denylist(battery_items=args.battery_items)
-    mixture, result = assemble(rows, read, deny, pools=pools, scale=args.scale, seed=args.seed)
+    mixture, result = assemble(rows, read, deny, pools=pools, scale=args.scale, seed=args.seed,
+                               buckets=buckets)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w") as fh:
         for record in mixture:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
     manifest = {
-        "params": {"seed": args.seed, "block": BLOCK, "scale": args.scale,
+        "params": {"seed": args.seed, "block": BLOCK, "scale": args.scale, "bucket_tokens": buckets,
                    "shares": {p.name: p.share for p in pools}, "gsm8k": args.gsm8k,
                    "target_a_doubts": args.target_a_doubts,
                    "target_c_failed_turns": args.target_c_failed_turns,

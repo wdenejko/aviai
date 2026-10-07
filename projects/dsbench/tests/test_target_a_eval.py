@@ -248,3 +248,59 @@ def test_the_recheck_s_tables_are_none_of_the_test_s_own():
              for d in range(len(held_out)) for r in range(reps)}
     rechecked = {s for seed in drawn for s in te.recheck_seeds(seed)}
     assert len(rechecked) == te.RECHECK_TABLES * len(drawn) and not rechecked & drawn
+
+
+# --- the recall round's test ---------------------------------------------------------------------
+
+
+def test_the_round_s_items_draw_each_cell_alone_and_say_which_are_targets(drawn):
+    cells = {("clickhouse", "workweek"): 2, ("duckdb", "weekday-numbering"): 1,
+             ("mysql", "workweek"): 1}
+    items, report = te.build_round_test_items(seed=200, cells=cells)
+    held_out = tuple(synth.held_out_domain_names())
+    assert drawn == [(200, 2, ("clickhouse",), ("workweek",), held_out),
+                     (201, 1, ("duckdb",), ("weekday-numbering",), held_out),
+                     (202, 1, ("mysql",), ("workweek",), held_out)]
+    assert report["items_by_cell"] == {"clickhouse/workweek": 12, "duckdb/weekday-numbering": 6,
+                                       "mysql/workweek": 6}
+    assert report["target_items"] == 18  # ClickHouse and DuckDB; MySQL is a guard
+    assert {i["meta"]["target_cell"] for i in items if i["meta"]["dialect"] == "mysql"} == {False}
+    assert all(i["meta"]["test"] == "recall-round" and i["pool"] == "targetA_test" for i in items)
+
+
+def test_the_round_s_cells_are_its_trained_ones_and_the_guards():
+    assert sum(6 * reps for reps in te.ROUND_TEST_CELLS.values()) == 204
+    trained = {c for c in te.ROUND_TEST_CELLS if c[0] in te.ROUND_TARGET_DIALECTS}
+    assert sum(6 * te.ROUND_TEST_CELLS[c] for c in trained) == 156
+    assert {d for d, _ in set(te.ROUND_TEST_CELLS) - trained} == {"postgres", "mysql"}
+
+
+def test_compare_takes_the_target_cells_from_the_items_when_they_say():
+    items = {f"t{i}": {**_item(i, "duckdb", "workweek"),
+                       "meta": {"dialect": "duckdb", "family": "workweek", "target_cell": True}}
+             for i in range(4)}
+    items |= {f"t{i}": {**_item(i, "mysql", "workweek"),
+                        "meta": {"dialect": "mysql", "family": "workweek", "target_cell": False}}
+              for i in range(4, 6)}
+    base = {f"t{i}": _rec(i, "wrong") for i in range(4)} | {f"t{i}": _rec(i, "verified")
+                                                           for i in range(4, 6)}
+    adapter = {f"t{i}": _rec(i, "verified") for i in range(6)}
+    result = te.compare(items, base, adapter)
+    assert (result["groups"]["target"]["n"], result["groups"]["target"]["adapter_only"]) == (4, 4)
+    assert result["groups"]["other cells"]["n"] == 2
+    # families and dialects the Target A test doesn't have still get their rows
+    assert result["groups"]["other cells: workweek"]["n"] == 2
+    assert result["groups"]["other cells: mysql"]["n"] == 2
+
+
+def test_the_round_s_tables_meet_none_of_the_target_a_test_s():
+    held_out = range(len(synth.held_out_domain_names()))
+
+    def tables(draws):
+        own = {table_seed(s, d, r) for s, reps in draws for d in held_out for r in range(reps)}
+        return own | {t for seed in own for t in te.recheck_seeds(seed)}
+
+    old = tables([(te.TEST_SEED, te.TEST_CELL_REPS), (te.TEST_SEED + 1, 4), (te.TEST_SEED + 2, 2)])
+    new = tables([(te.ROUND_TEST_SEED + k, reps)
+                  for k, reps in enumerate(te.ROUND_TEST_CELLS.values())])
+    assert len(new) == 3 * 204 and not new & old  # its own tables, each with two recheck tables

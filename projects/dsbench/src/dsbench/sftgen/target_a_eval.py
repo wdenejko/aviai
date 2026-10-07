@@ -51,6 +51,13 @@ coincidence.
 Building the items needs the sandbox's four engines, since every item's gold SQL is checked against
 its truth: docker compose -f sandbox/docker-compose.yml up -d --build clickhouse postgres mysql
 duckdb.
+
+The recall round's test (ROUND_TEST_CELLS) asks what the round trained, on the same held-out
+domains, with PostgreSQL's and MySQL's cells as guards. It runs and compares as this test does:
+
+    uv run python -m dsbench.sftgen.target_a_eval round-items \\
+        --out data/sft/target_a_rr_test/items.jsonl \\
+        --report data/sft/target_a_rr_test_manifest.json --mixture data/sft/rev2_1_mixture.jsonl
 """
 from __future__ import annotations
 
@@ -81,9 +88,37 @@ TARGET_CELLS = ("clickhouse/weekday-numbering", "clickhouse/weekend-flag")
 RECHECK_TABLES = 2
 RECHECK_STRIDE = 1_000_003
 
+# The recall round's test (ADR-004, "the recall round"): the cells the round trained, on the
+# held-out domains. The Target A test asks only weekend-flag and weekday-numbering. The round
+# trained two more ClickHouse shapes (the weekend beside a category filter, and Monday to Friday)
+# and DuckDB's numbering in all four of its families, so this test asks those.
+# - **Guard cells:** PostgreSQL and MySQL ask the two shapes as well. DuckDB's rows teach that
+#   `dayofweek` counts Sunday 0; MySQL's DAYOFWEEK, spelled the same, counts it 1. A model that took
+#   DuckDB's numbering for every `dayofweek` would now fail MySQL here.
+# - **Size:** the values are tables per held-out domain (six domains), so 156 target items and 48
+#   guard items. The target cells hold 24 to 36 items each, enough to measure a rate to about +-10
+#   points.
+# - **Seed:** past every table the Target A test drew, its recheck tables included. Each cell is a
+#   draw of its own (seed + its index), and no two draws meet on a table.
+ROUND_TEST_SEED = 40261007
+ROUND_TEST_CELLS = {
+    ("clickhouse", "weekend-filtered"): 4, ("clickhouse", "workweek"): 4,
+    ("duckdb", "weekday-numbering"): 6, ("duckdb", "weekend-flag"): 4,
+    ("duckdb", "weekend-filtered"): 4, ("duckdb", "workweek"): 4,
+    ("postgres", "weekend-filtered"): 2, ("postgres", "workweek"): 2,
+    ("mysql", "weekend-filtered"): 2, ("mysql", "workweek"): 2,
+}
+ROUND_TARGET_DIALECTS = ("clickhouse", "duckdb")  # what the round trained; the rest are guards
+
 
 def _cell(item: dict) -> str:
     return f"{item['meta']['dialect']}/{item['meta']['family']}"
+
+
+def _is_target(item: dict) -> bool:
+    """Whether an item is in a target cell: as its meta says (the round's test), or by
+    TARGET_CELLS (the Target A test's items, which carry no flag)."""
+    return item["meta"].get("target_cell", _cell(item) in TARGET_CELLS)
 
 
 def eval_item(plain: dict) -> dict:
@@ -127,6 +162,46 @@ def build_test_items(*, seed: int = TEST_SEED, cell_reps: int = TEST_CELL_REPS,
         raise RuntimeError(f"{len(repeated)} items share an id, e.g. {repeated[0]}")
     report["items"] = len(items)
     report["items_by_cell"] = dict(sorted(Counter(map(_cell, items)).items()))
+    prompts = {(_cell(i), json.dumps(i["messages"])) for i in items}
+    report["prompts_by_cell"] = dict(sorted(Counter(c for c, _ in prompts).items()))
+    report["max_tokens"] = TEST_MAX_TOKENS
+    report["sampling"] = SAMPLING
+    return items, report
+
+
+def build_round_test_items(*, seed: int = ROUND_TEST_SEED,
+                           cells: dict[tuple[str, str], int] | None = None,
+                           n: int = ROWS_PER_TABLE) -> tuple[list[dict], dict]:
+    """(items, report): the recall round's test, one draw per cell of `cells` on the held-out
+    domains, each from its own seed (seed + its index). An item is in a target cell when its
+    dialect is one the round trained (ROUND_TARGET_DIALECTS), and says so in its meta."""
+    from dsbench.sftgen.dialect_conventions import generate
+    from dsbench.sftgen.schema import row_to_dict
+
+    cells = ROUND_TEST_CELLS if cells is None else cells
+    domains = synth.held_out_domain_names()
+    items: list[dict] = []
+    report: dict = {"seed": seed, "rows_per_table": n, "domains": domains, "draws": []}
+    for k, ((dialect, family), reps) in enumerate(cells.items()):
+        rows, generated = generate(seed=seed + k, reps=reps, n=n, dialects=[dialect],
+                                   families=[family], thinking_frac=0.0, domains=domains)
+        if dialect not in generated["engines"]:
+            raise RuntimeError(f"no engine for {dialect}: bring the sandbox up")
+        target = dialect in ROUND_TARGET_DIALECTS
+        report["draws"].append({"cell": f"{dialect}/{family}", "seed": seed + k, "reps": reps,
+                                "target": target, "rows": len(rows),
+                                "generator_rejected": generated["rejected"]})
+        for row in map(row_to_dict, rows):
+            item = eval_item(make_items(row, n, hinted=False)[0])
+            item["meta"] = {**item["meta"], "target_cell": target, "test": "recall-round"}
+            items.append(item)
+    ids = Counter(i["id"] for i in items)
+    repeated = [i for i, c in ids.items() if c > 1]
+    if repeated:
+        raise RuntimeError(f"{len(repeated)} items share an id, e.g. {repeated[0]}")
+    report["items"] = len(items)
+    report["items_by_cell"] = dict(sorted(Counter(map(_cell, items)).items()))
+    report["target_items"] = sum(_is_target(i) for i in items)
     prompts = {(_cell(i), json.dumps(i["messages"])) for i in items}
     report["prompts_by_cell"] = dict(sorted(Counter(c for c, _ in prompts).items()))
     report["max_tokens"] = TEST_MAX_TOKENS
@@ -265,15 +340,15 @@ def compare(items: dict[str, dict], base: dict[str, dict], adapter: dict[str, di
     cells: dict[str, list[str]] = {}
     for i in paired:
         cells.setdefault(_cell(items[i]), []).append(i)
-    groups = {"target": [i for c in TARGET_CELLS for i in cells.get(c, [])],
-              "other cells": [i for c, ids in cells.items() if c not in TARGET_CELLS
-                              for i in ids]}
-    for family in FAMILIES:
-        groups[f"other cells: {family}"] = [i for i in groups["other cells"]
-                                            if items[i]["meta"]["family"] == family]
-    for dialect in DIALECTS:
-        groups[f"other cells: {dialect}"] = [i for i in groups["other cells"]
-                                             if items[i]["meta"]["dialect"] == dialect]
+    groups = {"target": [i for c, ids in cells.items() for i in ids if _is_target(items[i])],
+              "other cells": [i for c, ids in cells.items() for i in ids
+                              if not _is_target(items[i])]}
+    # By family and by dialect, in the Target A test's order, then any the round's test adds.
+    for key, known in (("family", FAMILIES), ("dialect", DIALECTS)):
+        present = {items[i]["meta"][key] for i in groups["other cells"]}
+        for value in [v for v in known if v in present] + sorted(present - set(known)):
+            groups[f"other cells: {value}"] = [i for i in groups["other cells"]
+                                               if items[i]["meta"][key] == value]
     groups = {name: ids for name, ids in groups.items() if ids}
     states = {"base": base, "adapter": adapter}
     out: dict = {
@@ -325,6 +400,11 @@ def main() -> None:
     b.add_argument("--report", type=Path, required=True)
     b.add_argument("--mixture", type=Path, required=True,
                    help="the training mixture: no test prompt may be one of its prompts")
+    o = sub.add_parser("round-items", help="the recall round's test, on the held-out domains")
+    o.add_argument("--out", type=Path, required=True)
+    o.add_argument("--report", type=Path, required=True)
+    o.add_argument("--mixture", type=Path, required=True,
+                   help="the training mixture: no test prompt may be one of its prompts")
     r = sub.add_parser("recheck", help="a verified reply's SQL on more tables of its domain")
     r.add_argument("--items", type=Path, required=True)
     r.add_argument("--verified", type=Path, required=True, help="target_a_hints verify's records")
@@ -364,7 +444,7 @@ def main() -> None:
                                                  "reasoning_tokens_median")}, indent=1))
         return
 
-    items, report = build_test_items()
+    items, report = build_round_test_items() if args.cmd == "round-items" else build_test_items()
     overlap = training_overlap(items, args.mixture)
     if overlap["prompts_in_training"]:
         raise SystemExit(f"{overlap['prompts_in_training']} test prompts are training prompts")

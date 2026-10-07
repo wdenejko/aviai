@@ -183,6 +183,21 @@ def test_budgets_split_each_line_by_its_shares():
     assert ar.budget(next(p for p in wider if p.name == "oasst1"), wider) == 1_280_000
 
 
+def test_a_line_can_be_opened_for_one_assembly_and_the_others_stay():
+    # Revision 2.1 (ADR-004, the recall round): Target A's line opened, every other line as it was.
+    lines = ar.bucket_tokens(["target_a=1200000"])
+    assert lines["target_a"] == 1_200_000 and ar.BUCKET_TOKENS["target_a"] == 800_000
+    assert {k: v for k, v in lines.items() if k != "target_a"} == {
+        k: v for k, v in ar.BUCKET_TOKENS.items() if k != "target_a"}
+    by = {p.name: ar.budget(p, ar.POOLS, buckets=lines) for p in ar.POOLS}
+    assert by["targetA"] == 1_200_000 and by["oasst1"] == 1_600_000
+    assert ar.bucket_tokens([]) == ar.BUCKET_TOKENS  # the defaults rebuild Revision 2
+    with pytest.raises(SystemExit, match="unknown line"):
+        ar.bucket_tokens(["targetA=1"])  # a pool's name, not its line's
+    with pytest.raises(SystemExit, match="whole number"):
+        ar.bucket_tokens(["target_a=1.2M"])
+
+
 POOLS = (ar.Pool("oasst1", "replay", 0.5), ar.Pool("gsm8k", "replay", 0.5),
          ar.Pool("target_c", "target_c"))
 
@@ -215,6 +230,21 @@ def test_assembly_drops_what_cannot_train_and_fills_each_budget(monkeypatch):
     assert {(r["meta"]["mix_tokens"], r["meta"]["mix_reply"]) for r in mixture} == {(200, 99)}
     again, _ = ar.assemble(rows, Counter(), deny, pools=POOLS, seed=1)
     assert [r["meta"]["id"] for r in again] == [r["meta"]["id"] for r in mixture]
+
+    # A line opened for one assembly changes only its own pools' rows: every pool draws from its
+    # own seeded generator, so a pool still bound by its line picks the same rows.
+    split = (ar.Pool("oasst1", "replay"), ar.Pool("gsm8k", "math"))
+    more = rows + [ar.single_turn(_item("gsm8k", i), _rec(_item("gsm8k", i), prompt=100, reply=99))
+                   for i in range(3, 12)]
+    before, _ = ar.assemble(more, Counter(), deny, pools=split, seed=1,
+                            buckets={"replay": 1000, "math": 1000})
+    after, opened = ar.assemble(more, Counter(), deny, pools=split, seed=1,
+                                buckets={"replay": 10_000, "math": 1000})
+    by_line = {e["pool"]: e for e in opened["pools"]}
+    assert (by_line["oasst1"]["rows"], by_line["oasst1"]["left_over_rows"]) == (15, 0)
+    assert (by_line["gsm8k"]["rows"], by_line["gsm8k"]["left_over_rows"]) == (5, 7)
+    assert ({r["meta"]["id"] for r in after if r["meta"]["mix_pool"] == "gsm8k"}
+            == {r["meta"]["id"] for r in before if r["meta"]["mix_pool"] == "gsm8k"})
 
 
 def test_rows_from_a_pool_with_no_budget_stop_the_assembly():
