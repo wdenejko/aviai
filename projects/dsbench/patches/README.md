@@ -638,6 +638,11 @@ uv run python -m dsbench.agentic.compare_runs --base reports/agentic-runs/<stamp
   --adapter reports/agentic-runs/<stamp>-rev2-probe-adapter.json --out <out>.json
 ```
 
+**Run 2026-10-06/07** (box clock 21:24-01:00), right after the rehearsal below. Parity held, the
+four steps ran in 3 hours 33 minutes (probe 7 and 10 minutes, dsbench 91 and 105), and the Mac put
+the scale back to 0 and released the hold. No run failed in the harness. Results in
+`reports/gate-evals/20261007-probe-dsbench.md`.
+
 **Rehearsed 2026-10-06** against a hold made by hand (`~/benchlab/scratch/probe-rehearsal-20261006/`)
 with no server behind it. The Mac checked its prerequisites, found the hold and tunnelled. It
 found no server, and on the way out it closed the tunnel, logged that the scale couldn't be reset,

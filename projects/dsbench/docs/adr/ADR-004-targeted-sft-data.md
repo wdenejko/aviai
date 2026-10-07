@@ -1035,6 +1035,26 @@ scale 1 changed 4 of them.
   in both states. Target A trained DuckDB only on the base's verified replies, which can't fix a
   mistake the base makes. The recall prefill that fixed ClickHouse would apply there.
 
+**The held-out probe and dsbench, run 2026-10-06/07** (`reports/gate-evals/20261007-probe-dsbench.md`).
+Both suites ran through the owner's pi harness, k = 5, thinking on, in one window of 3 hours 36
+minutes.
+- **The weekday convention carries over to prompts unlike the training rows:**
+  - the probe's weekday task goes from 0 of 5 runs to 4 of 5 (Fisher p = 0.048);
+  - dsbench's `da_cancel_dow` goes from 0 of 5 to 5 of 5 (p = 0.008).
+
+  The base writes MySQL's numbers in both.
+- **The weekend carries over only in part.** On `da_weekend_delay` the adapter writes
+  `IN (1, 6)` three times in five: ISO's Saturday next to the old Sunday. It passes 1 of 5, the
+  base none.
+- **Totals:**
+  - probe 25 → 28 of 30 runs, 5 → 6 of 6 problems;
+  - dsbench 94 → 103 of 115 runs, 19 → 21 of 23 problems (3 gained, 1 lost; McNemar p = 0.63).
+- **Nothing significantly worse.** The one problem lost, `da_redeye_count` (5 → 2 of 5, p =
+  0.17), misses on reading the population, not on a convention.
+
+The generalisation claim ADR-004 set, that the fine-tune moves both the probe and dsbench, holds
+for the dialect skill.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1362,5 +1382,7 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
         (`enable_thinking`), temperature 0, 12,288 tokens a reply;
       - the state set on the server before each suite;
       - the probe's oracle gate passes, 6 of 6, and dsbench's, 23 of 23.
-    - [ ] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap: one
-      window of about 3.5 hours.
+    - [x] the held-out probe and dsbench (k = 5), through pi with the 12,288-token reply cap.
+      **Run 2026-10-06/07**, 3 hours 36 minutes: the probe 25 → 28 of 30 runs, its weekday task
+      0 → 4 of 5; dsbench 94 → 103 of 115, `da_cancel_dow` 0 → 5 of 5 ("The training and its
+      gate" above).

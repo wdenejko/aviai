@@ -1,0 +1,838 @@
+{
+ "test": "The held-out probe and dsbench, k = 5, base vs Revision 2's final adapter through pi (ADR-004 Revision 2, action item 10)",
+ "window": {
+  "box_clock": "2026-10-06 21:24:25 - 2026-10-07 01:00:31 (CEST 23:23 - 02:59)",
+  "server": "battery_server.sh, the final adapter loaded (gate-final/lora.gguf), global scale set per suite",
+  "parity": {
+   "scale0_equals_nolora": 8,
+   "scale0_repeat_equals_scale0": 8,
+   "scale1_differs_from_scale0": 4,
+   "n": 8
+  },
+  "steps_mac_clock": {
+   "probe:base": "23:26-23:33",
+   "probe:adapter": "23:33-23:43",
+   "dsbench:base": "23:43-01:14",
+   "dsbench:adapter": "01:14-02:59"
+  }
+ },
+ "pi_request": {
+  "thinking": "high -> chat_template_kwargs enable_thinking true",
+  "temperature": 0,
+  "max_completion_tokens": 12288,
+  "pi_version": "0.84.4"
+ },
+ "runs": {
+  "probe": {
+   "base": "reports/agentic-runs/20261006-233327-rev2-probe-base.json",
+   "adapter": "reports/agentic-runs/20261006-234344-rev2-probe-adapter.json"
+  },
+  "dsbench": {
+   "base": "reports/agentic-runs/20261007-011432-rev2-dsbench-base.json",
+   "adapter": "reports/agentic-runs/20261007-025901-rev2-dsbench-adapter.json"
+  }
+ },
+ "probe": {
+  "base": {
+   "label": "rev2-probe-base",
+   "timestamp": "2026-10-06T23:33:27"
+  },
+  "adapter": {
+   "label": "rev2-probe-adapter",
+   "timestamp": "2026-10-06T23:43:44"
+  },
+  "settings": {
+   "harness": "pi-probe",
+   "thinking": "high",
+   "repeat": 5,
+   "reply_max_tokens": 12288,
+   "provider": "dashi-qwen36",
+   "model": "qwen36"
+  },
+  "problems": {
+   "probe_energy_demand": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 36.6,
+     "adapter": 41.7
+    }
+   },
+   "probe_incident_share": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 5.3,
+     "adapter": 6.5
+    }
+   },
+   "probe_loan_default": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 28.4,
+     "adapter": 34.7
+    }
+   },
+   "probe_pooled_rating": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 3.2,
+     "adapter": 3.8
+    }
+   },
+   "probe_utc_peak_trips": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 4,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 9.6,
+     "adapter": 14.9
+    }
+   },
+   "probe_weekday_visits": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 0,
+    "adapter": 4,
+    "base_majority": false,
+    "adapter_majority": true,
+    "p_fisher": 0.0476,
+    "statuses": {
+     "base": {
+      "wrong": 5
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 3.3,
+     "adapter": 4.1
+    }
+   }
+  },
+  "runs_passed": {
+   "base": 25,
+   "adapter": 28,
+   "of": 30
+  },
+  "problems_passed": {
+   "base": 5,
+   "adapter": 6,
+   "of": 6
+  },
+  "majority_flips": {
+   "lost": 0,
+   "gained": 1,
+   "p_mcnemar": 1.0
+  },
+  "statuses": {
+   "base": {
+    "wrong": 5,
+    "ok": 25
+   },
+   "adapter": {
+    "ok": 28,
+    "wrong": 2
+   }
+  }
+ },
+ "dsbench": {
+  "base": {
+   "label": "rev2-dsbench-base",
+   "timestamp": "2026-10-07T01:14:32"
+  },
+  "adapter": {
+   "label": "rev2-dsbench-adapter",
+   "timestamp": "2026-10-07T02:59:01"
+  },
+  "settings": {
+   "harness": "pi",
+   "thinking": "high",
+   "repeat": 5,
+   "reply_max_tokens": 12288,
+   "provider": "dashi-qwen36",
+   "model": "qwen36"
+  },
+  "problems": {
+   "da_all_flights_avg_delay": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 5.0,
+     "adapter": 7.2
+    }
+   },
+   "da_cancel_dow": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 0,
+    "adapter": 5,
+    "base_majority": false,
+    "adapter_majority": true,
+    "p_fisher": 0.00794,
+    "statuses": {
+     "base": {
+      "wrong": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 7.1,
+     "adapter": 11.0
+    }
+   },
+   "da_cancel_weather_share": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 5.9,
+     "adapter": 5.4
+    }
+   },
+   "da_delay_attribution": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 5.4,
+     "adapter": 5.2
+    }
+   },
+   "da_delay_deviation": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 4,
+    "adapter": 4,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "wrong": 1,
+      "ok": 4
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 22.3,
+     "adapter": 123.2
+    }
+   },
+   "da_delay_streak": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 64.7,
+     "adapter": 50.2
+    }
+   },
+   "da_hub_delay": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 3.9,
+     "adapter": 4.8
+    }
+   },
+   "da_redeye_count": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 2,
+    "base_majority": true,
+    "adapter_majority": false,
+    "p_fisher": 0.167,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "wrong": 3,
+      "ok": 2
+     }
+    },
+    "latency_s_median": {
+     "base": 6.7,
+     "adapter": 13.1
+    }
+   },
+   "da_ts_delay": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 8.8,
+     "adapter": 15.7
+    }
+   },
+   "da_utc_peak_hour": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 2,
+    "adapter": 4,
+    "base_majority": false,
+    "adapter_majority": true,
+    "p_fisher": 0.524,
+    "statuses": {
+     "base": {
+      "wrong": 3,
+      "ok": 2
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 13.6,
+     "adapter": 45.7
+    }
+   },
+   "da_weekend_delay": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 0,
+    "adapter": 1,
+    "base_majority": false,
+    "adapter_majority": false,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "wrong": 5
+     },
+     "adapter": {
+      "wrong": 4,
+      "ok": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 7.1,
+     "adapter": 8.3
+    }
+   },
+   "da_weighted_ontime": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 4.1,
+     "adapter": 4.8
+    }
+   },
+   "da_worst_dep_hour": {
+    "category": "da",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 8.6,
+     "adapter": 10.5
+    }
+   },
+   "de_carrier_ontime": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 2,
+    "adapter": 5,
+    "base_majority": false,
+    "adapter_majority": true,
+    "p_fisher": 0.167,
+    "statuses": {
+     "base": {
+      "wrong": 3,
+      "ok": 2
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 37.3,
+     "adapter": 75.9
+    }
+   },
+   "de_hub_daily": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 3,
+    "adapter": 4,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "wrong": 2,
+      "ok": 3
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 57.6,
+     "adapter": 42.4
+    }
+   },
+   "de_recovery_leaderboard": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 30.8,
+     "adapter": 40.9
+    }
+   },
+   "de_route_leaderboard": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 4,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 4,
+      "wrong": 1
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 34.6,
+     "adapter": 36.8
+    }
+   },
+   "de_taf_latest": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 33.8,
+     "adapter": 40.9
+    }
+   },
+   "de_taf_summary": {
+    "category": "de",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 13.2,
+     "adapter": 17.7
+    }
+   },
+   "ds_cancel_predict": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 4,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "timeout": 1,
+      "ok": 4
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 204.8,
+     "adapter": 54.0
+    }
+   },
+   "ds_delay_predict": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 5,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 5
+     }
+    },
+    "latency_s_median": {
+     "base": 68.7,
+     "adapter": 192.0
+    }
+   },
+   "ds_notam_classify": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 4,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 4,
+      "wrong": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 34.9,
+     "adapter": 59.2
+    }
+   },
+   "ds_taxi_regression": {
+    "category": "ds",
+    "runs": [
+     5,
+     5
+    ],
+    "base": 5,
+    "adapter": 4,
+    "base_majority": true,
+    "adapter_majority": true,
+    "p_fisher": 1.0,
+    "statuses": {
+     "base": {
+      "ok": 5
+     },
+     "adapter": {
+      "ok": 4,
+      "timeout": 1
+     }
+    },
+    "latency_s_median": {
+     "base": 208.8,
+     "adapter": 203.7
+    }
+   }
+  },
+  "runs_passed": {
+   "base": 94,
+   "adapter": 103,
+   "of": 115
+  },
+  "problems_passed": {
+   "base": 19,
+   "adapter": 21,
+   "of": 23
+  },
+  "majority_flips": {
+   "lost": 1,
+   "gained": 3,
+   "p_mcnemar": 0.625
+  },
+  "statuses": {
+   "base": {
+    "ok": 94,
+    "wrong": 20,
+    "timeout": 1
+   },
+   "adapter": {
+    "ok": 103,
+    "wrong": 11,
+    "timeout": 1
+   }
+  }
+ }
+}
