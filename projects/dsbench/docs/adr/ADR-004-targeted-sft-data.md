@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07, its training the owner's decision)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -1121,10 +1121,43 @@ are 468 plain items from the training domains, each (dialect, family) its own dr
   are answered again in a short second window, `rr_recall_ww`. Their first replies are not used.
 - **Revision 2 is not affected:** its 768 recall cuts all fell on `dayOfWeek` or `toDayOfWeek`.
 
-How the rows train is a decision for after they are checked. Retraining from the base on Revision
-2's mixture with them added keeps the data on-policy, as Revision 2 is. The Target A test, the
-probe and dsbench, rerun, would measure the change. A new held-out test of the two new shapes
-would need the held-out domains, which no training row uses.
+**The recall round, run 2026-10-07** (`reports/gate-evals/20261007-target-a-recall-round.md`).
+- **180 rows train, from 468 items:** ClickHouse 78 (45 weekend-filtered, 14 weekend-flag, 19
+  workweek) and DuckDB 102 (53 weekday-numbering, 15 weekend-filtered, 15 weekend-flag, 19
+  workweek). The round was sized for about 85 and 100.
+- **The checks:**
+  - 429 of 468 replies verify, and the recheck fails none of them;
+  - 249 of the 429 (58%) doubt, as in Revision 2's top-up (57%);
+  - all 36 wrong replies are the old belief overruling the convention.
+- **DuckDB's belief resists more:** it overrules the convention in 33 of 252 replies, against 3 of
+  216 for ClickHouse.
+- **The false cut compared the placements, on the same 71 prompts:**
+  - the convention first kept 44 rows, at a median of 1,012 reasoning tokens;
+  - the recall cut kept 28, at 1,470.
+
+  That is the prefill pilot's result again: the short rows stay out, as decision 2 has it.
+
+**How the rows train (proposed 2026-10-07; the owner's decision).**
+1. **Add them to Revision 2's mixture and open Target A's budget.**
+   - Target A takes all 665 eligible rows (1.16M tokens). Those are Revision 2's 466, the 19 its
+     budget left out, and the round's 180.
+   - Every other pool keeps exactly Revision 2's rows: the preview reproduced Revision 2 bit for
+     bit, then added the round. The mixture is 4,525 rows and 10.17M tokens (+3.6%).
+   - Kept at 800,000 tokens, the round would push out, at random, about a third of the Target A
+     rows that gave Revision 2's gains.
+   - It needs one assembler option (`--bucket-tokens target_a=N`), so that the defaults still
+     rebuild Revision 2.
+   - The alternative is the round as a pool of its own: exactly Revision 2's 466 plus the 180, at
+     the cost of more code. The 19 rows it would leave out are of kinds the adapter already gets
+     right.
+2. **Retrain from the base** with Revision 2's recipe, not continuing the adapter. That keeps the
+   data on-policy, the base's own replies, and it is about 8.5 hours.
+3. **Measure it as Revision 2 was measured**, about 20 hours of GPU in all:
+   - the mini-battery gate (about 5 hours);
+   - the Target A test, extended with held-out items of the two new shapes. The test asks
+     weekend-flag and weekday-numbering; weekend-filtered and workweek need new items on the
+     held-out domains;
+   - the probe and dsbench (3.6 hours): `da_weekend_delay` is the problem the round is for.
 
 ## Budget and time
 
@@ -1461,5 +1494,8 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
     - [x] the items and tooling. **Built 2026-10-07**: two weekend families, DuckDB's `recall`
       sentences, `recall-round-items` (468 items), DuckDB's doubts counted, and the assembler
       dropping a reply the recheck didn't hold.
-    - [ ] the generation window (about 2 hours), then the checks on the Mac, with the recheck.
-    - [ ] how the rows train (the owner's decision).
+    - [x] the generation window (about 2 hours), then the checks on the Mac, with the recheck.
+      **Run 2026-10-07**, two windows (2 hours, then 14 minutes for the 71 workweek items the
+      false cut had cut at their first sentence; PR #49): 180 rows train, ClickHouse 78 and DuckDB
+      102 (`reports/gate-evals/20261007-target-a-recall-round.md`).
+    - [ ] how the rows train (the owner's decision; "The recall round, run" above).
