@@ -803,6 +803,26 @@ ssh dashi "ARM=1 MAX_HOURS=12 nohup setsid ~/benchlab/scripts/rev2-train/train.s
     462 fewer and 202 more, as in Revision 2.
   - 8,070,508 tokens train.
 
+**Run 2026-10-07/08** (box clock):
+- **The training:** armed at 20:38 behind the recall round's test, once that window's server was
+  up, and started at 22:32.
+  - 1,251 steps in 8 h 37 min (24.8 s a step), train_loss 0.1553.
+  - rc = 0 at 07:09; OCR restored.
+- **The gate, by a chain on the box** (`~/benchlab/scripts/rev2-train/gate_chain.sh`). It is never
+  armed beside the trainer: the trainer is no llama-server, so an armed window would find the GPU
+  free and start beside it. The chain, started when the owner agreed:
+  1. waited for `trainer exited rc=0` and for `train.sh` to end;
+  2. ran `checkpoint.sh` on final/ into `~/benchlab/runs/2026-10-08-qwen36-rev2-1-gate-final/`;
+  3. launched the battery window at 07:10, armed, with Revision 2's gate settings
+     (`ARM=1 CTX=196608 MAX_HOURS=9`, the four benches as `adapter`).
+- **The gate's result:** it ran until 12:34 and passed with no flag
+  (`reports/gate-evals/20261008-rev2-1-gate.md`).
+- **The queue behind the gate:**
+  - The tests window (`~/benchlab/runs/2026-10-08-qwen36-rev2-1-tests/`, the round's test and the
+    Target A test, base and adapter) was armed behind the gate at 08:28. A battery window keeps one
+    server for its whole plan, so arming behind it is safe.
+  - `probe_chain.sh` arms the probe window once the tests window logs `parity ok`.
+
 ## The recall round's test (ADR-004, "the recall round")
 
 The round's cells on the held-out domains (`target_a_eval round-items`, `ROUND_TEST_CELLS`): 204

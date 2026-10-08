@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07, its training the owner's decision)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, tests running)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -1186,6 +1186,17 @@ recall round's test".
   - Revision 2 against Revision 2.1 then reads the round's effect, and the two base runs check each
     other across windows.
 
+**Revision 2.1's training and gate, run 2026-10-07/08** (`reports/gate-evals/20261008-rev2-1-gate.md`).
+- **The training:** 1,251 steps in 8 hours 37 minutes; train_loss 0.1553 against Revision 2's
+  0.1548. The mean loss per 100 steps stayed between 0.148 and 0.172.
+- **The gate passes, with no flag and no A/A flag:** IFEval 88.0 → 87.0, BFCL irrelevance 81.7 →
+  79.2, BIRD 70.0 → 68.7, HumanEval+ 84.0 → 87.7. Every change is within the base's own noise.
+- **Revision 2's shorter HumanEval+ reasoning is gone.** Revision 2's ratio was 0.865 (sign test
+  p = 0.006, under the 0.8 flag); Revision 2.1's is 0.945 (p = 0.74).
+- **The round's 199 Target A rows moved nothing the gate measures,** and the gate measures none of
+  what they teach. The round's test, the Target A test, the probe and dsbench follow, queued behind
+  the gate.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1538,7 +1549,9 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
         `da_weekend_delay` failure belongs to the agent context, not to a missing shape.
       - DuckDB stays the gap: 73 → 85 of 108, no cell significant.
       - The guards: 47 → 46 of 48 (PostgreSQL lost 2 items to MySQL's weekend numbers).
-    - [x] the training window launched 2026-10-07, armed behind the test; started 22:32 (box
-      clock).
-    - [ ] the gate (the mini-battery, about 5 hours), then the round's test, the Target A test, the
-      probe and dsbench on Revision 2.1's adapter.
+    - [x] the training. **Run 2026-10-07/08**, armed behind the test: 1,251 steps in 8 h 37 min,
+      train_loss 0.1553 (Revision 2: 0.1548).
+    - [x] the gate (the mini-battery). **Passed 2026-10-08**, no flags (5 h 24 min; launched by a
+      box chain once the trainer exited rc = 0; `reports/gate-evals/20261008-rev2-1-gate.md`).
+    - [ ] the round's test, the Target A test, the probe and dsbench on Revision 2.1's adapter
+      (queued 2026-10-08 behind the gate).
