@@ -822,6 +822,22 @@ ssh dashi "ARM=1 MAX_HOURS=12 nohup setsid ~/benchlab/scripts/rev2-train/train.s
     Target A test, base and adapter) was armed behind the gate at 08:28. A battery window keeps one
     server for its whole plan, so arming behind it is safe.
   - `probe_chain.sh` arms the probe window once the tests window logs `parity ok`.
+- **The tests window, 2026-10-08,** started at 12:35 and took three launches
+  (`reports/gate-evals/20261008-rev2-1-target-a-tests.md`):
+  - **Launch 1:** the round's test, both states, 12:38 to 14:25. The Target A test's base was at
+    109 of 228 replies when the box rebooted at 15:03 without a shutdown (most likely a power cut).
+    The replies were intact, since each one is appended whole.
+  - **Launch 2,** at 15:33 with the owner's agreement. It ran until the owner needed the box at
+    15:47, with 146 replies.
+  - **To stop a window cleanly,** kill the window script and its generator together, and an armed
+    window behind it first. The window's exit trap stops the server and restores OCR. Killing the
+    generator alone would let the plan go on to its next step.
+  - **Launch 3,** at 20:13: the base's last 82 replies, then the adapter's 228, ending 21:57.
+  - **Each launch is the same command:** `window.sh RUN "ta_test:base ta_test:adapter"`, since a step
+    skips the items already answered. Parity was checked each time, with the same result.
+  - **`probe_chain.sh` reads `TESTS_LOG`,** so each relaunch armed the probe window behind the new
+    log. The Mac side (`rev2_probe_mac.sh`) only waits for the hold, so it waited through the reboot.
+    It was restarted after the owner's stop.
 
 ## The recall round's test (ADR-004, "the recall round")
 

@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, tests running)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, its Target A tests run 2026-10-08, the probe and dsbench running)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -1197,6 +1197,27 @@ recall round's test".
   what they teach. The round's test, the Target A test, the probe and dsbench follow, queued behind
   the gate.
 
+**Revision 2.1's Target A tests, run 2026-10-08**
+(`reports/gate-evals/20261008-rev2-1-target-a-tests.md`). Each test is paired with the base on
+one server, and read beside Revision 2's runs of the same items.
+- **DuckDB's `dayofweek` is learned:** right in 44 of Revision 2.1's 51 replies that call it, over
+  the two tests. Revision 2 was right in 0 of 23, and never trained a row that called it.
+- **DuckDB's cells, against this window's base:**
+  - the round's test: 76 → 95 of 108 (p = 0.003); Revision 2 had 85;
+  - the Target A test: 15 → 19 of 24; Revision 2 had 16.
+  - Against Revision 2 across windows, neither total is significant on its own (p = 0.10 and
+    0.55).
+- **Nothing regressed.**
+  - MySQL's `DAYOFWEEK` keeps Sunday 1 in every reply (the guards: 24 of 24).
+  - ClickHouse stays at its ceiling (46 of 48 and 57 of 60).
+  - The Target A test's other cells hold (156 of 168).
+- **Sunday = 1 is stated less:** 58 of 156 traces on the round's test, against Revision 2's 87 (p
+  = 0.0009).
+- **What is left is mostly loops.** 13 of Revision 2.1's 31 misses are replies that never close
+  their reasoning. The base loops as often (9), so the training neither caused it nor cured it.
+- **The window took three launches:** a reboot at 15:03 (most likely a power cut) and the owner's
+  use of the box. Every step resumes, so no reply was lost or repeated.
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1553,5 +1574,9 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       train_loss 0.1553 (Revision 2: 0.1548).
     - [x] the gate (the mini-battery). **Passed 2026-10-08**, no flags (5 h 24 min; launched by a
       box chain once the trainer exited rc = 0; `reports/gate-evals/20261008-rev2-1-gate.md`).
-    - [ ] the round's test, the Target A test, the probe and dsbench on Revision 2.1's adapter
-      (queued 2026-10-08 behind the gate).
+    - [x] the round's test and the Target A test on Revision 2.1's adapter. **Run 2026-10-08**,
+      three launches (`reports/gate-evals/20261008-rev2-1-target-a-tests.md`).
+      - DuckDB's `dayofweek` is learned (44 of 51; Revision 2: 0 of 23).
+      - DuckDB's cells: 76 → 95 of 108 and 15 → 19 of 24 against the base.
+      - The guards, ClickHouse and the other cells hold.
+    - [ ] the probe and dsbench on Revision 2.1's adapter (running 2026-10-08/09).
