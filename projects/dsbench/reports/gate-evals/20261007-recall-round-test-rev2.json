@@ -1,0 +1,216 @@
+{
+ "test": "the recall round's test (target_a_eval round-items), Revision 2's final adapter against the base",
+ "run": {
+  "box_clock": "2026-10-07 20:37:17-22:31:05",
+  "log": "~/benchlab/logs/rev2-gen-window-20261007-203717.log",
+  "run_dir": "~/benchlab/runs/2026-10-07-qwen36-rr-test-rev2",
+  "adapter": "2026-10-06-qwen36-rev2-gate-final/lora.gguf",
+  "steps": {
+   "base": "20:39:17-21:34:33",
+   "adapter": "21:34:33-22:31:01"
+  }
+ },
+ "items": {
+  "file": "data/sft/target_a_rr_test/items.jsonl",
+  "md5": "96562ea8f49ce46bfb78a53f58252a21",
+  "n": 204,
+  "target": 156,
+  "guard": 48
+ },
+ "parity": {
+  "from": "the window log (dsbench.battery.parity compare)",
+  "scale0_equals_nolora": 8,
+  "scale0_repeat_equals_scale0": 8,
+  "scale1_differs_from_scale0": 4,
+  "n": 8,
+  "replies": "data/sft/target_a_rr_test/parity.json (git-ignored)"
+ },
+ "compare": {
+  "items": 204,
+  "paired": 204,
+  "rebuild_mismatch": 0,
+  "unpaired": {
+   "base": 0,
+   "adapter": 0
+  },
+  "groups": {
+   "target": {
+    "n": 156,
+    "base": 75,
+    "adapter": 132,
+    "base_only": 12,
+    "adapter_only": 69,
+    "p_mcnemar": 7.03e-11
+   },
+   "other cells": {
+    "n": 48,
+    "base": 47,
+    "adapter": 46,
+    "base_only": 2,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "other cells: weekend-filtered": {
+    "n": 24,
+    "base": 24,
+    "adapter": 22,
+    "base_only": 2,
+    "adapter_only": 0,
+    "p_mcnemar": 0.5
+   },
+   "other cells: workweek": {
+    "n": 24,
+    "base": 23,
+    "adapter": 24,
+    "base_only": 0,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "other cells: postgres": {
+    "n": 24,
+    "base": 23,
+    "adapter": 22,
+    "base_only": 2,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   },
+   "other cells: mysql": {
+    "n": 24,
+    "base": 24,
+    "adapter": 24,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   }
+  },
+  "cells": {
+   "clickhouse/weekend-filtered": {
+    "n": 24,
+    "base": 1,
+    "adapter": 23,
+    "base_only": 0,
+    "adapter_only": 22,
+    "p_mcnemar": 4.77e-07
+   },
+   "clickhouse/workweek": {
+    "n": 24,
+    "base": 1,
+    "adapter": 24,
+    "base_only": 0,
+    "adapter_only": 23,
+    "p_mcnemar": 2.38e-07
+   },
+   "duckdb/weekday-numbering": {
+    "n": 36,
+    "base": 25,
+    "adapter": 28,
+    "base_only": 5,
+    "adapter_only": 8,
+    "p_mcnemar": 0.581
+   },
+   "duckdb/weekend-filtered": {
+    "n": 24,
+    "base": 13,
+    "adapter": 18,
+    "base_only": 2,
+    "adapter_only": 7,
+    "p_mcnemar": 0.18
+   },
+   "duckdb/weekend-flag": {
+    "n": 24,
+    "base": 13,
+    "adapter": 17,
+    "base_only": 3,
+    "adapter_only": 7,
+    "p_mcnemar": 0.344
+   },
+   "duckdb/workweek": {
+    "n": 24,
+    "base": 22,
+    "adapter": 22,
+    "base_only": 2,
+    "adapter_only": 2,
+    "p_mcnemar": 1.0
+   },
+   "mysql/weekend-filtered": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "mysql/workweek": {
+    "n": 12,
+    "base": 12,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 0,
+    "p_mcnemar": 1.0
+   },
+   "postgres/weekend-filtered": {
+    "n": 12,
+    "base": 12,
+    "adapter": 10,
+    "base_only": 2,
+    "adapter_only": 0,
+    "p_mcnemar": 0.5
+   },
+   "postgres/workweek": {
+    "n": 12,
+    "base": 11,
+    "adapter": 12,
+    "base_only": 0,
+    "adapter_only": 1,
+    "p_mcnemar": 1.0
+   }
+  },
+  "statuses": {
+   "base": {
+    "wrong": 73,
+    "verified": 123,
+    "error": 2,
+    "unfinished": 6
+   },
+   "adapter": {
+    "verified": 178,
+    "wrong": 22,
+    "unfinished": 4
+   }
+  },
+  "coincidences": {
+   "base": 1,
+   "adapter": 0
+  },
+  "rechecked": {
+   "base": 123,
+   "adapter": 178
+  },
+  "target_states_sunday_1": {
+   "base": 121,
+   "adapter": 87
+  },
+  "reasoning_tokens_median": {
+   "base": {
+    "target": 1721.0,
+    "other cells": 1449.0
+   },
+   "adapter": {
+    "target": 1663.5,
+    "other cells": 1342.0
+   }
+  }
+ },
+ "by_dialect_target": {
+  "clickhouse": {
+   "base": 2,
+   "adapter": 47,
+   "n": 48
+  },
+  "duckdb": {
+   "base": 73,
+   "adapter": 85,
+   "n": 108
+  }
+ }
+}

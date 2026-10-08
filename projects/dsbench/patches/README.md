@@ -840,4 +840,11 @@ Target A test's, with `rr_test` for `ta_test` and `data/sft/target_a_rr_test` fo
 - None of the items is a prompt of Revision 2.1's mixture, and none of the mixture's 4,525 rows
   names a held-out table or column.
 - Staged for Revision 2's run in `~/benchlab/runs/2026-10-07-qwen36-rr-test-rev2/` (its README).
-  Not run.
+
+**Run 2026-10-07** with Revision 2's adapter (box clock 20:37 to 22:31, `PARITY=1`):
+- **Parity and timing:** parity held. The base took 55 minutes and the adapter 57, and no request
+  failed.
+- **The handover:** Revision 2.1's training was armed at 20:38, once this window's server was up.
+  It started at 22:32, a minute after this window had ended and restored OCR.
+- **The checks:** `verify` and `recheck` of the base ran while the adapter was generating. Results
+  are in `reports/gate-evals/20261007-recall-round-test-rev2.md`.

@@ -1532,7 +1532,13 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       4,525 rows, 10.17M tokens, 1,251 blocks on the box.
     - [x] the round's test. **Built 2026-10-07**: `target_a_eval round-items`, 204 items (156
       target, 48 guard), staged for Revision 2's adapter.
-    - [ ] the round's test on Revision 2's adapter (about 2 h 15 min; can run before the training).
-    - [ ] the training window (about 8.5 hours).
+    - [x] the round's test on Revision 2's adapter. **Run 2026-10-07**, 1 h 54 min
+      (`reports/gate-evals/20261007-recall-round-test-rev2.md`).
+      - Revision 2 already writes ClickHouse's two new shapes: 2 → 47 of 48. So dsbench's
+        `da_weekend_delay` failure belongs to the agent context, not to a missing shape.
+      - DuckDB stays the gap: 73 → 85 of 108, no cell significant.
+      - The guards: 47 → 46 of 48 (PostgreSQL lost 2 items to MySQL's weekend numbers).
+    - [x] the training window launched 2026-10-07, armed behind the test; started 22:32 (box
+      clock).
     - [ ] the gate (the mini-battery, about 5 hours), then the round's test, the Target A test, the
       probe and dsbench on Revision 2.1's adapter.
