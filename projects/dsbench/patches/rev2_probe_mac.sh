@@ -11,7 +11,8 @@
 # pi can't name a LoRA state per request, so before each step the script sets the SERVER's adapter
 # scale and reads it back (dsbench.battery.dsbench_suite set-scale): 0 for base, 1 for adapter. The
 # probe goes first, so a window cut short still has both of its states. Each step writes
-# reports/agentic-runs/<stamp>-rev2-<suite>-<state>.{json,md}.
+# reports/agentic-runs/<stamp>-<LABEL>-<suite>-<state>.{json,md}. LABEL names the adapter: rev2 (the
+# default) or rev2-1 (Revision 2.1, ADR-004 item 12), so two adapters' runs never share a name.
 #
 # On the way out, however it ends, the script sets the scale back to 0, closes the tunnel and
 # releases the hold, which ends the window. To stop early, kill this script. Killing a runner alone
@@ -28,6 +29,7 @@ cd "$(dirname "$0")/.." || exit 1
 RUN_BOX=${RUN_BOX:?set RUN_BOX to the box run directory}
 PLAN=${PLAN:-probe:base probe:adapter dsbench:base dsbench:adapter}
 WAIT_H=${WAIT_H:-12}
+LABEL=${LABEL:-rev2}
 URL=http://127.0.0.1:18080
 TUNNEL='-L 18080:127.0.0.1:8093'
 log(){ echo "[mac] $(date +%H:%M:%S) $*"; }
@@ -76,10 +78,10 @@ for step in $PLAN; do
   log "$suite as $state (adapter scale $scale)"
   if [ "$suite" = probe ]; then
     uv run --package dsbench python -m dsbench.sftgen.probe.runner --provider dashi-qwen36 \
-      --model qwen36 --thinking high --repeat 5 --label rev2-probe-$state
+      --model qwen36 --thinking high --repeat 5 --label $LABEL-probe-$state
   else
     uv run --package dsbench dsbench-pi-run --provider dashi-qwen36 --model qwen36 \
-      --thinking high --repeat 5 --label rev2-dsbench-$state
+      --thinking high --repeat 5 --label $LABEL-dsbench-$state
   fi
   log "$suite as $state finished (exit $?)"
 done

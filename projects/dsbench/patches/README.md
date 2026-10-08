@@ -629,6 +629,13 @@ RUN_BOX=$R nohup caffeinate -is patches/rev2_probe_mac.sh >>reports/agentic-runs
 ssh dashi "ARM=1 PARITY=1 HOLD_MAX=21600 LORA=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf nohup setsid ~/benchlab/scripts/battery/battery_window.sh $R hold:probe </dev/null >/dev/null 2>&1 &"
 ```
 
+**Another adapter:**
+- `LABEL` names the runs, `<stamp>-<LABEL>-<suite>-<state>`, so two adapters' runs never share a
+  name. The default is `rev2`; Revision 2.1 uses `LABEL=rev2-1`.
+- `WAIT_H` (default 12) is how long the Mac side waits for the hold.
+- A wait that outlasts other work runs better from a clean clone of the repo. A branch switch in the
+  working copy would change the script and the code under a running step.
+
 Then compare each suite's two runs (`dsbench.agentic.compare_runs`):
 - per problem, the runs that pass in each state, with Fisher's exact test;
 - over problems, the problems that pass by majority, with the exact McNemar test.
