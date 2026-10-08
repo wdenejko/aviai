@@ -1,0 +1,3234 @@
+{
+ "test": "Revision 2.1's final adapter against the base, paired on one server, on the recall round's test (target_a_eval round-items) and the Target A test (target_a_eval items); Revision 2's runs of the same items (2026-10-06 and 2026-10-07) read beside them",
+ "runs_named": {
+  "base 1": "the base, Revision 2's window",
+  "Revision 2": "Revision 2's final adapter, its window",
+  "base 2": "the base, this window",
+  "Revision 2.1": "Revision 2.1's final adapter, this window"
+ },
+ "pairs_named": "compare() calls its two sides base and adapter; labels says which run each is",
+ "window": {
+  "box_clock": "2026-10-08 12:35:49-21:57:49, in three launches (box clock about 1 h 59 min behind CEST)",
+  "logs": [
+   "~/benchlab/logs/rev2-gen-window-20261008-082806.log",
+   "~/benchlab/logs/rev2-gen-window-20261008-153333.log",
+   "~/benchlab/logs/rev2-gen-window-20261008-201326.log"
+  ],
+  "interruptions": [
+   "15:03 the box rebooted without a shutdown (most likely a power cut) at ta_test base 109/228; relaunched 15:33 with the owner agreement",
+   "15:47 stopped at the owner request at ta_test base 146/228; relaunched 20:13 once the owner said the box was free"
+  ],
+  "run_dir": "~/benchlab/runs/2026-10-08-qwen36-rev2-1-tests",
+  "adapter": "~/benchlab/runs/2026-10-08-qwen36-rev2-1-gate-final/lora.gguf",
+  "server": "battery_server.sh, 8 slots, LoRA loaded, global scale 0; scale per request",
+  "steps": {
+   "rr_test:base": "12:38:31-13:25:54",
+   "rr_test:adapter": "13:25:54-14:25:49",
+   "ta_test:base": "14:25:49-15:03 (109 replies), 15:35:39-15:47:23 (37), 20:15:32-20:37:39 (82)",
+   "ta_test:adapter": "20:37:39-21:57:45"
+  },
+  "parity": {
+   "scale0_equals_nolora": 8,
+   "scale0_repeat_equals_scale0": 8,
+   "scale1_differs_from_scale0": 2,
+   "n": 8,
+   "replies": "~/benchlab/runs/2026-10-08-qwen36-rev2-1-tests/parity.json"
+  },
+  "sampling": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "top_k": 20,
+   "min_p": 0.05,
+   "seed": "the item's, the same in every run"
+  },
+  "max_tokens": 12288
+ },
+ "tests": {
+  "rr_test": {
+   "items": {
+    "file": "data/sft/target_a_rr_test/items.jsonl",
+    "md5": "96562ea8f49ce46bfb78a53f58252a21",
+    "n": 204
+   },
+   "generation": {
+    "base 2": {
+     "replies": 204,
+     "errors": 0,
+     "cut_at_budget": 3,
+     "completion_tokens": 386362,
+     "wall_seconds": 2843,
+     "tokens_per_second": 135.9
+    },
+    "Revision 2.1": {
+     "replies": 204,
+     "errors": 0,
+     "cut_at_budget": 5,
+     "completion_tokens": 399792,
+     "wall_seconds": 3595,
+     "tokens_per_second": 111.2
+    }
+   },
+   "runs": {
+    "base 1": {
+     "n": 204,
+     "right": 122,
+     "cells": {
+      "clickhouse/weekend-filtered": [
+       1,
+       24
+      ],
+      "clickhouse/workweek": [
+       1,
+       24
+      ],
+      "duckdb/weekday-numbering": [
+       25,
+       36
+      ],
+      "duckdb/weekend-flag": [
+       13,
+       24
+      ],
+      "duckdb/weekend-filtered": [
+       13,
+       24
+      ],
+      "duckdb/workweek": [
+       22,
+       24
+      ],
+      "postgres/weekend-filtered": [
+       12,
+       12
+      ],
+      "postgres/workweek": [
+       11,
+       12
+      ],
+      "mysql/weekend-filtered": [
+       12,
+       12
+      ],
+      "mysql/workweek": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dow": [
+       70,
+       70
+      ],
+      "no sql": [
+       0,
+       6
+      ],
+      "dayofweek": [
+       1,
+       29
+      ],
+      "isodow": [
+       1,
+       1
+      ],
+      "other": [
+       0,
+       1
+      ],
+      "name": [
+       1,
+       1
+      ]
+     },
+     "statuses": {
+      "wrong": 73,
+      "verified": 123,
+      "error": 2,
+      "unfinished": 6
+     },
+     "cut_at_budget": 6,
+     "target_states_sunday_1": 121,
+     "target_n": 156,
+     "target_by_dialect": {
+      "clickhouse": [
+       2,
+       48
+      ],
+      "duckdb": [
+       73,
+       108
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "wrong": 44,
+        "coincidence": 1,
+        "verified": 2,
+        "error": 1
+       },
+       "states_sunday_1": 47
+      },
+      "duckdb": {
+       "statuses": {
+        "verified": 73,
+        "unfinished": 6,
+        "wrong": 28,
+        "error": 1
+       },
+       "states_sunday_1": 74
+      }
+     },
+     "completion_tokens": 439222,
+     "wrong": {
+      "clickhouse/weekend-filtered | verified | dayofweek in (1, 7)": 1,
+      "clickhouse/weekend-filtered | wrong | dayofweek in (1, 7)": 3,
+      "clickhouse/weekend-filtered | wrong | todayofweek in (1, 7)": 19,
+      "clickhouse/workweek | error | weekday between 1 and 5": 1,
+      "clickhouse/workweek | wrong | dayofweek between 2 and 6": 12,
+      "clickhouse/workweek | wrong | todayofweek between 2 and 6": 10,
+      "duckdb/weekday-numbering | unfinished | (none)": 5,
+      "duckdb/weekday-numbering | wrong | dayofweek = 2": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 3": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 4": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 6": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 1,
+      "duckdb/weekend-filtered | error | is_weekend": 1,
+      "duckdb/weekend-filtered | wrong | dayofweek = 1 ; dayofweek = 7": 1,
+      "duckdb/weekend-filtered | wrong | dayofweek in (1, 7)": 9,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 11,
+      "duckdb/workweek | unfinished | (none)": 1,
+      "duckdb/workweek | wrong | dayofweek between 2 and 6": 1,
+      "postgres/workweek | wrong | extract(dow between 2 and 6": 1
+     }
+    },
+    "Revision 2": {
+     "n": 204,
+     "right": 178,
+     "cells": {
+      "clickhouse/weekend-filtered": [
+       23,
+       24
+      ],
+      "clickhouse/workweek": [
+       24,
+       24
+      ],
+      "duckdb/weekday-numbering": [
+       28,
+       36
+      ],
+      "duckdb/weekend-flag": [
+       17,
+       24
+      ],
+      "duckdb/weekend-filtered": [
+       18,
+       24
+      ],
+      "duckdb/workweek": [
+       22,
+       24
+      ],
+      "postgres/weekend-filtered": [
+       10,
+       12
+      ],
+      "postgres/workweek": [
+       12,
+       12
+      ],
+      "mysql/weekend-filtered": [
+       12,
+       12
+      ],
+      "mysql/workweek": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dow": [
+       78,
+       79
+      ],
+      "dayofweek": [
+       0,
+       18
+      ],
+      "name": [
+       5,
+       5
+      ],
+      "no sql": [
+       0,
+       4
+      ],
+      "isodow": [
+       2,
+       2
+      ]
+     },
+     "statuses": {
+      "verified": 178,
+      "wrong": 22,
+      "unfinished": 4
+     },
+     "cut_at_budget": 4,
+     "target_states_sunday_1": 87,
+     "target_n": 156,
+     "target_by_dialect": {
+      "clickhouse": [
+       47,
+       48
+      ],
+      "duckdb": [
+       85,
+       108
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "verified": 47,
+        "wrong": 1
+       },
+       "states_sunday_1": 21
+      },
+      "duckdb": {
+       "statuses": {
+        "verified": 85,
+        "wrong": 19,
+        "unfinished": 4
+       },
+       "states_sunday_1": 66
+      }
+     },
+     "completion_tokens": 376327,
+     "wrong": {
+      "clickhouse/weekend-filtered | wrong | todayofweek in (1, 7)": 1,
+      "duckdb/weekday-numbering | unfinished | (none)": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 1": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 2": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 3": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 5": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 6": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 1,
+      "duckdb/weekend-filtered | wrong | dayofweek in (1, 7)": 6,
+      "duckdb/weekend-flag | unfinished | (none)": 2,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 4,
+      "duckdb/weekend-flag | wrong | dayofweek in (6, 7)": 1,
+      "duckdb/workweek | wrong | dayofweek between 2 and 6": 1,
+      "duckdb/workweek | wrong | extract(dow between 2 and 6": 1,
+      "postgres/weekend-filtered | wrong | extract(dow in (1, 7)": 2
+     }
+    },
+    "base 2": {
+     "n": 204,
+     "right": 127,
+     "cells": {
+      "clickhouse/weekend-filtered": [
+       2,
+       24
+      ],
+      "clickhouse/workweek": [
+       1,
+       24
+      ],
+      "duckdb/weekday-numbering": [
+       27,
+       36
+      ],
+      "duckdb/weekend-flag": [
+       13,
+       24
+      ],
+      "duckdb/weekend-filtered": [
+       15,
+       24
+      ],
+      "duckdb/workweek": [
+       21,
+       24
+      ],
+      "postgres/weekend-filtered": [
+       12,
+       12
+      ],
+      "postgres/workweek": [
+       12,
+       12
+      ],
+      "mysql/weekend-filtered": [
+       12,
+       12
+      ],
+      "mysql/workweek": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       1,
+       29
+      ],
+      "dow": [
+       69,
+       70
+      ],
+      "no sql": [
+       0,
+       3
+      ],
+      "name": [
+       4,
+       4
+      ],
+      "isodow": [
+       2,
+       2
+      ]
+     },
+     "statuses": {
+      "wrong": 73,
+      "verified": 128,
+      "unfinished": 3
+     },
+     "cut_at_budget": 3,
+     "target_states_sunday_1": 133,
+     "target_n": 156,
+     "target_by_dialect": {
+      "clickhouse": [
+       3,
+       48
+      ],
+      "duckdb": [
+       76,
+       108
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "wrong": 44,
+        "coincidence": 1,
+        "verified": 3
+       },
+       "states_sunday_1": 48
+      },
+      "duckdb": {
+       "statuses": {
+        "wrong": 29,
+        "verified": 76,
+        "unfinished": 3
+       },
+       "states_sunday_1": 85
+      }
+     },
+     "completion_tokens": 386362,
+     "wrong": {
+      "clickhouse/weekend-filtered | verified | dayofweek in (1, 7)": 1,
+      "clickhouse/weekend-filtered | wrong | dayofweek in (1, 7)": 5,
+      "clickhouse/weekend-filtered | wrong | todayofweek in (1, 7)": 16,
+      "clickhouse/workweek | wrong | dayofweek between 2 and 6": 12,
+      "clickhouse/workweek | wrong | todayofweek between 2 and 6": 11,
+      "duckdb/weekday-numbering | unfinished | (none)": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 3": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 4": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 6": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 1,
+      "duckdb/weekday-numbering | wrong | extract(dow = 2": 1,
+      "duckdb/weekend-filtered | wrong | dayofweek in (1, 7)": 9,
+      "duckdb/weekend-flag | unfinished | (none)": 1,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 10,
+      "duckdb/workweek | wrong | dayofweek between 2 and 6": 3
+     }
+    },
+    "Revision 2.1": {
+     "n": 204,
+     "right": 188,
+     "cells": {
+      "clickhouse/weekend-filtered": [
+       24,
+       24
+      ],
+      "clickhouse/workweek": [
+       22,
+       24
+      ],
+      "duckdb/weekday-numbering": [
+       31,
+       36
+      ],
+      "duckdb/weekend-flag": [
+       20,
+       24
+      ],
+      "duckdb/weekend-filtered": [
+       21,
+       24
+      ],
+      "duckdb/workweek": [
+       23,
+       24
+      ],
+      "postgres/weekend-filtered": [
+       11,
+       12
+      ],
+      "postgres/workweek": [
+       12,
+       12
+      ],
+      "mysql/weekend-filtered": [
+       12,
+       12
+      ],
+      "mysql/workweek": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       38,
+       42
+      ],
+      "dow": [
+       49,
+       52
+      ],
+      "name": [
+       1,
+       1
+      ],
+      "no sql": [
+       0,
+       5
+      ],
+      "other": [
+       0,
+       1
+      ],
+      "isodow": [
+       7,
+       7
+      ]
+     },
+     "statuses": {
+      "verified": 188,
+      "wrong": 9,
+      "error": 2,
+      "unfinished": 5
+     },
+     "cut_at_budget": 5,
+     "target_states_sunday_1": 58,
+     "target_n": 156,
+     "target_by_dialect": {
+      "clickhouse": [
+       46,
+       48
+      ],
+      "duckdb": [
+       95,
+       108
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "verified": 46,
+        "wrong": 2
+       },
+       "states_sunday_1": 11
+      },
+      "duckdb": {
+       "statuses": {
+        "verified": 95,
+        "wrong": 6,
+        "error": 2,
+        "unfinished": 5
+       },
+       "states_sunday_1": 47
+      }
+     },
+     "completion_tokens": 399792,
+     "wrong": {
+      "clickhouse/workweek | wrong | dayofweek between 2 and 6": 1,
+      "clickhouse/workweek | wrong | todayofweek <= 6": 1,
+      "duckdb/weekday-numbering | error | (none)": 1,
+      "duckdb/weekday-numbering | unfinished | (none)": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 3": 1,
+      "duckdb/weekday-numbering | wrong | extract(dow = 4": 1,
+      "duckdb/weekday-numbering | wrong | extract(dow = 6": 1,
+      "duckdb/weekend-filtered | wrong | dayofweek in (1, 7)": 2,
+      "duckdb/weekend-filtered | wrong | dayofweek in (6, 7)": 1,
+      "duckdb/weekend-flag | error | (none)": 1,
+      "duckdb/weekend-flag | unfinished | (none)": 3,
+      "duckdb/workweek | unfinished | (none)": 1,
+      "postgres/weekend-filtered | wrong | extract(dow in (1, 7)": 1
+     }
+    }
+   },
+   "pairs": {
+    "base 2 vs Revision 2.1": {
+     "items": 204,
+     "paired": 204,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 156,
+       "base": 79,
+       "adapter": 141,
+       "base_only": 10,
+       "adapter_only": 72,
+       "p_mcnemar": 1.02e-12
+      },
+      "other cells": {
+       "n": 48,
+       "base": 48,
+       "adapter": 47,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-filtered": {
+       "n": 24,
+       "base": 24,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: workweek": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 24,
+       "base": 24,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: mysql": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/weekend-filtered": {
+       "n": 24,
+       "base": 2,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 22,
+       "p_mcnemar": 4.77e-07
+      },
+      "clickhouse/workweek": {
+       "n": 24,
+       "base": 1,
+       "adapter": 22,
+       "base_only": 0,
+       "adapter_only": 21,
+       "p_mcnemar": 9.54e-07
+      },
+      "duckdb/weekday-numbering": {
+       "n": 36,
+       "base": 27,
+       "adapter": 31,
+       "base_only": 5,
+       "adapter_only": 9,
+       "p_mcnemar": 0.424
+      },
+      "duckdb/weekend-filtered": {
+       "n": 24,
+       "base": 15,
+       "adapter": 21,
+       "base_only": 1,
+       "adapter_only": 7,
+       "p_mcnemar": 0.0703
+      },
+      "duckdb/weekend-flag": {
+       "n": 24,
+       "base": 13,
+       "adapter": 20,
+       "base_only": 3,
+       "adapter_only": 10,
+       "p_mcnemar": 0.0923
+      },
+      "duckdb/workweek": {
+       "n": 24,
+       "base": 21,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 3,
+       "p_mcnemar": 0.625
+      },
+      "mysql/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 73,
+       "verified": 128,
+       "unfinished": 3
+      },
+      "adapter": {
+       "verified": 188,
+       "wrong": 9,
+       "error": 2,
+       "unfinished": 5
+      }
+     },
+     "coincidences": {
+      "base": 1,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 128,
+      "adapter": 188
+     },
+     "target_states_sunday_1": {
+      "base": 133,
+      "adapter": 58
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1681.5,
+       "other cells": 1282.0
+      },
+      "adapter": {
+       "target": 1719.5,
+       "other cells": 1317.5
+      }
+     },
+     "labels": {
+      "base": "base 2",
+      "adapter": "Revision 2.1"
+     },
+     "target_sunday_1_paired": {
+      "a": 133,
+      "b": 58,
+      "a_only": 83,
+      "b_only": 8,
+      "p_mcnemar": 7.57684143871343e-17
+     },
+     "extra_groups": {
+      "target: ClickHouse": {
+       "n": 48,
+       "a": 3,
+       "b": 46,
+       "a_only": 0,
+       "b_only": 43,
+       "p_mcnemar": 2.2737367544323206e-13
+      },
+      "target: DuckDB": {
+       "n": 108,
+       "a": 76,
+       "b": 95,
+       "a_only": 10,
+       "b_only": 29,
+       "p_mcnemar": 0.0033778479119064286
+      }
+     }
+    },
+    "Revision 2 vs Revision 2.1": {
+     "items": 204,
+     "paired": 204,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 156,
+       "base": 132,
+       "adapter": 141,
+       "base_only": 12,
+       "adapter_only": 21,
+       "p_mcnemar": 0.163
+      },
+      "other cells": {
+       "n": 48,
+       "base": 46,
+       "adapter": 47,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-filtered": {
+       "n": 24,
+       "base": 22,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "other cells: workweek": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 24,
+       "base": 22,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "other cells: mysql": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/weekend-filtered": {
+       "n": 24,
+       "base": 23,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/workweek": {
+       "n": 24,
+       "base": 24,
+       "adapter": 22,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      },
+      "duckdb/weekday-numbering": {
+       "n": 36,
+       "base": 28,
+       "adapter": 31,
+       "base_only": 5,
+       "adapter_only": 8,
+       "p_mcnemar": 0.581
+      },
+      "duckdb/weekend-filtered": {
+       "n": 24,
+       "base": 18,
+       "adapter": 21,
+       "base_only": 2,
+       "adapter_only": 5,
+       "p_mcnemar": 0.453
+      },
+      "duckdb/weekend-flag": {
+       "n": 24,
+       "base": 17,
+       "adapter": 20,
+       "base_only": 2,
+       "adapter_only": 5,
+       "p_mcnemar": 0.453
+      },
+      "duckdb/workweek": {
+       "n": 24,
+       "base": 22,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-filtered": {
+       "n": 12,
+       "base": 10,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "postgres/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "verified": 178,
+       "wrong": 22,
+       "unfinished": 4
+      },
+      "adapter": {
+       "verified": 188,
+       "wrong": 9,
+       "error": 2,
+       "unfinished": 5
+      }
+     },
+     "coincidences": {
+      "base": 0,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 178,
+      "adapter": 188
+     },
+     "target_states_sunday_1": {
+      "base": 87,
+      "adapter": 58
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1663.5,
+       "other cells": 1342.0
+      },
+      "adapter": {
+       "target": 1719.5,
+       "other cells": 1317.5
+      }
+     },
+     "labels": {
+      "base": "Revision 2",
+      "adapter": "Revision 2.1"
+     },
+     "target_sunday_1_paired": {
+      "a": 87,
+      "b": 58,
+      "a_only": 51,
+      "b_only": 22,
+      "p_mcnemar": 0.0009142745821630901
+     },
+     "extra_groups": {
+      "target: ClickHouse": {
+       "n": 48,
+       "a": 47,
+       "b": 46,
+       "a_only": 2,
+       "b_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "target: DuckDB": {
+       "n": 108,
+       "a": 85,
+       "b": 95,
+       "a_only": 10,
+       "b_only": 20,
+       "p_mcnemar": 0.09873714670538902
+      }
+     }
+    },
+    "base 1 vs base 2 (A/A)": {
+     "items": 204,
+     "paired": 204,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 156,
+       "base": 75,
+       "adapter": 79,
+       "base_only": 16,
+       "adapter_only": 20,
+       "p_mcnemar": 0.618
+      },
+      "other cells": {
+       "n": 48,
+       "base": 47,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-filtered": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: workweek": {
+       "n": 24,
+       "base": 23,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 24,
+       "base": 23,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: mysql": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/weekend-filtered": {
+       "n": 24,
+       "base": 1,
+       "adapter": 2,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/workweek": {
+       "n": 24,
+       "base": 1,
+       "adapter": 1,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekday-numbering": {
+       "n": 36,
+       "base": 25,
+       "adapter": 27,
+       "base_only": 5,
+       "adapter_only": 7,
+       "p_mcnemar": 0.774
+      },
+      "duckdb/weekend-filtered": {
+       "n": 24,
+       "base": 13,
+       "adapter": 15,
+       "base_only": 2,
+       "adapter_only": 4,
+       "p_mcnemar": 0.688
+      },
+      "duckdb/weekend-flag": {
+       "n": 24,
+       "base": 13,
+       "adapter": 13,
+       "base_only": 5,
+       "adapter_only": 5,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/workweek": {
+       "n": 24,
+       "base": 22,
+       "adapter": 21,
+       "base_only": 2,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/workweek": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 73,
+       "verified": 123,
+       "error": 2,
+       "unfinished": 6
+      },
+      "adapter": {
+       "wrong": 73,
+       "verified": 128,
+       "unfinished": 3
+      }
+     },
+     "coincidences": {
+      "base": 1,
+      "adapter": 1
+     },
+     "rechecked": {
+      "base": 123,
+      "adapter": 128
+     },
+     "target_states_sunday_1": {
+      "base": 121,
+      "adapter": 133
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1721.0,
+       "other cells": 1449.0
+      },
+      "adapter": {
+       "target": 1681.5,
+       "other cells": 1282.0
+      }
+     },
+     "labels": {
+      "base": "base 1",
+      "adapter": "base 2"
+     },
+     "target_sunday_1_paired": {
+      "a": 121,
+      "b": 133,
+      "a_only": 14,
+      "b_only": 26,
+      "p_mcnemar": 0.0806904677519924
+     },
+     "extra_groups": {
+      "target: ClickHouse": {
+       "n": 48,
+       "a": 2,
+       "b": 3,
+       "a_only": 2,
+       "b_only": 3,
+       "p_mcnemar": 1.0
+      },
+      "target: DuckDB": {
+       "n": 108,
+       "a": 73,
+       "b": 76,
+       "a_only": 14,
+       "b_only": 17,
+       "p_mcnemar": 0.720100131817162
+      }
+     }
+    },
+    "base 1 vs Revision 2": {
+     "items": 204,
+     "paired": 204,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 156,
+       "base": 75,
+       "adapter": 132,
+       "base_only": 12,
+       "adapter_only": 69,
+       "p_mcnemar": 7.03e-11
+      },
+      "other cells": {
+       "n": 48,
+       "base": 47,
+       "adapter": 46,
+       "base_only": 2,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-filtered": {
+       "n": 24,
+       "base": 24,
+       "adapter": 22,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      },
+      "other cells: workweek": {
+       "n": 24,
+       "base": 23,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 24,
+       "base": 23,
+       "adapter": 22,
+       "base_only": 2,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: mysql": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/weekend-filtered": {
+       "n": 24,
+       "base": 1,
+       "adapter": 23,
+       "base_only": 0,
+       "adapter_only": 22,
+       "p_mcnemar": 4.77e-07
+      },
+      "clickhouse/workweek": {
+       "n": 24,
+       "base": 1,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 23,
+       "p_mcnemar": 2.38e-07
+      },
+      "duckdb/weekday-numbering": {
+       "n": 36,
+       "base": 25,
+       "adapter": 28,
+       "base_only": 5,
+       "adapter_only": 8,
+       "p_mcnemar": 0.581
+      },
+      "duckdb/weekend-filtered": {
+       "n": 24,
+       "base": 13,
+       "adapter": 18,
+       "base_only": 2,
+       "adapter_only": 7,
+       "p_mcnemar": 0.18
+      },
+      "duckdb/weekend-flag": {
+       "n": 24,
+       "base": 13,
+       "adapter": 17,
+       "base_only": 3,
+       "adapter_only": 7,
+       "p_mcnemar": 0.344
+      },
+      "duckdb/workweek": {
+       "n": 24,
+       "base": 22,
+       "adapter": 22,
+       "base_only": 2,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/workweek": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-filtered": {
+       "n": 12,
+       "base": 12,
+       "adapter": 10,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      },
+      "postgres/workweek": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 73,
+       "verified": 123,
+       "error": 2,
+       "unfinished": 6
+      },
+      "adapter": {
+       "verified": 178,
+       "wrong": 22,
+       "unfinished": 4
+      }
+     },
+     "coincidences": {
+      "base": 1,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 123,
+      "adapter": 178
+     },
+     "target_states_sunday_1": {
+      "base": 121,
+      "adapter": 87
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1721.0,
+       "other cells": 1449.0
+      },
+      "adapter": {
+       "target": 1663.5,
+       "other cells": 1342.0
+      }
+     },
+     "labels": {
+      "base": "base 1",
+      "adapter": "Revision 2"
+     },
+     "target_sunday_1_paired": {
+      "a": 121,
+      "b": 87,
+      "a_only": 51,
+      "b_only": 17,
+      "p_mcnemar": 4.453448771493584e-05
+     },
+     "extra_groups": {
+      "target: ClickHouse": {
+       "n": 48,
+       "a": 2,
+       "b": 47,
+       "a_only": 0,
+       "b_only": 45,
+       "p_mcnemar": 5.684341886080802e-14
+      },
+      "target: DuckDB": {
+       "n": 108,
+       "a": 73,
+       "b": 85,
+       "a_only": 12,
+       "b_only": 24,
+       "p_mcnemar": 0.06524533522315323
+      }
+     }
+    }
+   }
+  },
+  "ta_test": {
+   "items": {
+    "file": "data/sft/rev2_target_a_test/items.jsonl",
+    "md5": "828367c52dcb99a3df82b39d0e2da7b1",
+    "n": 228
+   },
+   "generation": {
+    "base 2": {
+     "replies": 228,
+     "errors": 0,
+     "cut_at_budget": 6,
+     "completion_tokens": 512402,
+     "wall_seconds": null,
+     "tokens_per_second": null,
+     "note": "answered over three server runs (14:25-15:03, 15:35-15:47, 20:15-20:37 box clock): no single rate"
+    },
+    "Revision 2.1": {
+     "replies": 228,
+     "errors": 0,
+     "cut_at_budget": 8,
+     "completion_tokens": 513444,
+     "wall_seconds": 4806,
+     "tokens_per_second": 106.8
+    }
+   },
+   "runs": {
+    "base 1": {
+     "n": 228,
+     "right": 157,
+     "cells": {
+      "clickhouse/weekday-numbering": [
+       9,
+       36
+      ],
+      "clickhouse/weekend-flag": [
+       1,
+       24
+      ],
+      "clickhouse/timezone-direction": [
+       9,
+       12
+      ],
+      "clickhouse/month-bucket": [
+       12,
+       12
+      ],
+      "duckdb/weekday-numbering": [
+       8,
+       12
+      ],
+      "duckdb/weekend-flag": [
+       7,
+       12
+      ],
+      "duckdb/timezone-direction": [
+       12,
+       12
+      ],
+      "duckdb/month-bucket": [
+       11,
+       12
+      ],
+      "postgres/weekday-numbering": [
+       10,
+       12
+      ],
+      "postgres/weekend-flag": [
+       10,
+       12
+      ],
+      "postgres/timezone-direction": [
+       9,
+       12
+      ],
+      "postgres/month-bucket": [
+       12,
+       12
+      ],
+      "mysql/weekday-numbering": [
+       12,
+       12
+      ],
+      "mysql/weekend-flag": [
+       11,
+       12
+      ],
+      "mysql/timezone-direction": [
+       12,
+       12
+      ],
+      "mysql/month-bucket": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       2,
+       8
+      ],
+      "dow": [
+       12,
+       12
+      ],
+      "no sql": [
+       0,
+       3
+      ],
+      "name": [
+       1,
+       1
+      ]
+     },
+     "statuses": {
+      "wrong": 57,
+      "verified": 159,
+      "unfinished": 9,
+      "error": 2,
+      "not_sql_only": 1
+     },
+     "cut_at_budget": 9,
+     "target_states_sunday_1": 60,
+     "target_n": 60,
+     "target_by_dialect": {
+      "clickhouse": [
+       10,
+       60
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "wrong": 47,
+        "verified": 10,
+        "coincidence": 2,
+        "not_sql_only": 1
+       },
+       "states_sunday_1": 60
+      }
+     },
+     "completion_tokens": 546784,
+     "wrong": {
+      "clickhouse/timezone-direction | error | (none)": 2,
+      "clickhouse/timezone-direction | unfinished | (none)": 1,
+      "clickhouse/weekday-numbering | verified | dayofweek = 1": 1,
+      "clickhouse/weekday-numbering | verified | todayofweek = 1": 1,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 1": 1,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 2": 3,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 3": 3,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 5": 3,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 6": 3,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 7": 2,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 2": 1,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 4": 5,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 5": 3,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 7": 1,
+      "clickhouse/weekend-flag | not_sql_only | (none)": 1,
+      "clickhouse/weekend-flag | wrong | dayofweek in (1, 7)": 9,
+      "clickhouse/weekend-flag | wrong | todayofweek in (1, 7)": 13,
+      "duckdb/month-bucket | unfinished | (none)": 1,
+      "duckdb/weekday-numbering | unfinished | (none)": 2,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 2,
+      "duckdb/weekend-flag | unfinished | (none)": 1,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 4,
+      "mysql/weekend-flag | unfinished | (none)": 1,
+      "postgres/timezone-direction | wrong | (none)": 3,
+      "postgres/weekday-numbering | unfinished | (none)": 2,
+      "postgres/weekend-flag | unfinished | (none)": 1,
+      "postgres/weekend-flag | wrong | extract(dow in (1, 7)": 1
+     }
+    },
+    "Revision 2": {
+     "n": 228,
+     "right": 214,
+     "cells": {
+      "clickhouse/weekday-numbering": [
+       34,
+       36
+      ],
+      "clickhouse/weekend-flag": [
+       24,
+       24
+      ],
+      "clickhouse/timezone-direction": [
+       12,
+       12
+      ],
+      "clickhouse/month-bucket": [
+       12,
+       12
+      ],
+      "duckdb/weekday-numbering": [
+       8,
+       12
+      ],
+      "duckdb/weekend-flag": [
+       8,
+       12
+      ],
+      "duckdb/timezone-direction": [
+       12,
+       12
+      ],
+      "duckdb/month-bucket": [
+       11,
+       12
+      ],
+      "postgres/weekday-numbering": [
+       11,
+       12
+      ],
+      "postgres/weekend-flag": [
+       10,
+       12
+      ],
+      "postgres/timezone-direction": [
+       12,
+       12
+      ],
+      "postgres/month-bucket": [
+       12,
+       12
+      ],
+      "mysql/weekday-numbering": [
+       12,
+       12
+      ],
+      "mysql/weekend-flag": [
+       12,
+       12
+      ],
+      "mysql/timezone-direction": [
+       12,
+       12
+      ],
+      "mysql/month-bucket": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       0,
+       5
+      ],
+      "dow": [
+       15,
+       15
+      ],
+      "no sql": [
+       0,
+       2
+      ],
+      "name": [
+       1,
+       1
+      ],
+      "other": [
+       0,
+       1
+      ]
+     },
+     "statuses": {
+      "verified": 214,
+      "wrong": 7,
+      "unfinished": 6,
+      "error": 1
+     },
+     "cut_at_budget": 6,
+     "target_states_sunday_1": 29,
+     "target_n": 60,
+     "target_by_dialect": {
+      "clickhouse": [
+       58,
+       60
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "verified": 58,
+        "wrong": 2
+       },
+       "states_sunday_1": 29
+      }
+     },
+     "completion_tokens": 491089,
+     "wrong": {
+      "clickhouse/weekday-numbering | wrong | todayofweek = 5": 2,
+      "duckdb/month-bucket | unfinished | (none)": 1,
+      "duckdb/weekday-numbering | error | (none)": 1,
+      "duckdb/weekday-numbering | unfinished | (none)": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 5": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 1,
+      "duckdb/weekend-flag | unfinished | (none)": 1,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 3,
+      "postgres/weekday-numbering | unfinished | (none)": 1,
+      "postgres/weekend-flag | unfinished | (none)": 2
+     }
+    },
+    "base 2": {
+     "n": 228,
+     "right": 167,
+     "cells": {
+      "clickhouse/weekday-numbering": [
+       11,
+       36
+      ],
+      "clickhouse/weekend-flag": [
+       1,
+       24
+      ],
+      "clickhouse/timezone-direction": [
+       10,
+       12
+      ],
+      "clickhouse/month-bucket": [
+       12,
+       12
+      ],
+      "duckdb/weekday-numbering": [
+       7,
+       12
+      ],
+      "duckdb/weekend-flag": [
+       8,
+       12
+      ],
+      "duckdb/timezone-direction": [
+       12,
+       12
+      ],
+      "duckdb/month-bucket": [
+       12,
+       12
+      ],
+      "postgres/weekday-numbering": [
+       12,
+       12
+      ],
+      "postgres/weekend-flag": [
+       11,
+       12
+      ],
+      "postgres/timezone-direction": [
+       11,
+       12
+      ],
+      "postgres/month-bucket": [
+       12,
+       12
+      ],
+      "mysql/weekday-numbering": [
+       12,
+       12
+      ],
+      "mysql/weekend-flag": [
+       12,
+       12
+      ],
+      "mysql/timezone-direction": [
+       12,
+       12
+      ],
+      "mysql/month-bucket": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       0,
+       6
+      ],
+      "dow": [
+       15,
+       15
+      ],
+      "no sql": [
+       0,
+       3
+      ]
+     },
+     "statuses": {
+      "wrong": 54,
+      "verified": 167,
+      "unfinished": 6,
+      "error": 1
+     },
+     "cut_at_budget": 6,
+     "target_states_sunday_1": 59,
+     "target_n": 60,
+     "target_by_dialect": {
+      "clickhouse": [
+       12,
+       60
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "wrong": 47,
+        "unfinished": 1,
+        "verified": 12
+       },
+       "states_sunday_1": 59
+      }
+     },
+     "completion_tokens": 512402,
+     "wrong": {
+      "clickhouse/timezone-direction | error | (none)": 1,
+      "clickhouse/timezone-direction | wrong | (none)": 1,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 2": 1,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 4": 3,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 5": 4,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 6": 1,
+      "clickhouse/weekday-numbering | wrong | dayofweek = 7": 2,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 2": 2,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 3": 4,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 4": 3,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 5": 3,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 6": 1,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 7": 1,
+      "clickhouse/weekend-flag | unfinished | (none)": 1,
+      "clickhouse/weekend-flag | wrong | dayofweek in (1, 7)": 11,
+      "clickhouse/weekend-flag | wrong | todayofweek in (1, 7)": 11,
+      "duckdb/weekday-numbering | unfinished | (none)": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 2": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 3": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 5": 1,
+      "duckdb/weekday-numbering | wrong | dayofweek = 7": 1,
+      "duckdb/weekend-flag | unfinished | (none)": 2,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 2,
+      "postgres/timezone-direction | unfinished | (none)": 1,
+      "postgres/weekend-flag | unfinished | (none)": 1
+     }
+    },
+    "Revision 2.1": {
+     "n": 228,
+     "right": 213,
+     "cells": {
+      "clickhouse/weekday-numbering": [
+       34,
+       36
+      ],
+      "clickhouse/weekend-flag": [
+       23,
+       24
+      ],
+      "clickhouse/timezone-direction": [
+       12,
+       12
+      ],
+      "clickhouse/month-bucket": [
+       12,
+       12
+      ],
+      "duckdb/weekday-numbering": [
+       11,
+       12
+      ],
+      "duckdb/weekend-flag": [
+       8,
+       12
+      ],
+      "duckdb/timezone-direction": [
+       12,
+       12
+      ],
+      "duckdb/month-bucket": [
+       9,
+       12
+      ],
+      "postgres/weekday-numbering": [
+       12,
+       12
+      ],
+      "postgres/weekend-flag": [
+       9,
+       12
+      ],
+      "postgres/timezone-direction": [
+       11,
+       12
+      ],
+      "postgres/month-bucket": [
+       12,
+       12
+      ],
+      "mysql/weekday-numbering": [
+       12,
+       12
+      ],
+      "mysql/weekend-flag": [
+       12,
+       12
+      ],
+      "mysql/timezone-direction": [
+       12,
+       12
+      ],
+      "mysql/month-bucket": [
+       12,
+       12
+      ]
+     },
+     "duckdb_function": {
+      "dayofweek": [
+       6,
+       9
+      ],
+      "dow": [
+       13,
+       14
+      ],
+      "other": [
+       0,
+       1
+      ]
+     },
+     "statuses": {
+      "verified": 213,
+      "wrong": 5,
+      "error": 2,
+      "unfinished": 8
+     },
+     "cut_at_budget": 8,
+     "target_states_sunday_1": 20,
+     "target_n": 60,
+     "target_by_dialect": {
+      "clickhouse": [
+       57,
+       60
+      ]
+     },
+     "target_dialects": {
+      "clickhouse": {
+       "statuses": {
+        "verified": 57,
+        "unfinished": 2,
+        "wrong": 1
+       },
+       "states_sunday_1": 20
+      }
+     },
+     "completion_tokens": 513444,
+     "wrong": {
+      "clickhouse/weekday-numbering | unfinished | (none)": 1,
+      "clickhouse/weekday-numbering | wrong | todayofweek = 5": 1,
+      "clickhouse/weekend-flag | unfinished | (none)": 1,
+      "duckdb/month-bucket | unfinished | (none)": 3,
+      "duckdb/weekday-numbering | error | (none)": 1,
+      "duckdb/weekend-flag | error | is_weekend": 1,
+      "duckdb/weekend-flag | wrong | dayofweek in (1, 7)": 1,
+      "duckdb/weekend-flag | wrong | dayofweek in (6, 7)": 2,
+      "postgres/timezone-direction | wrong | (none)": 1,
+      "postgres/weekend-flag | unfinished | (none)": 3
+     }
+    }
+   },
+   "pairs": {
+    "base 2 vs Revision 2.1": {
+     "items": 228,
+     "paired": 228,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 60,
+       "base": 12,
+       "adapter": 57,
+       "base_only": 1,
+       "adapter_only": 46,
+       "p_mcnemar": 6.82e-13
+      },
+      "other cells": {
+       "n": 168,
+       "base": 155,
+       "adapter": 156,
+       "base_only": 7,
+       "adapter_only": 8,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekday-numbering": {
+       "n": 36,
+       "base": 31,
+       "adapter": 35,
+       "base_only": 0,
+       "adapter_only": 4,
+       "p_mcnemar": 0.125
+      },
+      "other cells: weekend-flag": {
+       "n": 36,
+       "base": 31,
+       "adapter": 29,
+       "base_only": 3,
+       "adapter_only": 1,
+       "p_mcnemar": 0.625
+      },
+      "other cells: timezone-direction": {
+       "n": 48,
+       "base": 45,
+       "adapter": 47,
+       "base_only": 1,
+       "adapter_only": 3,
+       "p_mcnemar": 0.625
+      },
+      "other cells: month-bucket": {
+       "n": 48,
+       "base": 48,
+       "adapter": 45,
+       "base_only": 3,
+       "adapter_only": 0,
+       "p_mcnemar": 0.25
+      },
+      "other cells: clickhouse": {
+       "n": 24,
+       "base": 22,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 2,
+       "p_mcnemar": 0.5
+      },
+      "other cells: duckdb": {
+       "n": 48,
+       "base": 39,
+       "adapter": 40,
+       "base_only": 4,
+       "adapter_only": 5,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 48,
+       "base": 46,
+       "adapter": 44,
+       "base_only": 3,
+       "adapter_only": 1,
+       "p_mcnemar": 0.625
+      },
+      "other cells: mysql": {
+       "n": 48,
+       "base": 48,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/timezone-direction": {
+       "n": 12,
+       "base": 10,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 2,
+       "p_mcnemar": 0.5
+      },
+      "clickhouse/weekday-numbering": {
+       "n": 36,
+       "base": 11,
+       "adapter": 34,
+       "base_only": 1,
+       "adapter_only": 24,
+       "p_mcnemar": 1.55e-06
+      },
+      "clickhouse/weekend-flag": {
+       "n": 24,
+       "base": 1,
+       "adapter": 23,
+       "base_only": 0,
+       "adapter_only": 22,
+       "p_mcnemar": 4.77e-07
+      },
+      "duckdb/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 9,
+       "base_only": 3,
+       "adapter_only": 0,
+       "p_mcnemar": 0.25
+      },
+      "duckdb/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekday-numbering": {
+       "n": 12,
+       "base": 7,
+       "adapter": 11,
+       "base_only": 0,
+       "adapter_only": 4,
+       "p_mcnemar": 0.125
+      },
+      "duckdb/weekend-flag": {
+       "n": 12,
+       "base": 8,
+       "adapter": 8,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "mysql/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekday-numbering": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-flag": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/timezone-direction": {
+       "n": 12,
+       "base": 11,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekday-numbering": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-flag": {
+       "n": 12,
+       "base": 11,
+       "adapter": 9,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 54,
+       "verified": 167,
+       "unfinished": 6,
+       "error": 1
+      },
+      "adapter": {
+       "verified": 213,
+       "wrong": 5,
+       "error": 2,
+       "unfinished": 8
+      }
+     },
+     "coincidences": {
+      "base": 0,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 167,
+      "adapter": 213
+     },
+     "target_states_sunday_1": {
+      "base": 59,
+      "adapter": 20
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1486.0,
+       "other cells": 1469.5
+      },
+      "adapter": {
+       "target": 1475.0,
+       "other cells": 1472.0
+      }
+     },
+     "labels": {
+      "base": "base 2",
+      "adapter": "Revision 2.1"
+     },
+     "target_sunday_1_paired": {
+      "a": 59,
+      "b": 20,
+      "a_only": 39,
+      "b_only": 0,
+      "p_mcnemar": 3.637978807091713e-12
+     },
+     "extra_groups": {
+      "DuckDB weekday and weekend": {
+       "n": 24,
+       "a": 15,
+       "b": 19,
+       "a_only": 1,
+       "b_only": 5,
+       "p_mcnemar": 0.21875
+      },
+      "weekday and weekend, PostgreSQL and MySQL": {
+       "n": 48,
+       "a": 47,
+       "b": 45,
+       "a_only": 2,
+       "b_only": 0,
+       "p_mcnemar": 0.5
+      }
+     }
+    },
+    "Revision 2 vs Revision 2.1": {
+     "items": 228,
+     "paired": 228,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 60,
+       "base": 58,
+       "adapter": 57,
+       "base_only": 2,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells": {
+       "n": 168,
+       "base": 156,
+       "adapter": 156,
+       "base_only": 9,
+       "adapter_only": 9,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekday-numbering": {
+       "n": 36,
+       "base": 31,
+       "adapter": 35,
+       "base_only": 1,
+       "adapter_only": 5,
+       "p_mcnemar": 0.219
+      },
+      "other cells: weekend-flag": {
+       "n": 36,
+       "base": 30,
+       "adapter": 29,
+       "base_only": 5,
+       "adapter_only": 4,
+       "p_mcnemar": 1.0
+      },
+      "other cells: timezone-direction": {
+       "n": 48,
+       "base": 48,
+       "adapter": 47,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: month-bucket": {
+       "n": 48,
+       "base": 47,
+       "adapter": 45,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      },
+      "other cells: clickhouse": {
+       "n": 24,
+       "base": 24,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "other cells: duckdb": {
+       "n": 48,
+       "base": 39,
+       "adapter": 40,
+       "base_only": 6,
+       "adapter_only": 7,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 48,
+       "base": 45,
+       "adapter": 44,
+       "base_only": 3,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "other cells: mysql": {
+       "n": 48,
+       "base": 48,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/weekday-numbering": {
+       "n": 36,
+       "base": 34,
+       "adapter": 34,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/weekend-flag": {
+       "n": 24,
+       "base": 24,
+       "adapter": 23,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/month-bucket": {
+       "n": 12,
+       "base": 11,
+       "adapter": 9,
+       "base_only": 2,
+       "adapter_only": 0,
+       "p_mcnemar": 0.5
+      },
+      "duckdb/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekday-numbering": {
+       "n": 12,
+       "base": 8,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 4,
+       "p_mcnemar": 0.375
+      },
+      "duckdb/weekend-flag": {
+       "n": 12,
+       "base": 8,
+       "adapter": 8,
+       "base_only": 3,
+       "adapter_only": 3,
+       "p_mcnemar": 1.0
+      },
+      "mysql/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekday-numbering": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-flag": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekday-numbering": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-flag": {
+       "n": 12,
+       "base": 10,
+       "adapter": 9,
+       "base_only": 2,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "verified": 214,
+       "wrong": 7,
+       "unfinished": 6,
+       "error": 1
+      },
+      "adapter": {
+       "verified": 213,
+       "wrong": 5,
+       "error": 2,
+       "unfinished": 8
+      }
+     },
+     "coincidences": {
+      "base": 0,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 214,
+      "adapter": 213
+     },
+     "target_states_sunday_1": {
+      "base": 29,
+      "adapter": 20
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1488.5,
+       "other cells": 1518.5
+      },
+      "adapter": {
+       "target": 1475.0,
+       "other cells": 1472.0
+      }
+     },
+     "labels": {
+      "base": "Revision 2",
+      "adapter": "Revision 2.1"
+     },
+     "target_sunday_1_paired": {
+      "a": 29,
+      "b": 20,
+      "a_only": 17,
+      "b_only": 8,
+      "p_mcnemar": 0.10775214433670044
+     },
+     "extra_groups": {
+      "DuckDB weekday and weekend": {
+       "n": 24,
+       "a": 16,
+       "b": 19,
+       "a_only": 4,
+       "b_only": 7,
+       "p_mcnemar": 0.548828125
+      },
+      "weekday and weekend, PostgreSQL and MySQL": {
+       "n": 48,
+       "a": 45,
+       "b": 45,
+       "a_only": 2,
+       "b_only": 2,
+       "p_mcnemar": 1.0
+      }
+     }
+    },
+    "base 1 vs base 2 (A/A)": {
+     "items": 228,
+     "paired": 228,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 60,
+       "base": 10,
+       "adapter": 12,
+       "base_only": 5,
+       "adapter_only": 7,
+       "p_mcnemar": 0.774
+      },
+      "other cells": {
+       "n": 168,
+       "base": 147,
+       "adapter": 155,
+       "base_only": 7,
+       "adapter_only": 15,
+       "p_mcnemar": 0.134
+      },
+      "other cells: weekday-numbering": {
+       "n": 36,
+       "base": 30,
+       "adapter": 31,
+       "base_only": 3,
+       "adapter_only": 4,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-flag": {
+       "n": 36,
+       "base": 28,
+       "adapter": 31,
+       "base_only": 2,
+       "adapter_only": 5,
+       "p_mcnemar": 0.453
+      },
+      "other cells: timezone-direction": {
+       "n": 48,
+       "base": 42,
+       "adapter": 45,
+       "base_only": 2,
+       "adapter_only": 5,
+       "p_mcnemar": 0.453
+      },
+      "other cells: month-bucket": {
+       "n": 48,
+       "base": 47,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: clickhouse": {
+       "n": 24,
+       "base": 21,
+       "adapter": 22,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "other cells: duckdb": {
+       "n": 48,
+       "base": 38,
+       "adapter": 39,
+       "base_only": 4,
+       "adapter_only": 5,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 48,
+       "base": 41,
+       "adapter": 46,
+       "base_only": 2,
+       "adapter_only": 7,
+       "p_mcnemar": 0.18
+      },
+      "other cells: mysql": {
+       "n": 48,
+       "base": 47,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/timezone-direction": {
+       "n": 12,
+       "base": 9,
+       "adapter": 10,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/weekday-numbering": {
+       "n": 36,
+       "base": 9,
+       "adapter": 11,
+       "base_only": 4,
+       "adapter_only": 6,
+       "p_mcnemar": 0.754
+      },
+      "clickhouse/weekend-flag": {
+       "n": 24,
+       "base": 1,
+       "adapter": 1,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/month-bucket": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekday-numbering": {
+       "n": 12,
+       "base": 8,
+       "adapter": 7,
+       "base_only": 3,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekend-flag": {
+       "n": 12,
+       "base": 7,
+       "adapter": 8,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      },
+      "mysql/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekday-numbering": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-flag": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "postgres/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/timezone-direction": {
+       "n": 12,
+       "base": 9,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 3,
+       "p_mcnemar": 0.625
+      },
+      "postgres/weekday-numbering": {
+       "n": 12,
+       "base": 10,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 2,
+       "p_mcnemar": 0.5
+      },
+      "postgres/weekend-flag": {
+       "n": 12,
+       "base": 10,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 57,
+       "verified": 159,
+       "unfinished": 9,
+       "error": 2,
+       "not_sql_only": 1
+      },
+      "adapter": {
+       "wrong": 54,
+       "verified": 167,
+       "unfinished": 6,
+       "error": 1
+      }
+     },
+     "coincidences": {
+      "base": 2,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 159,
+      "adapter": 167
+     },
+     "target_states_sunday_1": {
+      "base": 60,
+      "adapter": 59
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1545.0,
+       "other cells": 1460.0
+      },
+      "adapter": {
+       "target": 1486.0,
+       "other cells": 1469.5
+      }
+     },
+     "labels": {
+      "base": "base 1",
+      "adapter": "base 2"
+     },
+     "target_sunday_1_paired": {
+      "a": 60,
+      "b": 59,
+      "a_only": 1,
+      "b_only": 0,
+      "p_mcnemar": 1.0
+     },
+     "extra_groups": {
+      "DuckDB weekday and weekend": {
+       "n": 24,
+       "a": 15,
+       "b": 15,
+       "a_only": 4,
+       "b_only": 4,
+       "p_mcnemar": 1.0
+      },
+      "weekday and weekend, PostgreSQL and MySQL": {
+       "n": 48,
+       "a": 43,
+       "b": 47,
+       "a_only": 1,
+       "b_only": 5,
+       "p_mcnemar": 0.21875
+      }
+     }
+    },
+    "base 1 vs Revision 2": {
+     "items": 228,
+     "paired": 228,
+     "rebuild_mismatch": 0,
+     "unpaired": {
+      "base": 0,
+      "adapter": 0
+     },
+     "groups": {
+      "target": {
+       "n": 60,
+       "base": 10,
+       "adapter": 58,
+       "base_only": 1,
+       "adapter_only": 49,
+       "p_mcnemar": 9.06e-14
+      },
+      "other cells": {
+       "n": 168,
+       "base": 147,
+       "adapter": 156,
+       "base_only": 8,
+       "adapter_only": 17,
+       "p_mcnemar": 0.108
+      },
+      "other cells: weekday-numbering": {
+       "n": 36,
+       "base": 30,
+       "adapter": 31,
+       "base_only": 3,
+       "adapter_only": 4,
+       "p_mcnemar": 1.0
+      },
+      "other cells: weekend-flag": {
+       "n": 36,
+       "base": 28,
+       "adapter": 30,
+       "base_only": 4,
+       "adapter_only": 6,
+       "p_mcnemar": 0.754
+      },
+      "other cells: timezone-direction": {
+       "n": 48,
+       "base": 42,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 6,
+       "p_mcnemar": 0.0312
+      },
+      "other cells: month-bucket": {
+       "n": 48,
+       "base": 47,
+       "adapter": 47,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "other cells: clickhouse": {
+       "n": 24,
+       "base": 21,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 3,
+       "p_mcnemar": 0.25
+      },
+      "other cells: duckdb": {
+       "n": 48,
+       "base": 38,
+       "adapter": 39,
+       "base_only": 6,
+       "adapter_only": 7,
+       "p_mcnemar": 1.0
+      },
+      "other cells: postgres": {
+       "n": 48,
+       "base": 41,
+       "adapter": 45,
+       "base_only": 2,
+       "adapter_only": 6,
+       "p_mcnemar": 0.289
+      },
+      "other cells: mysql": {
+       "n": 48,
+       "base": 47,
+       "adapter": 48,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      }
+     },
+     "cells": {
+      "clickhouse/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "clickhouse/timezone-direction": {
+       "n": 12,
+       "base": 9,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 3,
+       "p_mcnemar": 0.25
+      },
+      "clickhouse/weekday-numbering": {
+       "n": 36,
+       "base": 9,
+       "adapter": 34,
+       "base_only": 1,
+       "adapter_only": 26,
+       "p_mcnemar": 4.17e-07
+      },
+      "clickhouse/weekend-flag": {
+       "n": 24,
+       "base": 1,
+       "adapter": 24,
+       "base_only": 0,
+       "adapter_only": 23,
+       "p_mcnemar": 2.38e-07
+      },
+      "duckdb/month-bucket": {
+       "n": 12,
+       "base": 11,
+       "adapter": 11,
+       "base_only": 1,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekday-numbering": {
+       "n": 12,
+       "base": 8,
+       "adapter": 8,
+       "base_only": 3,
+       "adapter_only": 3,
+       "p_mcnemar": 1.0
+      },
+      "duckdb/weekend-flag": {
+       "n": 12,
+       "base": 7,
+       "adapter": 8,
+       "base_only": 2,
+       "adapter_only": 3,
+       "p_mcnemar": 1.0
+      },
+      "mysql/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/timezone-direction": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekday-numbering": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "mysql/weekend-flag": {
+       "n": 12,
+       "base": 11,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "postgres/month-bucket": {
+       "n": 12,
+       "base": 12,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 0,
+       "p_mcnemar": 1.0
+      },
+      "postgres/timezone-direction": {
+       "n": 12,
+       "base": 9,
+       "adapter": 12,
+       "base_only": 0,
+       "adapter_only": 3,
+       "p_mcnemar": 0.25
+      },
+      "postgres/weekday-numbering": {
+       "n": 12,
+       "base": 10,
+       "adapter": 11,
+       "base_only": 0,
+       "adapter_only": 1,
+       "p_mcnemar": 1.0
+      },
+      "postgres/weekend-flag": {
+       "n": 12,
+       "base": 10,
+       "adapter": 10,
+       "base_only": 2,
+       "adapter_only": 2,
+       "p_mcnemar": 1.0
+      }
+     },
+     "statuses": {
+      "base": {
+       "wrong": 57,
+       "verified": 159,
+       "unfinished": 9,
+       "error": 2,
+       "not_sql_only": 1
+      },
+      "adapter": {
+       "verified": 214,
+       "wrong": 7,
+       "unfinished": 6,
+       "error": 1
+      }
+     },
+     "coincidences": {
+      "base": 2,
+      "adapter": 0
+     },
+     "rechecked": {
+      "base": 159,
+      "adapter": 214
+     },
+     "target_states_sunday_1": {
+      "base": 60,
+      "adapter": 29
+     },
+     "reasoning_tokens_median": {
+      "base": {
+       "target": 1545.0,
+       "other cells": 1460.0
+      },
+      "adapter": {
+       "target": 1488.5,
+       "other cells": 1518.5
+      }
+     },
+     "labels": {
+      "base": "base 1",
+      "adapter": "Revision 2"
+     },
+     "target_sunday_1_paired": {
+      "a": 60,
+      "b": 29,
+      "a_only": 31,
+      "b_only": 0,
+      "p_mcnemar": 9.313225746154785e-10
+     },
+     "extra_groups": {
+      "DuckDB weekday and weekend": {
+       "n": 24,
+       "a": 15,
+       "b": 16,
+       "a_only": 5,
+       "b_only": 6,
+       "p_mcnemar": 1.0
+      },
+      "weekday and weekend, PostgreSQL and MySQL": {
+       "n": 48,
+       "a": 43,
+       "b": 45,
+       "a_only": 2,
+       "b_only": 4,
+       "p_mcnemar": 0.6875
+      }
+     }
+    }
+   }
+  }
+ },
+ "duckdb_training_rows": {
+  "what": "the Revision 2.1 mixture's DuckDB Target A weekday and weekend rows, by the function their SQL answer calls",
+  "recall-2026-10-07": {
+   "dayofweek": 43,
+   "dow": 44,
+   "isodow": 11,
+   "name": 4
+  },
+  "revision 2": {
+   "dow": 21
+  }
+ },
+ "duckdb_dayofweek_fisher": {
+  "rr: Revision 2.1 vs Revision 2": {
+   "a": [
+    38,
+    42
+   ],
+   "b": [
+    0,
+    18
+   ],
+   "p_fisher": 7.907855349617808e-12
+  },
+  "rr: Revision 2.1 vs base 2": {
+   "a": [
+    38,
+    42
+   ],
+   "b": [
+    1,
+    29
+   ],
+   "p_fisher": 2.0557542547021304e-14
+  },
+  "ta: Revision 2.1 vs Revision 2": {
+   "a": [
+    6,
+    9
+   ],
+   "b": [
+    0,
+    5
+   ],
+   "p_fisher": 0.030969030969030968
+  },
+  "ta: Revision 2.1 vs base 2": {
+   "a": [
+    6,
+    9
+   ],
+   "b": [
+    0,
+    6
+   ],
+   "p_fisher": 0.02777222777222777
+  }
+ },
+ "training_overlap": {
+  "mixture": "data/sft/rev2_1_mixture.jsonl",
+  "mixture_md5": "322397f89bad94cd60b6b96ac7534a08",
+  "mixture_rows": 4525,
+  "prompts_in_training": {
+   "rr_test": 0,
+   "ta_test": 0
+  },
+  "rows_naming_a_held_out_name": 0,
+  "checked": "rr_test when built (data/sft/target_a_rr_test_manifest.json); ta_test 2026-10-08 with target_a_eval.training_overlap"
+ },
+ "both_tests": {
+  "runs": {
+   "base 1": {
+    "items": 432,
+    "misses": 153,
+    "cut_at_budget": 15,
+    "cut_by_kind": {
+     "writing a finished query out again": 14,
+     "other loops": 1
+    },
+    "duckdb_dayofweek_right": [
+     3,
+     37
+    ]
+   },
+   "Revision 2": {
+    "items": 432,
+    "misses": 40,
+    "cut_at_budget": 10,
+    "cut_by_kind": {
+     "writing a finished query out again": 10
+    },
+    "duckdb_dayofweek_right": [
+     0,
+     23
+    ]
+   },
+   "base 2": {
+    "items": 432,
+    "misses": 138,
+    "cut_at_budget": 9,
+    "cut_by_kind": {
+     "writing a finished query out again": 8,
+     "other loops": 1
+    },
+    "duckdb_dayofweek_right": [
+     1,
+     35
+    ]
+   },
+   "Revision 2.1": {
+    "items": 432,
+    "misses": 31,
+    "cut_at_budget": 13,
+    "cut_by_kind": {
+     "writing a finished query out again": 10,
+     "other loops": 3
+    },
+    "duckdb_dayofweek_right": [
+     44,
+     51
+    ]
+   }
+  },
+  "dayofweek_fisher_rev21_vs_rev2": 2.4678804997533285e-13,
+  "cut_fisher_rev21_vs_base2": 0.5180255197425007,
+  "cut_kinds": "a cut reply whose most frequent line is a code fence (20+ times) loops on a written query; any other is another loop (doubt, rejection, reasoning)"
+ }
+}
