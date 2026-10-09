@@ -375,7 +375,7 @@ def test_significant_change_outside_the_adr_list_is_flagged():
     assert stats.verdict(flat) == "info"
 
 
-def test_parity_checks_each_adapter_and_that_scale_1_takes_nothing_from_cache(tmp_path):
+def test_parity_checks_each_adapter_and_that_a_switch_takes_nothing_from_cache(tmp_path):
     from dsbench.battery import parity
 
     n = len(parity.PROMPTS)
@@ -386,9 +386,9 @@ def test_parity_checks_each_adapter_and_that_scale_1_takes_nothing_from_cache(tm
     def steps(scale1):
         return {"0:0.0": base, "1:1.0": scale1, "2:0.0": base}
 
-    def cached(scale1):
-        # The second scale-0 step may reuse the first one's KV: the same state.
-        return {"0:0.0": [0] * n, "1:1.0": scale1, "2:0.0": [30] * n}
+    def cached(scale1, again=None):
+        # Steps 1 and 2 each follow their prompt at the other scale: nothing may be reused.
+        return {"0:0.0": [0] * n, "1:1.0": scale1, "2:0.0": again or [0] * n}
 
     run = tmp_path / "parity.json"
     clean = {"nolora": {"none": base}, "lora": steps(rev21), "lora_cached": cached([0] * n),
@@ -397,35 +397,48 @@ def test_parity_checks_each_adapter_and_that_scale_1_takes_nothing_from_cache(tm
     result = parity.compare(run)
     assert (result["scale0_equals_nolora"], result["scale1_differs_from_scale0"]) == (n, 2)
     assert result["lora2"]["scale1_differs_from_scale0"] == 4
-    assert result["scale1_tokens_from_cache"] == 0 and parity.passed(result)
+    assert result["switch_tokens_from_cache"] == 0 and parity.passed(result)
     # Every window before 2026-10-09: prompts 1, 2 and 6 began their scale-1 replies from their
     # own scale-0 KV, loaded from the server's RAM copy. The replies can't show it; the counts do.
     run.write_text(json.dumps({**clean, "lora2_cached": cached([0, 30, 19, 0, 0, 0, 17, 0])}))
     leaked = parity.compare(run)
-    assert leaked["lora2"]["scale1_tokens_from_cache"] == 66 and not parity.passed(leaked)
+    assert leaked["lora2"]["switch_tokens_from_cache"] == 66 and not parity.passed(leaked)
+    # The way back counts too: scale 0 reusing what scale 1 cached.
+    run.write_text(json.dumps({**clean, "lora_cached": cached([0] * n, [0, 0, 0, 0, 0, 0, 0, 30])}))
+    assert not parity.passed(parity.compare(run))
     # A file without the counts (every one before 2026-10-09) can't show the scales apart.
     run.write_text(json.dumps({"nolora": {"none": base}, "lora": steps(rev21)}))
     old = parity.compare(run)
-    assert "lora2" not in old and old["scale1_tokens_from_cache"] is None
+    assert "lora2" not in old and old["switch_tokens_from_cache"] is None
     assert not parity.passed(old)
 
 
-def test_parity_requests_name_one_adapter_and_record_the_cached_tokens(monkeypatch):
+def test_parity_runs_each_prompt_on_an_emptied_server_after_the_previous_scale(monkeypatch):
     import httpx
     from dsbench.battery import parity
 
-    real, sent = httpx.Client, []
+    real, log = httpx.Client, []
 
     def handle(request):
-        sent.append(json.loads(request.content).get("lora"))
+        path = request.url.path
+        if path == "/slots":
+            return httpx.Response(200, json=[{"id": 0}, {"id": 1}])
+        if path.startswith("/slots/"):
+            log.append("erase")
+            return httpx.Response(200, json={"n_erased": 0})
+        log.append(json.loads(request.content).get("lora"))
         return httpx.Response(200, json={
             "choices": [{"message": {"content": "reply"}}],
-            "usage": {"prompt_tokens": 30, "prompt_tokens_details": {"cached_tokens": 26}}})
+            "usage": {"prompt_tokens": 30, "prompt_tokens_details": {"cached_tokens": 0}}})
 
     monkeypatch.setattr(parity.httpx, "Client",
                         lambda **kw: real(transport=httpx.MockTransport(handle), **kw))
-    replies, cached = parity.run("http://x", 1.0, lora_id=1)
-    assert (replies, cached) == (["reply"] * len(parity.PROMPTS), [26] * len(parity.PROMPTS))
-    assert sent[0] == [{"id": 1, "scale": 1.0}]  # the server puts adapter 0 at 0
+    replies, cached = parity.run("http://x", 1.0, lora_id=1, before=0.0)
+    assert (replies, cached) == (["reply"] * len(parity.PROMPTS), [0] * len(parity.PROMPTS))
+    # Per prompt: both slots erased, the prompt at the previous scale, then at this one. The
+    # server puts the adapter the request doesn't name (id 0) at 0.
+    assert log[:4] == ["erase", "erase", [{"id": 1, "scale": 0.0}], [{"id": 1, "scale": 1.0}]]
+    assert len(log) == 4 * len(parity.PROMPTS)
+    log.clear()
     parity.run("http://x", None)
-    assert sent[-1] is None  # the bare-base server is asked for no adapter
+    assert log[:3] == ["erase", "erase", None]  # the bare-base server: no adapter, no primer

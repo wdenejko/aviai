@@ -1655,3 +1655,8 @@ decision 1: 10M, with a top-up ("The generation" above). Decisions 9 and 10 are 
         Two probe problems in the adapter's steps of both probe windows were affected; no count
         changes.
       - [ ] the head-to-head's window (about 1.5 hours of GPU).
+        - **First launch, 2026-10-09:** stopped at parity before any run. The switch check held,
+          but scale 0's replies no longer matched the bare base's character for character.
+        - **The cause:** `--cache-ram 0` had also stopped the server clearing idle slots, and
+          their cells changed the greedy replies.
+        - **The fix:** the parity check now empties the server before each prompt.
