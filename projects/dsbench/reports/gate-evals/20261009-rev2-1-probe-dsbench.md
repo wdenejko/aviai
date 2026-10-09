@@ -146,3 +146,22 @@ The other 10 problems pass 5 of 5 in all four runs. No run failed in the harness
 - **On every test so far, Revision 2.1 does at least as well as Revision 2,** except dsbench, where
   it can't be told apart. It is better on DuckDB's weekday function, and as good on the gate,
   ClickHouse and the probe. dsbench uses no DuckDB.
+
+## Note added 2026-10-09: the server's prompt cache crossed states
+
+Found the same day, from this window's server log (`dsbench.battery.cache_audit`). It is the
+same as in Revision 2's window.
+- **Two probe problems were affected.** In the adapter's step, all five runs of
+  `probe_incident_share` and of `probe_energy_demand` started from 1,251 and 1,241 of their
+  prompt tokens as the base had computed them, in the base's step.
+  - llama-server loaded those prompts from its RAM copy, which matches by tokens alone.
+  - pi's requests name no adapter, so the server never dropped them.
+  - Both problems pass 5 of 5 in every run here, so no count changes.
+- **Nothing else was affected.** No dsbench run reused anything across steps, and the weekday and
+  timezone tasks computed every prompt at their own state.
+- **The parity check missed it.** In its scale-1 step, 3 of its 8 prompts started from their own
+  scale-0 KV. It compared only the two scale-0 steps, so it passed; it now also counts cached
+  tokens.
+- **The fix** (`patches/README.md`, "The prompt cache across states"): the server keeps no RAM
+  copy when it serves an adapter, and `set-scale` erases every slot. The head-to-head of decision
+  10 runs with both.

@@ -251,6 +251,9 @@ lived in `~/benchlab/scripts/battery/` next to a synced copy of `src/`, with log
   caches. `--lora-init-without-apply` alone leaves the global scale at 1.0, so the window posts
   scale 0 after start: a request that names no state gets the base. `NP`, `CTX`, `NOLORA` and
   `EXTRA_ARGS` override the defaults.
+  - **Since 2026-10-09:** `LORA2` loads a second adapter (id 1), and a server with an adapter runs
+    with `--cache-ram 0`, so the server keeps no RAM copy of prompts (see "The prompt cache across
+    states" below).
 - `battery_window.sh` — one GPU window: OCR stopped (restarted on exit), GTT drain, the thermal
   governor on the server, the optional parity check (`PARITY=1`), then the generation passes in
   order. A `hold:NAME` step keeps the server up for a client that runs elsewhere (the Mac-side
@@ -259,6 +262,8 @@ lived in `~/benchlab/scripts/battery/` next to a synced copy of `src/`, with log
   - `ARM=1` waits up to `DEADLINE_H` hours for the owner to stop production;
   - `MAX_HOURS` ends the window. A pass still running then is stopped, and running the plan again
     resumes it, since `generate.py` writes each row in one write and skips answered items.
+  - Since 2026-10-09, with `LORA2` it zeroes both adapters' scales, and `PARITY=1` checks each
+    adapter (`parity --tag lora2`).
 - `battery_queue_half.sh` — ADR step 4: queued behind the MTP window, reruns the public benchmarks
   at LoRA scale 0.5 (state `adapter_half`).
 - `battery_tput_sweep.sh` — the slot-count sweep that fixed `NP=8`: 104 tok/s at 8 slots, about 40
@@ -328,6 +333,59 @@ the calibration's items, data, gold scores, base and A/A passes. A battery windo
 bird:adapter` then answers only the checkpoint's passes, and `mini summary --state adapter --aa
 base_rep` compares them with the base. The script refuses a directory that exists. Rehearsed on
 the Mac with a stand-in for `toolbox`. One checkpoint's passes take a window of about 5 hours.
+
+**The prompt cache across states (found 2026-10-09).** llama-server reuses a cached prompt by
+tokens alone, whichever adapter scales computed it. It has two caches:
+- **A slot's own cache.** The server drops it only when a request names other scales than the
+  slot's previous request did.
+  - pi names none. pi's requests get the global scales, which `set-scale` changes between steps,
+    and the slot's cache stays.
+- **A RAM copy of prompts** (`--cache-ram`, 8 GiB by default). The server loads the closest prompt
+  from it into a slot without asking which scales computed it.
+
+So a step could start from prompt KV computed at the other state. Neither guard was in place
+until 2026-10-09.
+
+**What the server logs show** (`dsbench.battery.cache_audit`). Each log has, per request, the
+tokens computed and the slot's length at release, so the audit can tell how much of a prompt came
+from cache.
+- **The two probe windows** (Revision 2's and 2.1's). In the adapter's step, all five runs of
+  `probe_incident_share` and of `probe_energy_demand` started from about 1,250 of their 1,760
+  prompt tokens as the base had computed them, loaded from the RAM copy. Those prompt tokens are
+  pi's system prompt and most of the task. Both problems pass 5 of 5 in every state, so no count
+  changes. No dsbench run reused anything across steps: each problem's first run in a step
+  computed its prompt from scratch.
+- **The parity check of every window that ran it** (seven, 2026-10-06 to 10-08). In the scale-1
+  step, 3 of the 8 prompts started from their own scale-0 KV, all but the last 4 tokens. The
+  check compared only the two scale-0 steps, which stayed equal, so it passed.
+- **The paired tests** (the Target A test and the round test, explicit scales per request). The
+  RAM copy's rule spares nearly all of them: the server skips a cached entry whose prompt is under
+  a quarter of its length. Of the base's 864 replies, one was short enough. At most one adapter
+  reply could have started from the base's prompt.
+- **Revision 2's and 2.1's gates** ran the adapter alone, so there was no other state to reuse.
+- **The Gate-2 battery's windows** (2026-09-24 to 28, audited 2026-10-09; its report's addendum):
+  no request of any pass, of its dsbench steps through pi, of GPQA or of the MTP window reused
+  another state's KV.
+  - **Why not:**
+    - Its requests name their scale, so each pass's first request on a slot drops that slot's
+      cache.
+    - The RAM copy keeps only the last ~26 BIRD or ~60 other prompts.
+    - The previous pass's last items share no long prefix with the next pass's first ones.
+  - **How the passes were cut:** where nothing was in flight. Its server log has 3,139 more
+    requests than items, 3,130 of them the pi step's.
+  - **Scripts:** `~/benchlab/scratch/gate2-cache-audit-20261009/`.
+
+**The fix:**
+- `battery_server.sh` passes `--cache-ram 0` whenever it loads an adapter. That also turns off
+  the RAM-backed idle-slot caching; with a unified KV pool, the server still purges idle slots
+  one by one when it runs out of room.
+- `set-scale` erases every slot after it sets the scales, so a step starts empty.
+- The parity check records each reply's cached tokens (`usage.prompt_tokens_details`) and requires
+  the scale-1 step to take none. Every one of its prompts runs at scale 1 there for the first time,
+  so any cached token would be scale 0's.
+- After a pi window, `python -m dsbench.battery.cache_audit --server-log <the window's server log>
+  --runs <its run files, in order>` shows the window clean: the RAM copy off (the server's log
+  warns that idle-slot caching is off without it) and each step's first request computed whole.
 
 Three box gotchas the battery hit: podman bind mounts need `:z` (SELinux is enforcing, and without
 the relabel the sandbox can't read its own inputs); llama-server's slot actions (`erase`) return 501
@@ -607,7 +665,8 @@ the adapter with the global scale at 0, and `PARITY=1` checks first that scale 0
 provider points, to the server. Then it runs `probe:base probe:adapter dsbench:base
 dsbench:adapter`, the probe first:
 - pi can't name a LoRA state per request, so before each step the script sets the server's scale
-  and reads it back (`dsbench.battery.dsbench_suite set-scale`);
+  and reads it back (`dsbench.battery.dsbench_suite set-scale`). Since 2026-10-09 `set-scale`
+  also erases every slot ("The prompt cache across states" above);
 - each step writes `reports/agentic-runs/<stamp>-rev2-<suite>-<state>.{json,md}`;
 - however the script ends, it sets the scale back to 0, closes the tunnel and releases the hold.
 
@@ -897,3 +956,85 @@ Target A test's, with `rr_test` for `ta_test` and `data/sft/target_a_rr_test` fo
   It started at 22:32, a minute after this window had ended and restored OCR.
 - **The checks:** `verify` and `recheck` of the base ran while the adapter was generating. Results
   are in `reports/gate-evals/20261007-recall-round-test-rev2.md`.
+
+## Revision 2 against Revision 2.1 in one window (ADR-004, decision 10)
+
+Each adapter went through the probe and dsbench in its own window. Between windows, the base's
+own dsbench results move by up to 3 runs in 5 on a problem. Decision 10 asks which adapter to
+keep, so both go on one server in one window, with 15 runs each on the five problems that moved:
+`da_cancel_dow`, `da_weekend_delay`, `de_carrier_ontime`, `da_utc_peak_hour` and
+`da_all_flights_avg_delay`.
+
+**The box holds a battery window** (`battery_window.sh` with one step, `hold:h2h`). Its server
+loads both adapters:
+- `LORA` is Revision 2.1, adapter id 0, and `LORA2` is Revision 2, id 1.
+- Both start at scale 0.
+- `PARITY=1` checks each adapter: scale 0 is the bare base, scale 1 changes some replies, and
+  scale 1 takes nothing from cache.
+- An adapter at scale 0 is left out of the compute graph (`llama-context.cpp`,
+  `set_adapters_lora`). So with scales 1,0 the server computes exactly what a server with
+  Revision 2.1 alone computes, and with 0,1, Revision 2 alone.
+
+**The Mac runs `rev2_h2h_mac.sh`.**
+- It waits for the hold and tunnels `localhost:18080` to the server.
+- It checks the server's adapters by path: Revision 2.1 first, then Revision 2. A swap of `LORA`
+  and `LORA2` would swap the states' names.
+- It runs six blocks of dsbench through pi, each block the five problems with 5 runs each. The
+  default plan is `rev2 rev21 rev21 rev2 rev2 rev21`, so a drift during the window falls on both
+  adapters about alike.
+- Before each block, `set-scale --scales` sets the scales (rev21 = 1,0, rev2 = 0,1), reads them
+  back, and erases every slot. With the server's RAM copy off, each block computes everything at
+  its own scales.
+- Each block writes `reports/agentic-runs/<stamp>-h2h-<state>-b<n>.{json,md}`.
+
+**Why not check each adapter against its own earlier windows?**
+- Each adapter's greedy parity replies at scale 1 were the same in all its windows: Revision 2's
+  in 3 windows, Revision 2.1's in 2, all 8 prompts each time. The two adapters differ on 4 of the 8.
+- But those windows had the RAM copy on, and 3 of the 8 prompts started their scale-1 replies
+  from scale-0 KV ("The prompt cache across states" above). So the old replies are no reference
+  for a clean server, and the path check guards the order instead.
+
+Stage, from `projects/dsbench`. Copy the battery's scripts and the changed modules to the box, as
+for any battery window, and run dsbench's oracle gate:
+
+```bash
+R=/home/wdenejko/benchlab/runs/2026-10-09-qwen36-rev2-vs-rev2-1
+ssh dashi "mkdir -p $R"
+scp patches/battery_server.sh patches/battery_window.sh dashi:~/benchlab/scripts/battery/
+scp src/dsbench/battery/{parity,dsbench_suite,cache_audit}.py dashi:~/benchlab/scripts/battery/src/dsbench/battery/
+uv run --package dsbench dsbench-agent-selftest
+```
+
+Launch the Mac side first, then the window (the owner stops production):
+
+```bash
+docker compose -f sandbox/docker-compose.yml up -d --no-build clickhouse workspace
+RUN_BOX=$R nohup caffeinate -is patches/rev2_h2h_mac.sh >>reports/agentic-runs/rev2-h2h-mac.log 2>&1 &
+ssh dashi "ARM=1 PARITY=1 HOLD_MAX=14400 LORA=/home/wdenejko/benchlab/runs/2026-10-08-qwen36-rev2-1-gate-final/lora.gguf LORA2=/home/wdenejko/benchlab/runs/2026-10-06-qwen36-rev2-gate-final/lora.gguf nohup setsid ~/benchlab/scripts/battery/battery_window.sh $R hold:h2h </dev/null >/dev/null 2>&1 &"
+```
+
+**About 1.5 hours.** In the earlier windows these five problems took 11 to 15 minutes an adapter
+at k = 5. At k = 15 for both that is 65 to 90 minutes, and the parity check and the server
+starts add a few more.
+
+Afterwards:
+- `cache_audit` reads the window's server log with the six block files, in the order they ran.
+- `compare_runs` counts each adapter's three blocks together and compares them per problem:
+
+```bash
+uv run python -m dsbench.agentic.compare_runs --base <the three rev2 blocks> \
+  --adapter <the three rev21 blocks> --out <out>.json
+```
+
+**Rehearsed 2026-10-09** with no GPU, against a stand-in server on the box at `127.0.0.1:8093`
+(`~/benchlab/scratch/h2h-rehearsal-20261009/`). The stand-in served two adapters' paths and
+scales, the slot actions, and a one-word reply to pi, under a hold made by hand. With `PLAN="rev2
+rev21"`, one problem and one run a block, the Mac side did the following:
+- checked the adapters;
+- set 0,1, read it back and erased the 8 slots before the first block's request, then did the
+  same with 1,0;
+- named the run files `h2h-rehearsal-rev2-b1` and `h2h-rehearsal-rev21-b2`;
+- on the way out, set 0,0, erased the slots and released the hold.
+
+The requests themselves named no adapter. With `REV21` and `REV2` swapped, it refused before any
+run and released the hold.

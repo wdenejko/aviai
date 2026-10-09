@@ -69,3 +69,43 @@ def test_the_cli_writes_the_comparison(tmp_path, capsys, monkeypatch):
     cr.main()
     assert json.loads((tmp_path / "out.json").read_text())["problems_passed"]["adapter"] == 1
     assert "| weekday |" in capsys.readouterr().out
+
+
+def test_several_runs_of_one_state_count_together():
+    """Revision 2 against Revision 2.1 in one window: three blocks of k = 5 per adapter."""
+    blocks = [_run(f"h2h-rev2-{i}",
+                   {"weekday": ["ok"] * 5, "utc": ["ok"] * i + ["wrong"] * (5 - i)})
+              for i in (1, 2, 3)]
+    merged = cr.merge(blocks)
+    assert merged["meta"]["repeat"] == 15
+    assert merged["meta"]["label"] == "h2h-rev2-1+h2h-rev2-2+h2h-rev2-3"
+    assert len(merged["results"]) == 30
+    other = cr.merge([_run(f"h2h-rev21-{i}", {"weekday": ["wrong"] * 5, "utc": ["ok"] * 5})
+                      for i in (1, 2, 3)])
+    result = cr.compare(merged, other)
+    assert result["problems"]["utc"]["runs"] == [15, 15]
+    assert (result["problems"]["utc"]["base"], result["problems"]["utc"]["adapter"]) == (6, 15)
+    assert result["problems"]["weekday"]["p_fisher"] == pytest.approx(2 / 155117520, rel=1e-3)
+
+
+def test_runs_with_other_settings_or_problems_are_not_merged():
+    with pytest.raises(ValueError, match="different problems"):
+        cr.merge([_run("a", {"weekday": ["ok"] * 5}), _run("b", {"utc": ["ok"] * 5})])
+    other = _run("b", {"weekday": ["ok"] * 5})
+    other["meta"] = {**other["meta"], "thinking": "low"}
+    with pytest.raises(ValueError, match="thinking"):
+        cr.merge([_run("a", {"weekday": ["ok"] * 5}), other])
+
+
+def test_the_cli_merges_several_runs_a_side(tmp_path, monkeypatch):
+    paths = {}
+    for name, statuses in (("b1", ["wrong"] * 5), ("b2", ["ok"] * 5), ("a1", ["ok"] * 5),
+                           ("a2", ["ok"] * 5)):
+        paths[name] = tmp_path / f"{name}.json"
+        paths[name].write_text(json.dumps(_run(name, {"weekday": statuses})))
+    monkeypatch.setattr("sys.argv", ["compare_runs", "--base", str(paths["b1"]), str(paths["b2"]),
+                                     "--adapter", str(paths["a1"]), str(paths["a2"]),
+                                     "--out", str(tmp_path / "out.json")])
+    cr.main()
+    out = json.loads((tmp_path / "out.json").read_text())
+    assert out["runs_passed"] == {"base": 5, "adapter": 10, "of": 10}

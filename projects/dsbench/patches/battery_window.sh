@@ -11,6 +11,8 @@
 # items). Thinking-on passes (the mini-battery) need CTX=196608: 8 slots of prompt plus 12,288.
 # A step bench:state:N answers only the items' first N, and a later bench:state resumes the pass:
 # the full battery's items are in a seeded random order (battery/full.py), so N is a fair sample.
+# LORA2 loads a second adapter beside LORA (id 1; LORA is id 0), to run two adapters against each
+# other in one window (patches/rev2_h2h_mac.sh). Both start at scale 0, and PARITY=1 checks each.
 set -u
 RUN=$1; PLAN=$2
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -74,12 +76,16 @@ if [ "${PARITY:-0}" = 1 ]; then
 fi
 start_server 0 || exit 1
 # Global default = base, so a client that names no state (pi) can't get the adapter by accident.
-curl -s -X POST $URL/lora-adapters -H "Content-Type: application/json" -d '[{"id":0,"scale":0.0}]' >/dev/null
+# Every loaded adapter is named, so a second one (LORA2) is set to 0 as well.
+ZERO='[{"id":0,"scale":0.0}]'; [ -n "${LORA2:-}" ] && ZERO='[{"id":0,"scale":0.0},{"id":1,"scale":0.0}]'
+curl -s -X POST $URL/lora-adapters -H "Content-Type: application/json" -d "$ZERO" >/dev/null
 curl -s $URL/lora-adapters >>"$LOG"; echo >>"$LOG"
 if [ "${PARITY:-0}" = 1 ]; then
   (cd $SRC && PYTHONPATH=. $PY -m dsbench.battery.parity --tag lora --steps 0,1,0 --out $RUN/parity.json \
+     && { [ -z "${LORA2:-}" ] || PYTHONPATH=. $PY -m dsbench.battery.parity --tag lora2 --steps 0,1,0 \
+            --out $RUN/parity.json; } \
      && PYTHONPATH=. $PY -m dsbench.battery.parity --compare --out $RUN/parity.json) >>"$LOG" 2>&1 \
-     || { log "PARITY FAILED: scale 0 is not the base model on this server; stopping"; exit 1; }
+     || { log "PARITY FAILED (see parity.json): scale 0 is not the base, scale 1 changes nothing, or scale 1 took cached tokens; stopping"; exit 1; }
   log "parity ok"
 fi
 for step in $PLAN; do
