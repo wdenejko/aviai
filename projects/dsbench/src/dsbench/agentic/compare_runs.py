@@ -20,6 +20,10 @@ refuses.
 
     uv run python -m dsbench.agentic.compare_runs --base reports/agentic-runs/<base>.json \\
         --adapter reports/agentic-runs/<adapter>.json --out <out>.json
+
+Either side can be several runs of one state (`merge`): Revision 2 against Revision 2.1 in one
+window runs each adapter in blocks of k = 5, interleaved so that a drift during the window falls
+on both (patches/rev2_h2h_mac.sh). Their runs then count together, k = 15 a problem.
 """
 from __future__ import annotations
 
@@ -53,6 +57,25 @@ def _runs(payload: dict) -> dict[str, list[dict]]:
     for r in payload["results"]:
         runs[r["id"]].append(r)
     return runs
+
+
+def merge(payloads: list[dict]) -> dict:
+    """Several runs of one state as one: their results together, k the sum of theirs. They must
+    share the settings that `compare` checks, all but k, and the problems."""
+    first = payloads[0]
+    for other in payloads[1:]:
+        differ = {k: (first["meta"].get(k), other["meta"].get(k)) for k in SAME
+                  if k != "repeat" and first["meta"].get(k) != other["meta"].get(k)}
+        if differ:
+            raise ValueError(f"the runs to merge differ in {differ}")
+        if set(_runs(first)) != set(_runs(other)):
+            raise ValueError("the runs to merge have different problems: "
+                             f"{sorted(set(_runs(first)) ^ set(_runs(other)))}")
+    meta = {**first["meta"],
+            "repeat": sum(p["meta"].get("repeat") or 0 for p in payloads),
+            "label": "+".join(str(p["meta"].get("label")) for p in payloads),
+            "timestamp": "+".join(str(p["meta"].get("timestamp")) for p in payloads)}
+    return {"meta": meta, "results": [r for p in payloads for r in p["results"]]}
 
 
 def compare(base: dict, adapter: dict) -> dict:
@@ -122,11 +145,13 @@ def markdown(result: dict) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--base", type=Path, required=True)
-    ap.add_argument("--adapter", type=Path, required=True)
+    ap.add_argument("--base", type=Path, nargs="+", required=True,
+                    help="one run, or several runs of the same state to count together")
+    ap.add_argument("--adapter", type=Path, nargs="+", required=True)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    result = compare(json.loads(args.base.read_text()), json.loads(args.adapter.read_text()))
+    result = compare(merge([json.loads(p.read_text()) for p in args.base]),
+                     merge([json.loads(p.read_text()) for p in args.adapter]))
     args.out.write_text(json.dumps(result, indent=1) + "\n")
     print(markdown(result))
 

@@ -9,7 +9,8 @@
 # measured optimum (battery_tput_sweep.sh: 104 tok/s at 8, ~40-80 at 16). Vulkan's mat-vec kernels
 # serve batches of <= 8 tokens (mul_mat_vec_max_cols); past that, MoE decode drops to the slower
 # general matmul path.
-# Loopback only. NOLORA=1 serves the bare base, for the parity check (dsbench.battery.parity).
+# Loopback only. NOLORA=1 serves the bare base, for the parity check (dsbench.battery.parity), and
+# loads neither adapter.
 export PATH=$PATH:/usr/sbin:/sbin
 B=~/src/llama-qwen4exp-src/build-v2/bin
 LORA=${LORA:-$HOME/benchlab/runs/2026-09-23-qwen36-gate2-train/lora-gguf/gate2-correct-f32.gguf}
@@ -18,7 +19,20 @@ ARGS=(-m ~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf --alias qwen36-batter
       --flash-attn on --metrics
       --chat-template-kwargs '{"enable_thinking":false}'
       --slot-save-path /tmp/battery-slots)  # enables POST /slots/N?action=erase (generate.py)
-[ "${NOLORA:-0}" = 1 ] || ARGS+=(--lora "$LORA" --lora-init-without-apply)
+# LORA2: a second adapter, to serve two adapters from one server (ids in load order: LORA 0, LORA2
+# 1). A request's "lora" list puts every adapter it doesn't name at 0, and an adapter at 0 is left
+# out of the compute graph, so each adapter is served as a server with it alone would serve it.
+# --cache-ram 0: a server that serves more than one state keeps no RAM copy of prompts. The server
+# loads the closest copy into a slot by tokens alone, whichever scales computed it. In every window
+# checked that served two states until 2026-10-09, some requests began from the other state's
+# prompt KV (parity.py's docstring). A slot's own cache stays: the server drops it when a request
+# names other scales, and set-scale (dsbench_suite.py) erases every slot when it changes the global
+# ones.
+if [ "${NOLORA:-0}" != 1 ]; then
+  ARGS+=(--lora "$LORA")
+  [ -n "${LORA2:-}" ] && ARGS+=(--lora "$LORA2")
+  ARGS+=(--lora-init-without-apply --cache-ram 0)
+fi
 # shellcheck disable=SC2206  # EXTRA_ARGS is a flag list and is meant to split on spaces
 [ -n "${EXTRA_ARGS:-}" ] && ARGS+=($EXTRA_ARGS)
 mkdir -p /tmp/battery-slots  # /tmp is cleared on reboot, and llama-server refuses a missing dir

@@ -110,3 +110,19 @@ server.
 - **k = 5 is small.** A problem has to flip nearly whole to show by itself (0 → 5 gives p = 0.008;
   2 → 5 gives 0.17). The totals point the same way as the per-problem results, but the McNemar
   test over problems, with 4 discordant problems, can't show it (p = 0.63).
+
+## Note added 2026-10-09: the server's prompt cache crossed states
+
+Found while building the same-window head-to-head of Revision 2 and Revision 2.1 (ADR-004,
+decision 10), from this window's server log (`dsbench.battery.cache_audit`):
+- **Two probe problems were affected.** In the adapter's step, all five runs of
+  `probe_incident_share` and of `probe_energy_demand` started from 1,250 and 1,242 of their
+  prompt tokens as the base had computed them, in the base's step.
+  - llama-server loaded those prompts from its RAM copy, which matches by tokens alone.
+  - pi's requests name no adapter, so the server never dropped them.
+  - Both problems pass 5 of 5 in both states, so no count above changes.
+- **Nothing else was affected.** No dsbench run reused anything across steps: each problem's first
+  run in a step computed its whole prompt. The weekday and timezone tasks computed every prompt at
+  their own state.
+- **The fix** (`patches/README.md`, "The prompt cache across states"): the server keeps no RAM
+  copy when it serves an adapter, and `set-scale` erases every slot.

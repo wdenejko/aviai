@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, its Target A tests, probe and dsbench run 2026-10-08/09; Revision 2 against Revision 2.1 on dsbench undecided)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, its Target A tests, probe and dsbench run 2026-10-08/09; Revision 2 against Revision 2.1 on dsbench undecided, a same-window head-to-head prepared 2026-10-09, with a fix for the prompt cache leaking across states)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -1055,6 +1055,17 @@ minutes.
 The generalisation claim ADR-004 set, that the fine-tune moves both the probe and dsbench, holds
 for the dialect skill.
 
+**Found 2026-10-09: the server's prompt cache crossed states in this window and Revision 2.1's.**
+- **What crossed:** in the adapter's step, all five runs of `probe_incident_share` and of
+  `probe_energy_demand` started from about 1,250 of their 1,760 prompt tokens as the base had
+  computed them. llama-server loaded those from its RAM copy of prompts, which matches by tokens
+  alone, and pi's requests, which name no adapter, never made it drop them.
+- **No count changes:** both problems pass 5 of 5 in every state. No dsbench run reused anything
+  across steps, and the probe's weekday and timezone tasks computed every prompt at their own state.
+- **The fix:** the server keeps no RAM copy when it serves an adapter (`--cache-ram 0`), and
+  `set-scale` erases every slot. `dsbench.battery.cache_audit` reads a window's log to show it
+  (`patches/README.md`, "The prompt cache across states").
+
 ## After the targeted tests: the recall round (proposed 2026-10-07)
 
 The targeted tests leave two gaps in Target A's skill. Both are mistakes the base makes and the
@@ -1420,7 +1431,15 @@ decision 1: 10M, with a top-up ("The generation" above). Decisions 9 and 10 are 
       loads two LoRAs and takes a scale for each per request. Give more runs (k = 15) to the five
       problems that moved: `da_cancel_dow`, `da_weekend_delay`, `de_carrier_ontime`,
       `da_utc_peak_hour` and `da_all_flights_avg_delay`. That is 2 adapters × 5 problems × 15
-      runs, about 2 hours of GPU. It separates the adapters from the window noise.
+      runs, about 1.5 hours of GPU: these problems took 11 to 15 minutes an adapter at k = 5. It
+      separates the adapters from the window noise.
+    - **Prepared 2026-10-09** (`patches/README.md`, "Revision 2 against Revision 2.1 in one
+      window"). The server loads both adapters, and `patches/rev2_h2h_mac.sh` runs six blocks
+      that alternate them. Before each block it sets the scales and erases every slot.
+      - **Rehearsed** against a stand-in server, with no GPU.
+      - **The prompt cache:** building it turned up the leak noted under Revision 2's probe and
+        dsbench above, fixed for this window and every later one.
+      - **Waiting for:** the owner's go and a GPU window.
     - **Or:** keep Revision 2.1 on the evidence of the tests that can tell the two apart, and treat
       dsbench as unchanged.
 
@@ -1622,3 +1641,17 @@ decision 1: 10M, with a top-up ("The generation" above). Decisions 9 and 10 are 
     - [ ] decision 10 (owner): whether Revision 2.1 replaces Revision 2. Before that, optionally a
       head-to-head of the two adapters in one window, with more runs on the five problems that
       moved.
+      - [x] the head-to-head's tooling. **Built 2026-10-09:**
+        - two adapters on one server (`LORA2`), with each adapter's parity check;
+        - `set-scale --scales`, which also erases the slots;
+        - `rev2_h2h_mac.sh`, rehearsed against a stand-in;
+        - `compare_runs` counting several blocks of one state together.
+      - [x] the prompt cache crossing states. **Found and fixed 2026-10-09:**
+        - `--cache-ram 0`;
+        - the slot erase;
+        - parity counting cached tokens;
+        - `cache_audit`.
+
+        Two probe problems in the adapter's steps of both probe windows were affected; no count
+        changes.
+      - [ ] the head-to-head's window (about 1.5 hours of GPU).

@@ -460,3 +460,27 @@ Gate 2 trained on. The training run is in `~/benchlab/runs/2026-09-23-qwen36-gat
   `tokenize_masked.thinking_record` parses the arguments as the server does, and rejects a row
   whose arguments aren't a JSON object. The legacy path that built Gate 1 and Gate 2 is left as it
   was, so those runs stay reproducible.
+
+## Addendum, 2026-10-09: no pass reused another state's prompt cache
+
+llama-server matches cached prompts by tokens alone, whichever LoRA scale computed them, and its
+RAM copy of prompts loads into a slot without checking the scale. In the Revision 2 and 2.1 probe
+windows, two probe problems' adapter runs started from the base's prompt KV that way
+(`patches/README.md`, "The prompt cache across states"). This battery's windows, read from their
+server logs the same day, had none of it:
+- **The paired passes:**
+  - Each request names its scale, so a pass's first request on each slot drops that slot's
+    cache.
+  - The RAM copy holds only about 26 BIRD or 60 other prompts, and drops the oldest first. The
+    later reuse within a pass came from the pass's own items. BIRD's early loads reused 2,300 to
+    3,180 schema tokens, and the base's last items are another database. DS-1000's one early load
+    reused 73 tokens, more than the base's last items share with it.
+  - HumanEval+ and IFEval reused nothing at all.
+- **The other steps:**
+  - `hold:dsbench` (pi): no problem's first run in either step reused anything.
+  - GPQA (base, adapter, half scale): no request loaded from the RAM copy.
+  - The half-scale window served one state.
+  - The MTP window: no scale-1 request reused its own scale-0 prompt.
+
+No number or conclusion above changes. The scripts and their output are on the box, in
+`~/benchlab/scratch/gate2-cache-audit-20261009/` (its `README.md`).

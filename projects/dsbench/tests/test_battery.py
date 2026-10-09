@@ -236,6 +236,62 @@ def test_dsbench_suite_scores_a_problem_by_majority_of_its_runs(tmp_path):
     assert (s["paired"]["n"], s["paired"]["gains"], s["paired"]["losses"]) == (2, 1, 0)
 
 
+class _LoraServer:
+    """llama-server's /lora-adapters and /slots, as its handlers behave: a POST of scales sets the
+    listed ids and puts every unlisted one at 0; a GET lists every loaded adapter with its scale;
+    POST /slots/N?action=erase empties slot N's cache."""
+
+    def __init__(self, n: int, slots: int = 8):
+        self.scales = [1.0] * n  # --lora-init-without-apply leaves them reported at 1.0
+        self.slots, self.erased = slots, []
+
+    def handle(self, request):
+        import httpx
+
+        path = request.url.path
+        if path.startswith("/slots"):
+            if request.method == "GET":
+                return httpx.Response(200, json=[{"id": i} for i in range(self.slots)])
+            assert request.url.params["action"] == "erase"
+            self.erased.append(int(path.rsplit("/", 1)[1]))
+            return httpx.Response(200, json={"id_slot": self.erased[-1], "n_erased": 0})
+        if request.method == "POST":
+            body = json.loads(request.content)
+            self.scales = [0.0] * len(self.scales)
+            for entry in body:
+                self.scales[entry["id"]] = entry["scale"]
+            self.erased = []  # what a switch must erase is counted from here
+            return httpx.Response(200, json={"success": True})
+        return httpx.Response(200, json=[{"id": i, "path": f"a{i}.gguf", "scale": s}
+                                         for i, s in enumerate(self.scales)])
+
+
+def test_set_scale_drives_one_adapter_or_each_of_two(monkeypatch):
+    import httpx
+    from dsbench.battery import dsbench_suite
+
+    real = httpx.Client  # before any patch: dsbench_suite.httpx is the httpx module itself
+
+    def serve(server):
+        monkeypatch.setattr(dsbench_suite.httpx, "Client",
+                            lambda **kw: real(transport=httpx.MockTransport(server.handle), **kw))
+
+    one = _LoraServer(1)
+    serve(one)
+    assert [a["scale"] for a in dsbench_suite.set_scale("http://x", 1.0)] == [1.0]
+    # Every slot's cache goes with the switch: pi's next request can't reuse the old scale's KV.
+    assert one.erased == list(range(8))
+    two = _LoraServer(2)
+    serve(two)
+    # Revision 2 alone on a server that loaded Revision 2.1 first: id 0 at 0, id 1 at 1.
+    assert [a["scale"] for a in dsbench_suite.set_scale("http://x", [0.0, 1.0])] == [0.0, 1.0]
+    assert two.scales == [0.0, 1.0] and two.erased == list(range(8))
+    # One scale on a two-adapter server is refused (the read lists two), before any erase.
+    with pytest.raises(RuntimeError, match="wanted scales"):
+        dsbench_suite.set_scale("http://x", 1.0)
+    assert two.erased == []
+
+
 def test_report_separates_think_leak_from_capability(tmp_path):
     from dsbench.battery import report
     from dsbench.battery.items import write_jsonl
@@ -317,3 +373,59 @@ def test_significant_change_outside_the_adr_list_is_flagged():
     assert stats.verdict(worse) == "regression (no ADR limit)"
     flat = stats.Paired("bfcl_irrelevance", 240, 89.0, 88.0, -1.0, -3.0, 1.0, 5, 3, 0.7)
     assert stats.verdict(flat) == "info"
+
+
+def test_parity_checks_each_adapter_and_that_scale_1_takes_nothing_from_cache(tmp_path):
+    from dsbench.battery import parity
+
+    n = len(parity.PROMPTS)
+    base = [f"base {i}" for i in range(n)]
+    rev21 = [f"rev2.1 {i}" if i < 2 else base[i] for i in range(n)]  # changes 2 of 8
+    rev2 = [f"rev2 {i}" if i < 4 else base[i] for i in range(n)]  # changes 4 of 8
+
+    def steps(scale1):
+        return {"0:0.0": base, "1:1.0": scale1, "2:0.0": base}
+
+    def cached(scale1):
+        # The second scale-0 step may reuse the first one's KV: the same state.
+        return {"0:0.0": [0] * n, "1:1.0": scale1, "2:0.0": [30] * n}
+
+    run = tmp_path / "parity.json"
+    clean = {"nolora": {"none": base}, "lora": steps(rev21), "lora_cached": cached([0] * n),
+             "lora2": steps(rev2), "lora2_cached": cached([0] * n)}
+    run.write_text(json.dumps(clean))
+    result = parity.compare(run)
+    assert (result["scale0_equals_nolora"], result["scale1_differs_from_scale0"]) == (n, 2)
+    assert result["lora2"]["scale1_differs_from_scale0"] == 4
+    assert result["scale1_tokens_from_cache"] == 0 and parity.passed(result)
+    # Every window before 2026-10-09: prompts 1, 2 and 6 began their scale-1 replies from their
+    # own scale-0 KV, loaded from the server's RAM copy. The replies can't show it; the counts do.
+    run.write_text(json.dumps({**clean, "lora2_cached": cached([0, 30, 19, 0, 0, 0, 17, 0])}))
+    leaked = parity.compare(run)
+    assert leaked["lora2"]["scale1_tokens_from_cache"] == 66 and not parity.passed(leaked)
+    # A file without the counts (every one before 2026-10-09) can't show the scales apart.
+    run.write_text(json.dumps({"nolora": {"none": base}, "lora": steps(rev21)}))
+    old = parity.compare(run)
+    assert "lora2" not in old and old["scale1_tokens_from_cache"] is None
+    assert not parity.passed(old)
+
+
+def test_parity_requests_name_one_adapter_and_record_the_cached_tokens(monkeypatch):
+    import httpx
+    from dsbench.battery import parity
+
+    real, sent = httpx.Client, []
+
+    def handle(request):
+        sent.append(json.loads(request.content).get("lora"))
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": "reply"}}],
+            "usage": {"prompt_tokens": 30, "prompt_tokens_details": {"cached_tokens": 26}}})
+
+    monkeypatch.setattr(parity.httpx, "Client",
+                        lambda **kw: real(transport=httpx.MockTransport(handle), **kw))
+    replies, cached = parity.run("http://x", 1.0, lora_id=1)
+    assert (replies, cached) == (["reply"] * len(parity.PROMPTS), [26] * len(parity.PROMPTS))
+    assert sent[0] == [{"id": 1, "scale": 1.0}]  # the server puts adapter 0 at 0
+    parity.run("http://x", None)
+    assert sent[-1] is None  # the bare-base server is asked for no adapter
