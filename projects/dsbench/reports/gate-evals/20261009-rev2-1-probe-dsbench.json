@@ -1,0 +1,2530 @@
+{
+ "test": "the held-out probe and dsbench through pi, k = 5: Revision 2.1's final adapter against the base on one server; Revision 2's runs (2026-10-06/07) read beside them",
+ "window": {
+  "box_clock": "2026-10-08 21:59:13 - 2026-10-09 01:39:51 (CEST 23:58 - 03:39)",
+  "log": "~/benchlab/logs/battery-window-20261008-201537.log",
+  "run_dir": "~/benchlab/runs/2026-10-08-qwen36-rev2-1-probe",
+  "server": "battery_server.sh, Revision 2.1's final adapter loaded (2026-10-08-qwen36-rev2-1-gate-final/lora.gguf), global scale set per step",
+  "armed_by": "probe_chain.sh behind the tests window's third launch (TESTS_LOG=~/benchlab/logs/rev2-gen-window-20261008-201326.log)",
+  "parity": {
+   "scale0_equals_nolora": 8,
+   "scale0_repeat_equals_scale0": 8,
+   "scale1_differs_from_scale0": 2,
+   "n": 8
+  },
+  "steps_mac_clock": {
+   "probe:base": "23:59:22-00:08:03",
+   "probe:adapter": "00:08:03-00:18:53",
+   "dsbench:base": "00:18:53-01:49:58",
+   "dsbench:adapter": "01:49:58-03:38:33"
+  },
+  "mac": "rev2_probe_mac.sh LABEL=rev2-1 WAIT_H=10 from a clean clone; restarted 22:12 CEST after the owner's use of the box"
+ },
+ "pi_request": {
+  "thinking": "high -> chat_template_kwargs enable_thinking true",
+  "temperature": 0,
+  "max_completion_tokens": 12288,
+  "pi_version": "0.84.4"
+ },
+ "oracle_gates_after_the_window": {
+  "probe": "6/6",
+  "dsbench": "23/23 references pass with nothing withheld in the agent's reach"
+ },
+ "runs": {
+  "probe": {
+   "base 1": "reports/agentic-runs/20261006-233327-rev2-probe-base.json",
+   "Revision 2": "reports/agentic-runs/20261006-234344-rev2-probe-adapter.json",
+   "base 2": "reports/agentic-runs/20261009-000802-rev2-1-probe-base.json",
+   "Revision 2.1": "reports/agentic-runs/20261009-001853-rev2-1-probe-adapter.json"
+  },
+  "dsbench": {
+   "base 1": "reports/agentic-runs/20261007-011432-rev2-dsbench-base.json",
+   "Revision 2": "reports/agentic-runs/20261007-025901-rev2-dsbench-adapter.json",
+   "base 2": "reports/agentic-runs/20261009-014958-rev2-1-dsbench-base.json",
+   "Revision 2.1": "reports/agentic-runs/20261009-033833-rev2-1-dsbench-adapter.json"
+  }
+ },
+ "pairs_named": "compare_runs calls its two sides base and adapter; each pair names its runs",
+ "probe": {
+  "base 2 vs Revision 2.1": {
+   "base": {
+    "label": "rev2-1-probe-base",
+    "timestamp": "2026-10-09T00:08:02"
+   },
+   "adapter": {
+    "label": "rev2-1-probe-adapter",
+    "timestamp": "2026-10-09T00:18:53"
+   },
+   "settings": {
+    "harness": "pi-probe",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "probe_energy_demand": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 48.0,
+      "adapter": 62.6
+     }
+    },
+    "probe_incident_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.6,
+      "adapter": 6.6
+     }
+    },
+    "probe_loan_default": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 29.2,
+      "adapter": 34.3
+     }
+    },
+    "probe_pooled_rating": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.1,
+      "adapter": 4.4
+     }
+    },
+    "probe_utc_peak_trips": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 4,
+     "base_majority": false,
+     "adapter_majority": true,
+     "p_fisher": 0.524,
+     "statuses": {
+      "base": {
+       "wrong": 3,
+       "ok": 2
+      },
+      "adapter": {
+       "ok": 4,
+       "wrong": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 11.4,
+      "adapter": 22.3
+     }
+    },
+    "probe_weekday_visits": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 1,
+     "adapter": 5,
+     "base_majority": false,
+     "adapter_majority": true,
+     "p_fisher": 0.0476,
+     "statuses": {
+      "base": {
+       "wrong": 4,
+       "ok": 1
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.5,
+      "adapter": 4.1
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 23,
+    "adapter": 29,
+    "of": 30
+   },
+   "problems_passed": {
+    "base": 4,
+    "adapter": 6,
+    "of": 6
+   },
+   "majority_flips": {
+    "lost": 0,
+    "gained": 2,
+    "p_mcnemar": 0.5
+   },
+   "statuses": {
+    "base": {
+     "wrong": 7,
+     "ok": 23
+    },
+    "adapter": {
+     "ok": 29,
+     "wrong": 1
+    }
+   }
+  },
+  "Revision 2 vs Revision 2.1": {
+   "base": {
+    "label": "rev2-probe-adapter",
+    "timestamp": "2026-10-06T23:43:44"
+   },
+   "adapter": {
+    "label": "rev2-1-probe-adapter",
+    "timestamp": "2026-10-09T00:18:53"
+   },
+   "settings": {
+    "harness": "pi-probe",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "probe_energy_demand": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 41.7,
+      "adapter": 62.6
+     }
+    },
+    "probe_incident_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 6.5,
+      "adapter": 6.6
+     }
+    },
+    "probe_loan_default": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 34.7,
+      "adapter": 34.3
+     }
+    },
+    "probe_pooled_rating": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.8,
+      "adapter": 4.4
+     }
+    },
+    "probe_utc_peak_trips": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "ok": 4,
+       "wrong": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 14.9,
+      "adapter": 22.3
+     }
+    },
+    "probe_weekday_visits": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 4.1,
+      "adapter": 4.1
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 28,
+    "adapter": 29,
+    "of": 30
+   },
+   "problems_passed": {
+    "base": 6,
+    "adapter": 6,
+    "of": 6
+   },
+   "majority_flips": {
+    "lost": 0,
+    "gained": 0,
+    "p_mcnemar": 1.0
+   },
+   "statuses": {
+    "base": {
+     "ok": 28,
+     "wrong": 2
+    },
+    "adapter": {
+     "ok": 29,
+     "wrong": 1
+    }
+   }
+  },
+  "base 1 vs base 2 (A/A)": {
+   "base": {
+    "label": "rev2-probe-base",
+    "timestamp": "2026-10-06T23:33:27"
+   },
+   "adapter": {
+    "label": "rev2-1-probe-base",
+    "timestamp": "2026-10-09T00:08:02"
+   },
+   "settings": {
+    "harness": "pi-probe",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "probe_energy_demand": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 36.6,
+      "adapter": 48.0
+     }
+    },
+    "probe_incident_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.3,
+      "adapter": 5.6
+     }
+    },
+    "probe_loan_default": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 28.4,
+      "adapter": 29.2
+     }
+    },
+    "probe_pooled_rating": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.2,
+      "adapter": 3.1
+     }
+    },
+    "probe_utc_peak_trips": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 2,
+     "base_majority": true,
+     "adapter_majority": false,
+     "p_fisher": 0.167,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 9.6,
+      "adapter": 11.4
+     }
+    },
+    "probe_weekday_visits": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 0,
+     "adapter": 1,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 5
+      },
+      "adapter": {
+       "wrong": 4,
+       "ok": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 3.3,
+      "adapter": 3.5
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 25,
+    "adapter": 23,
+    "of": 30
+   },
+   "problems_passed": {
+    "base": 5,
+    "adapter": 4,
+    "of": 6
+   },
+   "majority_flips": {
+    "lost": 1,
+    "gained": 0,
+    "p_mcnemar": 1.0
+   },
+   "statuses": {
+    "base": {
+     "wrong": 5,
+     "ok": 25
+    },
+    "adapter": {
+     "wrong": 7,
+     "ok": 23
+    }
+   }
+  }
+ },
+ "dsbench": {
+  "base 2 vs Revision 2.1": {
+   "base": {
+    "label": "rev2-1-dsbench-base",
+    "timestamp": "2026-10-09T01:49:58"
+   },
+   "adapter": {
+    "label": "rev2-1-dsbench-adapter",
+    "timestamp": "2026-10-09T03:38:33"
+   },
+   "settings": {
+    "harness": "pi",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "da_all_flights_avg_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 3,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 0.444,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 3,
+       "wrong": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 5.1,
+      "adapter": 10.3
+     }
+    },
+    "da_cancel_dow": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 3,
+       "ok": 2
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 12.3,
+      "adapter": 6.9
+     }
+    },
+    "da_cancel_weather_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 6.1,
+      "adapter": 5.0
+     }
+    },
+    "da_delay_attribution": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.4,
+      "adapter": 5.3
+     }
+    },
+    "da_delay_deviation": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 32.7,
+      "adapter": 42.8
+     }
+    },
+    "da_delay_streak": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 65.1,
+      "adapter": 58.8
+     }
+    },
+    "da_hub_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.9,
+      "adapter": 4.5
+     }
+    },
+    "da_redeye_count": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 3,
+     "base_majority": false,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 2,
+       "wrong": 3
+      },
+      "adapter": {
+       "ok": 3,
+       "wrong": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 10.9,
+      "adapter": 7.0
+     }
+    },
+    "da_ts_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 3,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 2,
+       "ok": 3
+      },
+      "adapter": {
+       "ok": 4,
+       "timeout": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 19.1,
+      "adapter": 10.6
+     }
+    },
+    "da_utc_peak_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 2,
+       "wrong": 3
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 18.7,
+      "adapter": 52.1
+     }
+    },
+    "da_weekend_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 0,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 0.444,
+     "statuses": {
+      "base": {
+       "wrong": 5
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 8.4,
+      "adapter": 10.3
+     }
+    },
+    "da_weighted_ontime": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 4.9,
+      "adapter": 4.9
+     }
+    },
+    "da_worst_dep_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 8.4,
+      "adapter": 9.5
+     }
+    },
+    "de_carrier_ontime": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 2,
+       "wrong": 3
+      },
+      "adapter": {
+       "ok": 2,
+       "wrong": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 35.3,
+      "adapter": 37.0
+     }
+    },
+    "de_hub_daily": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "wrong": 1,
+       "ok": 4
+      }
+     },
+     "latency_s_median": {
+      "base": 46.4,
+      "adapter": 35.5
+     }
+    },
+    "de_recovery_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 36.6,
+      "adapter": 43.9
+     }
+    },
+    "de_route_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 29.3,
+      "adapter": 30.2
+     }
+    },
+    "de_taf_latest": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 40.0,
+      "adapter": 26.5
+     }
+    },
+    "de_taf_summary": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 9.8,
+      "adapter": 12.5
+     }
+    },
+    "ds_cancel_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 118.9,
+      "adapter": 88.5
+     }
+    },
+    "ds_delay_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 359.8,
+      "adapter": 70.5
+     }
+    },
+    "ds_notam_classify": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 40.2,
+      "adapter": 62.2
+     }
+    },
+    "ds_taxi_regression": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 4,
+       "timeout": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 122.7,
+      "adapter": 217.8
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 95,
+    "adapter": 96,
+    "of": 115
+   },
+   "problems_passed": {
+    "base": 18,
+    "adapter": 19,
+    "of": 23
+   },
+   "majority_flips": {
+    "lost": 0,
+    "gained": 1,
+    "p_mcnemar": 1.0
+   },
+   "statuses": {
+    "base": {
+     "ok": 95,
+     "wrong": 20
+    },
+    "adapter": {
+     "ok": 96,
+     "wrong": 17,
+     "timeout": 2
+    }
+   }
+  },
+  "Revision 2 vs Revision 2.1": {
+   "base": {
+    "label": "rev2-dsbench-adapter",
+    "timestamp": "2026-10-07T02:59:01"
+   },
+   "adapter": {
+    "label": "rev2-1-dsbench-adapter",
+    "timestamp": "2026-10-09T03:38:33"
+   },
+   "settings": {
+    "harness": "pi",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "da_all_flights_avg_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 3,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 0.444,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 3,
+       "wrong": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 7.2,
+      "adapter": 10.3
+     }
+    },
+    "da_cancel_dow": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 2,
+     "base_majority": true,
+     "adapter_majority": false,
+     "p_fisher": 0.167,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 11.0,
+      "adapter": 6.9
+     }
+    },
+    "da_cancel_weather_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.4,
+      "adapter": 5.0
+     }
+    },
+    "da_delay_attribution": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.2,
+      "adapter": 5.3
+     }
+    },
+    "da_delay_deviation": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 123.2,
+      "adapter": 42.8
+     }
+    },
+    "da_delay_streak": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 50.2,
+      "adapter": 58.8
+     }
+    },
+    "da_hub_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 4.8,
+      "adapter": 4.5
+     }
+    },
+    "da_redeye_count": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 3,
+     "base_majority": false,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 3,
+       "ok": 2
+      },
+      "adapter": {
+       "ok": 3,
+       "wrong": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 13.1,
+      "adapter": 7.0
+     }
+    },
+    "da_ts_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 4,
+       "timeout": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 15.7,
+      "adapter": 10.6
+     }
+    },
+    "da_utc_peak_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 2,
+     "base_majority": true,
+     "adapter_majority": false,
+     "p_fisher": 0.524,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 45.7,
+      "adapter": 52.1
+     }
+    },
+    "da_weekend_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 1,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 4,
+       "ok": 1
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 8.3,
+      "adapter": 10.3
+     }
+    },
+    "da_weighted_ontime": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 4.8,
+      "adapter": 4.9
+     }
+    },
+    "da_worst_dep_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 10.5,
+      "adapter": 9.5
+     }
+    },
+    "de_carrier_ontime": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 2,
+     "base_majority": true,
+     "adapter_majority": false,
+     "p_fisher": 0.167,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 2,
+       "wrong": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 75.9,
+      "adapter": 37.0
+     }
+    },
+    "de_hub_daily": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "wrong": 1,
+       "ok": 4
+      }
+     },
+     "latency_s_median": {
+      "base": 42.4,
+      "adapter": 35.5
+     }
+    },
+    "de_recovery_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 40.9,
+      "adapter": 43.9
+     }
+    },
+    "de_route_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 36.8,
+      "adapter": 30.2
+     }
+    },
+    "de_taf_latest": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 40.9,
+      "adapter": 26.5
+     }
+    },
+    "de_taf_summary": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 17.7,
+      "adapter": 12.5
+     }
+    },
+    "ds_cancel_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 54.0,
+      "adapter": 88.5
+     }
+    },
+    "ds_delay_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 192.0,
+      "adapter": 70.5
+     }
+    },
+    "ds_notam_classify": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 59.2,
+      "adapter": 62.2
+     }
+    },
+    "ds_taxi_regression": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "timeout": 1
+      },
+      "adapter": {
+       "ok": 4,
+       "timeout": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 203.7,
+      "adapter": 217.8
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 103,
+    "adapter": 96,
+    "of": 115
+   },
+   "problems_passed": {
+    "base": 21,
+    "adapter": 19,
+    "of": 23
+   },
+   "majority_flips": {
+    "lost": 3,
+    "gained": 1,
+    "p_mcnemar": 0.625
+   },
+   "statuses": {
+    "base": {
+     "ok": 103,
+     "wrong": 11,
+     "timeout": 1
+    },
+    "adapter": {
+     "ok": 96,
+     "wrong": 17,
+     "timeout": 2
+    }
+   }
+  },
+  "base 1 vs base 2 (A/A)": {
+   "base": {
+    "label": "rev2-dsbench-base",
+    "timestamp": "2026-10-07T01:14:32"
+   },
+   "adapter": {
+    "label": "rev2-1-dsbench-base",
+    "timestamp": "2026-10-09T01:49:58"
+   },
+   "settings": {
+    "harness": "pi",
+    "thinking": "high",
+    "repeat": 5,
+    "reply_max_tokens": 12288,
+    "provider": "dashi-qwen36",
+    "model": "qwen36"
+   },
+   "problems": {
+    "da_all_flights_avg_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.0,
+      "adapter": 5.1
+     }
+    },
+    "da_cancel_dow": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 0,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 0.444,
+     "statuses": {
+      "base": {
+       "wrong": 5
+      },
+      "adapter": {
+       "wrong": 3,
+       "ok": 2
+      }
+     },
+     "latency_s_median": {
+      "base": 7.1,
+      "adapter": 12.3
+     }
+    },
+    "da_cancel_weather_share": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.9,
+      "adapter": 6.1
+     }
+    },
+    "da_delay_attribution": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 5.4,
+      "adapter": 5.4
+     }
+    },
+    "da_delay_deviation": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 1,
+       "ok": 4
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 22.3,
+      "adapter": 32.7
+     }
+    },
+    "da_delay_streak": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 64.7,
+      "adapter": 65.1
+     }
+    },
+    "da_hub_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 3.9,
+      "adapter": 3.9
+     }
+    },
+    "da_redeye_count": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 2,
+     "base_majority": true,
+     "adapter_majority": false,
+     "p_fisher": 0.167,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 2,
+       "wrong": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 6.7,
+      "adapter": 10.9
+     }
+    },
+    "da_ts_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 3,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 0.444,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "wrong": 2,
+       "ok": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 8.8,
+      "adapter": 19.1
+     }
+    },
+    "da_utc_peak_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 3,
+       "ok": 2
+      },
+      "adapter": {
+       "ok": 2,
+       "wrong": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 13.6,
+      "adapter": 18.7
+     }
+    },
+    "da_weekend_delay": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 0,
+     "adapter": 0,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 5
+      },
+      "adapter": {
+       "wrong": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 7.1,
+      "adapter": 8.4
+     }
+    },
+    "da_weighted_ontime": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 4.1,
+      "adapter": 4.9
+     }
+    },
+    "da_worst_dep_hour": {
+     "category": "da",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 8.6,
+      "adapter": 8.4
+     }
+    },
+    "de_carrier_ontime": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 2,
+     "adapter": 2,
+     "base_majority": false,
+     "adapter_majority": false,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 3,
+       "ok": 2
+      },
+      "adapter": {
+       "ok": 2,
+       "wrong": 3
+      }
+     },
+     "latency_s_median": {
+      "base": 37.3,
+      "adapter": 35.3
+     }
+    },
+    "de_hub_daily": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 3,
+     "adapter": 4,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "wrong": 2,
+       "ok": 3
+      },
+      "adapter": {
+       "ok": 4,
+       "wrong": 1
+      }
+     },
+     "latency_s_median": {
+      "base": 57.6,
+      "adapter": 46.4
+     }
+    },
+    "de_recovery_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 30.8,
+      "adapter": 36.6
+     }
+    },
+    "de_route_leaderboard": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 4,
+       "wrong": 1
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 34.6,
+      "adapter": 29.3
+     }
+    },
+    "de_taf_latest": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 33.8,
+      "adapter": 40.0
+     }
+    },
+    "de_taf_summary": {
+     "category": "de",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 13.2,
+      "adapter": 9.8
+     }
+    },
+    "ds_cancel_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 4,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "timeout": 1,
+       "ok": 4
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 204.8,
+      "adapter": 118.9
+     }
+    },
+    "ds_delay_predict": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 68.7,
+      "adapter": 359.8
+     }
+    },
+    "ds_notam_classify": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 34.9,
+      "adapter": 40.2
+     }
+    },
+    "ds_taxi_regression": {
+     "category": "ds",
+     "runs": [
+      5,
+      5
+     ],
+     "base": 5,
+     "adapter": 5,
+     "base_majority": true,
+     "adapter_majority": true,
+     "p_fisher": 1.0,
+     "statuses": {
+      "base": {
+       "ok": 5
+      },
+      "adapter": {
+       "ok": 5
+      }
+     },
+     "latency_s_median": {
+      "base": 208.8,
+      "adapter": 122.7
+     }
+    }
+   },
+   "runs_passed": {
+    "base": 94,
+    "adapter": 95,
+    "of": 115
+   },
+   "problems_passed": {
+    "base": 19,
+    "adapter": 18,
+    "of": 23
+   },
+   "majority_flips": {
+    "lost": 1,
+    "gained": 0,
+    "p_mcnemar": 1.0
+   },
+   "statuses": {
+    "base": {
+     "ok": 94,
+     "wrong": 20,
+     "timeout": 1
+    },
+    "adapter": {
+     "ok": 95,
+     "wrong": 20
+    }
+   }
+  }
+ },
+ "weekday_problems_by_run": {
+  "da_weekend_delay": {
+   "base 2": [
+    "IN (1, 7)",
+    "IN (1, 7)",
+    "IN (1, 7)",
+    "IN (1, 7)",
+    "IN (1, 7)"
+   ],
+   "Revision 2": [
+    "IN (1, 6)",
+    "IN (1, 6)",
+    "IN (6, 7) wrong population",
+    "IN (1, 6)",
+    "IN (6, 7) pass"
+   ],
+   "Revision 2.1": [
+    "IN (1, 7)",
+    "IN (1, 7)",
+    "IN (6, 7) pass",
+    "IN (6, 7) wrong population (weekend 23.6 for 24.3)",
+    "IN (6, 7) pass"
+   ]
+  },
+  "da_cancel_dow": {
+   "base 1": [
+    "Wednesday",
+    "Wednesday",
+    "Wednesday",
+    "Wednesday",
+    "Wednesday"
+   ],
+   "Revision 2": [
+    "Thursday",
+    "Thursday",
+    "Thursday",
+    "Thursday",
+    "Thursday"
+   ],
+   "base 2": [
+    "Wednesday",
+    "Wednesday",
+    "Wednesday",
+    "Thursday",
+    "Thursday"
+   ],
+   "Revision 2.1": [
+    "Wednesday",
+    "Thursday",
+    "Wednesday",
+    "Wednesday",
+    "Thursday"
+   ],
+   "note": "Thursday (ISO 4) is right; Wednesday is 4 read with Sunday = 1"
+  }
+ },
+ "probe_timezone_direction_check": {
+  "right_direction_peak": 3,
+  "reverse_direction_peak": 4,
+  "how": "recomputed from the task's own data (probe/tasks.py _trips_setup, seed 32): local + offset vs local - offset"
+ },
+ "fisher_runs": {
+  "Revision 2 vs Revision 2.1 (dsbench, 103 vs 96 of 115)": 0.246,
+  "base 2 vs Revision 2.1 (dsbench, 95 vs 96)": 1.0
+ }
+}

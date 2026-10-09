@@ -1,6 +1,6 @@
 # ADR-004: Targeted SFT data for the Qwen3.6-35B-A3B fine-tune (the three measured dsbench gaps)
 
-- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, its Target A tests run 2026-10-08, the probe and dsbench running)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
+- **Status:** Revision 1 (2026-09-19/20) specified the targeted slice of ADR-001's Gate 1 pilot and Gate 2 run; both were trained. **Revision 2 (2026-09-29; its decisions taken 2026-10-03 and 2026-10-05; trained and gated 2026-10-06; tested against the base 2026-10-06/07; its recall round generated 2026-10-07; Revision 2.1 with the round's rows trained and gated 2026-10-07/08, its Target A tests, probe and dsbench run 2026-10-08/09; Revision 2 against Revision 2.1 on dsbench undecided)** specifies the whole mixture for the thinking-on retrain (ADR-001 Gate 2 items 4-5) and is at the end of this document. It supersedes Revision 1's rendering (no empty think blocks), Target A's prompt, reasoning and timezone family, Target C's agent, and the volume table; the targets, provenance, decontamination and validation stand, extended there.
 - **Date:** 2026-09-19
 - **Deciders:** Wojtek Denejko (box owner)
 - **Relates to:** ADR-001 (the fine-tune plan — this ADR instantiates its Gate 1 "pilot mixture" and Gate 2 "targeted slice", and refines Appendix B.4 for that slice only); ADR-003 (the agentic sandbox whose oracle both *measured* these gaps and will *generate + verify* the data); memory `reference-ornith-agentic-behavior` (the Gate 0 measurement this ADR acts on).
@@ -1218,6 +1218,22 @@ one server, and read beside Revision 2's runs of the same items.
 - **The window took three launches:** a reboot at 15:03 (most likely a power cut) and the owner's
   use of the box. Every step resumes, so no reply was lost or repeated.
 
+**Revision 2.1's probe and dsbench, run 2026-10-08/09**
+(`reports/gate-evals/20261009-rev2-1-probe-dsbench.md`). Both adapters went through pi, k = 5,
+each against its own window's base.
+- **The probe:** 23 → 29 of 30 (Revision 2: 28). The weekday task is 1 → 5 of 5 (p = 0.048).
+- **dsbench: no gain over this window's base,** 95 → 96 of 115. Revision 2 gained 94 → 103 in its
+  window.
+  - **`da_weekend_delay`:** 0 → 2 of 5 (Revision 2: 1). Revision 2's `IN (1, 6)` is gone. In 2
+    runs the old `IN (1, 7)` came back.
+  - **`da_cancel_dow`:** 2 of 5, as this window's base (Revision 2: 5). The misses name Wednesday,
+    turning `toDayOfWeek`'s 4 back into a name with Sunday = 1.
+- **Revision 2 against Revision 2.1 on dsbench can't be decided from these runs:** 103 → 96
+  (Fisher p = 0.25). The base's own results move by up to 3 runs in 5 on a problem between
+  windows. The A/A also shows Revision 2's `da_redeye_count` drop was the base's spread.
+- **To decide it:** both adapters on one server in one window, with more runs on the problems that
+  moved (decision 10).
+
 ## Budget and time
 
 Estimated from the pilots' throughput, and measured where it says so (updated 2026-10-05).
@@ -1311,7 +1327,7 @@ Estimated from the pilots' throughput, and measured where it says so (updated 20
 ## Decisions for the owner
 
 **Taken.** On 2026-10-03 the owner took the proposals of decisions 2-8, and on 2026-10-05
-decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
+decision 1: 10M, with a top-up ("The generation" above). Decisions 9 and 10 are open.
 
 1. **Budget:** 10M tokens (9-15 hours of training, and 25-35 more of generation: "Budget and
    time"), or more. **Taken 2026-10-05:** 10M. The pools held 8.89M of it, so the short ones are
@@ -1389,6 +1405,24 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
      report, byte for byte.
 
    The base's run needs no retrain, so it can use the box while the other decisions wait.
+10. **Revision 2.1 or Revision 2** (opened 2026-10-09, after Revision 2.1's tests;
+    `reports/gate-evals/20261009-rev2-1-probe-dsbench.md`).
+    - **Where Revision 2.1 is better or equal:**
+      - better on DuckDB's `dayofweek` (44 of 51 against 0 of 23);
+      - as good on the gate, ClickHouse's Target A cells, the guards and the probe (29 against
+        28 of 30).
+    - **Where it can't be told apart:** dsbench. Revision 2.1 has 96 of 115 against its window's
+      base's 95. Revision 2 had 103 against 94, in another window.
+      - `da_cancel_dow` and `de_carrier_ontime` are each 5 → 2 of 5 across windows (p = 0.17).
+      - The base moves this much between windows (the A/A).
+      - dsbench uses no DuckDB, so the round's main gain doesn't show there.
+    - **Proposed:** before choosing, run both adapters in one window on one server. llama-server
+      loads two LoRAs and takes a scale for each per request. Give more runs (k = 15) to the five
+      problems that moved: `da_cancel_dow`, `da_weekend_delay`, `de_carrier_ontime`,
+      `da_utc_peak_hour` and `da_all_flights_avg_delay`. That is 2 adapters × 5 problems × 15
+      runs, about 2 hours of GPU. It separates the adapters from the window noise.
+    - **Or:** keep Revision 2.1 on the evidence of the tests that can tell the two apart, and treat
+      dsbench as unchanged.
 
 ## Action items (Revision 2)
 
@@ -1579,4 +1613,12 @@ decision 1: 10M, with a top-up ("The generation" above). Decision 9 is open.
       - DuckDB's `dayofweek` is learned (44 of 51; Revision 2: 0 of 23).
       - DuckDB's cells: 76 → 95 of 108 and 15 → 19 of 24 against the base.
       - The guards, ClickHouse and the other cells hold.
-    - [ ] the probe and dsbench on Revision 2.1's adapter (running 2026-10-08/09).
+    - [x] the probe and dsbench on Revision 2.1's adapter. **Run 2026-10-08/09**, 3 h 40 min
+      (`reports/gate-evals/20261009-rev2-1-probe-dsbench.md`).
+      - The probe: 23 → 29 of 30, the weekday task 1 → 5 of 5.
+      - dsbench: 95 → 96 of 115. The weekend half-convention is gone, but `da_cancel_dow` is back
+        at the base's 2 of 5.
+      - Against Revision 2, across windows, it is undecided.
+    - [ ] decision 10 (owner): whether Revision 2.1 replaces Revision 2. Before that, optionally a
+      head-to-head of the two adapters in one window, with more runs on the five problems that
+      moved.
