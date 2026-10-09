@@ -838,6 +838,12 @@ ssh dashi "ARM=1 MAX_HOURS=12 nohup setsid ~/benchlab/scripts/rev2-train/train.s
   - **`probe_chain.sh` reads `TESTS_LOG`,** so each relaunch armed the probe window behind the new
     log. The Mac side (`rev2_probe_mac.sh`) only waits for the hold, so it waited through the reboot.
     It was restarted after the owner's stop.
+- **The probe window** started at 21:59 when the tests window ended. The Mac picked up the hold at
+  23:59 CEST and ran its four steps in 3 hours 39 minutes (probe 9 and 11 minutes, dsbench 91 and
+  108). It released the hold at 03:38 CEST, and the window restored OCR.
+  - **The oracle gates** ran on the Mac after the window, since they use the same sandbox: probe
+    6 of 6, dsbench 23 of 23.
+  - **Results:** `reports/gate-evals/20261009-rev2-1-probe-dsbench.md`.
 
 ## The recall round's test (ADR-004, "the recall round")
 
