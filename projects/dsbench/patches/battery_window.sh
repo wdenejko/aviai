@@ -85,7 +85,7 @@ if [ "${PARITY:-0}" = 1 ]; then
      && { [ -z "${LORA2:-}" ] || PYTHONPATH=. $PY -m dsbench.battery.parity --tag lora2 --steps 0,1,0 \
             --out $RUN/parity.json; } \
      && PYTHONPATH=. $PY -m dsbench.battery.parity --compare --out $RUN/parity.json) >>"$LOG" 2>&1 \
-     || { log "PARITY FAILED (see parity.json): scale 0 is not the base, scale 1 changes nothing, or scale 1 took cached tokens; stopping"; exit 1; }
+     || { log "PARITY FAILED (see parity.json): scale 0 is not the base, scale 1 changes nothing, or a switch took cached tokens; stopping"; exit 1; }
   log "parity ok"
 fi
 for step in $PLAN; do

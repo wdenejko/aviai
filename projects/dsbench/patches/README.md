@@ -376,13 +376,17 @@ from cache.
   - **Scripts:** `~/benchlab/scratch/gate2-cache-audit-20261009/`.
 
 **The fix:**
-- `battery_server.sh` passes `--cache-ram 0` whenever it loads an adapter. That also turns off
-  the RAM-backed idle-slot caching; with a unified KV pool, the server still purges idle slots
-  one by one when it runs out of room.
+- `battery_server.sh` passes `--cache-ram 0` whenever it loads an adapter.
+  - That also stops the server clearing idle slots before each request. With a unified KV pool, it
+    still purges idle slots one by one when it runs out of room.
+  - Their cells stay in the pool, and a request's attention spans them too, so greedy replies no
+    longer repeat character for character across requests. That is why the parity check now
+    empties the server first (below).
 - `set-scale` erases every slot after it sets the scales, so a step starts empty.
-- The parity check records each reply's cached tokens (`usage.prompt_tokens_details`) and requires
-  the scale-1 step to take none. Every one of its prompts runs at scale 1 there for the first time,
-  so any cached token would be scale 0's.
+- **The parity check runs each prompt on an emptied server**, so its comparisons stay exact.
+  - It tests each switch directly. The same prompt goes first at the previous step's scale and
+    then at the new one, and the new one must take no cached token (`usage.prompt_tokens_details`).
+  - The old check couldn't see a switch that reused another scale's KV.
 - After a pi window, `python -m dsbench.battery.cache_audit --server-log <the window's server log>
   --runs <its run files, in order>` shows the window clean: the RAM copy off (the server's log
   warns that idle-slot caching is off without it) and each step's first request computed whole.
@@ -969,8 +973,10 @@ keep, so both go on one server in one window, with 15 runs each on the five prob
 loads both adapters:
 - `LORA` is Revision 2.1, adapter id 0, and `LORA2` is Revision 2, id 1.
 - Both start at scale 0.
-- `PARITY=1` checks each adapter: scale 0 is the bare base, scale 1 changes some replies, and
-  scale 1 takes nothing from cache.
+- `PARITY=1` checks each adapter, each prompt on an emptied server:
+  - scale 0 is the bare base;
+  - scale 1 changes some replies;
+  - a switch of scale takes nothing from cache.
 - An adapter at scale 0 is left out of the compute graph (`llama-context.cpp`,
   `set_adapters_lora`). So with scales 1,0 the server computes exactly what a server with
   Revision 2.1 alone computes, and with 0,1, Revision 2 alone.
@@ -1038,3 +1044,13 @@ rev21"`, one problem and one run a block, the Mac side did the following:
 
 The requests themselves named no adapter. With `REV21` and `REV2` swapped, it refused before any
 run and released the hold.
+
+**Run 2026-10-09, first launch** (box clock 09:35 to 09:38; `~/benchlab/runs/2026-10-09-qwen36-rev2-vs-rev2-1/`):
+- **Parity stopped the window before any pi run**, and OCR was restored.
+- **Each switch took no cached token:** the new check held for both adapters.
+- **The exact comparisons failed.** Scale 0's replies differed from the bare base's on 1 of 8
+  prompts (Revision 2.1) and 2 (Revision 2), and the two scale-0 steps on 2 and 1.
+  - Revision 2.1's 24 requests took no cached token at all.
+  - The cause: `--cache-ram 0` also stopped the server clearing idle slots. The earlier prompts'
+    cells stayed in the pool, and the attention of later requests spanned them.
+- **The fix:** the parity check now empties the server before each prompt (`parity.py`).

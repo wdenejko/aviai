@@ -27,7 +27,8 @@ ARGS=(-m ~/models/qwen3.6/Qwen3.6-35B-A3B-APEX-I-Mini.gguf --alias qwen36-batter
 # checked that served two states until 2026-10-09, some requests began from the other state's
 # prompt KV (parity.py's docstring). A slot's own cache stays: the server drops it when a request
 # names other scales, and set-scale (dsbench_suite.py) erases every slot when it changes the global
-# ones.
+# ones. Without the RAM copy the server also stops clearing idle slots before each request, so
+# their cells stay in the pool and greedy replies vary with them; parity.py empties the server.
 if [ "${NOLORA:-0}" != 1 ]; then
   ARGS+=(--lora "$LORA")
   [ -n "${LORA2:-}" ] && ARGS+=(--lora "$LORA2")
